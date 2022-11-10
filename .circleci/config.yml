@@ -40,10 +40,6 @@ jobs:
           command: |
             poetry run pytest -vv --junitxml=tests/junit.xml
       - run:
-          name: Test Example
-          command: |
-            poetry run coverage run -a -m tracktolib.test.simple -h
-      - run:
           name: Generating coverage
           command: |
             poetry run coverage xml -o tests/coverage.xml
