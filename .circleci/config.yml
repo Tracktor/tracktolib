@@ -1,0 +1,109 @@
+version: 2.1
+
+orbs:
+  gh: circleci/github-cli@1.0
+
+executors:
+  test-build:
+    docker:
+      - image: cimg/python:3.10
+
+jobs:
+
+  run-tests:
+    executor: test-build
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - deps-{{ checksum "poetry.lock" }}
+      - run:
+          name: Install python dependencies
+          command: poetry install
+      - save_cache:
+          key: deps-{{ checksum "poetry.lock" }}
+          paths:
+            - /home/circleci/.cache/pypoetry/virtualenvs
+      - run:
+          name: Running type checking
+          command: poetry run pyright
+      - run:
+          name: Run tests
+          command: |
+            poetry run pytest -vv --junitxml=tests/junit.xml
+      - run:
+          name: Test Example
+          command: |
+            poetry run coverage run -a -m tracktolib.test.simple -h
+      - run:
+          name: Generating coverage
+          command: |
+            poetry run coverage xml -o tests/coverage.xml
+            poetry run coverage html
+      - store_test_results:
+          path: tests
+      - store_artifacts:
+          path: htmlcov
+
+  bump-version:
+    executor: test-build
+    steps:
+      - gh/setup
+      - checkout
+      - restore_cache:
+          keys:
+            - deps-{{ checksum "poetry.lock" }}
+      - run:
+          name: Adding github.com to known hosts
+          command: |
+            mkdir -p ~/.ssh
+            ssh-keyscan github.com >> ~/.ssh/known_hosts
+      - run:
+          name: Create release
+          command: bash .circleci/scripts/release.sh
+      - store_artifacts:
+          path: dist
+      - save_cache:
+          name: Saving wheel
+          key: tracktolib-{{ checksum "pyproject.toml" }}
+          paths:
+            - dist/
+
+  publish:
+    executor: test-build
+    steps:
+      - checkout
+      - restore_cache:
+          name: Restore wheel
+          keys:
+            - tracktolib-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Publishing
+          command: poetry publish -u __token__ -p $PYPI_TOKEN
+
+workflows:
+
+  run-tests:
+    jobs:
+      - run-tests:
+          filters:
+            tags:
+              ignore: /.*/
+      - bump-version:
+          context: tracktolib-deploy
+          requires: [ run-tests ]
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /^master$/
+
+  publish:
+    jobs:
+      - publish:
+          context: tracktolib-deploy
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              ignore: /.*/

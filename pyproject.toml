@@ -1,0 +1,62 @@
+[tool.poetry]
+name = "tracktolib"
+version = "0.1.0"
+description = "Utility library for python"
+authors = ["Julien Brayere <julien.brayere@tracktor.fr>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/tracktor/tracktolib"
+repository = "https://github.com/tracktor/tracktolib"
+keywords = ["utility"]
+classifiers = [
+    "Operating System :: OS Independent"
+]
+include = [
+    "LICENSE"
+]
+
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-json-logger = "^2.0.4"
+
+[tool.poetry.group.pg-sync.dependencies]
+psycopg2 = "^2.9.5"
+
+[tool.poetry.group.s3-tests.dependencies]
+minio = "^7.1.12"
+
+[tool.poetry.group.dev.dependencies]
+pyright = "^1.1.274"
+commitizen = "^2.35.0"
+pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.12.13"
+tag_format = "$version"
+version_files = [
+    "pyproject.toml:version"
+]
+bump_message = "release $current_version → $new_version [skip ci]"
+
+
+[tool.pytest.ini_options]
+addopts = "--cov=tracktolib -s -q -x --no-cov-on-fail"
+testpaths = [
+    "tests"
+]
+python_files = "*.py"
+
+
+[tool.pyright]
+include = ["tracktolib"]
+exclude = []
+
+pythonVersion = "3.10"
+pythonPlatform = "Linux"
