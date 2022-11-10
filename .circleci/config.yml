@@ -3,6 +3,12 @@ version: 2.1
 orbs:
   gh: circleci/github-cli@1.0
 
+references:
+  pypi_context: &pypi_context
+    - pypi
+    - github
+
+
 executors:
   test-build:
     docker:
@@ -94,7 +100,7 @@ workflows:
             tags:
               ignore: /.*/
       - bump-version:
-          context: tracktolib-deploy
+          context: *pypi_context
           requires: [ run-tests ]
           filters:
             tags:
@@ -105,7 +111,7 @@ workflows:
   publish:
     jobs:
       - publish:
-          context: tracktolib-deploy
+          context: *pypi_context
           filters:
             tags:
               only: /.*/
