@@ -7,6 +7,14 @@ executors:
   test-build:
     docker:
       - image: cimg/python:3.10
+      - image: cimg/postgres:14.4-postgis
+        environment:
+          POSTGRES_PASSWORD: postgres
+      - image: minio/minio
+        environment:
+          MINIO_ROOT_USER: foo
+          MINIO_ROOT_PASSWORD: foobarbaz
+        command: server /data
 
 jobs:
 
