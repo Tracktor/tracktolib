@@ -37,9 +37,9 @@ def setup_minio(minio_client, s3_bucket):
 def test_upload_download_object(minio_client, static_dir, s3_bucket,
                                 tmp_path):
     from tracktolib.s3 import upload_object, download_bucket
-    upload_object(minio_client, s3_bucket, 'test.log', static_dir / 'test.log')
+    upload_object(minio_client, s3_bucket, 'test.csv', static_dir / 'test.csv')
     download_bucket(minio_client, s3_bucket, tmp_path)
-    assert [x.name for x in tmp_path.glob('*.log')] == ['test.log']
+    assert [x.name for x in tmp_path.glob('*.csv')] == ['test.csv']
 
 
 @pytest.mark.usefixtures('setup_minio')
