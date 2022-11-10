@@ -12,3 +12,14 @@ services:
       - MINIO_ROOT_USER=foo
       - MINIO_ROOT_PASSWORD=foobarbaz
     command: server /data --console-address ":9001"
+
+  postgres:
+    image: postgis/postgis:14-3.2-alpine
+    container_name: pg-tracktolib
+    ports:
+      - "127.0.0.1:5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    command: -c fsync=off
