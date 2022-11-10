@@ -7,12 +7,31 @@ except ImportError:
     raise ImportError('Please install tracktolib with "pg-sync" to use this module')
 
 
-def fetch_all(engine: connection, query: str, *data):
+def fetch_all(engine: connection, query: str, *data) -> list[dict]:
     with engine.cursor() as cur:
         cur.execute(query) if not data else cur.execute(query, data)
         col_names = [desc[0] for desc in cur.description]
         resp = cur.fetchall()
     return [dict(zip(col_names, d)) for d in resp]
+
+
+def fetch_count(engine: connection, table: str, where: str | None = None) -> int | None:
+    query = f'SELECT count(*) from {table}'
+    if where:
+        query = f'{query} WHERE {where}'
+    with engine.cursor() as cur:
+        cur.execute(query)
+        count = cur.fetchone()
+
+    return count[0] if count else None
+
+
+def fetch_one(engine: connection, query: str, *args) -> dict | None:
+    with engine.cursor() as cur:
+        cur.execute(query, args)
+        col_names = [desc[0] for desc in cur.description]
+        resp = cur.fetchone()
+    return dict(zip(col_names, resp)) if resp else None
 
 
 def _get_insert_data(table: str, data: list[dict]) -> tuple[str, list[tuple[Any, ...]]]:
@@ -23,8 +42,8 @@ def _get_insert_data(table: str, data: list[dict]) -> tuple[str, list[tuple[Any,
 
 
 def insert_many(engine: connection,
-               table: str,
-               data: list[dict]):
+                table: str,
+                data: list[dict]):
     query, _data = _get_insert_data(table, data)
     with engine.cursor() as cur:
         _ = cur.executemany(query, _data)
@@ -58,7 +77,6 @@ def clean_tables(engine: connection, tables: Iterable[str]):
 def get_tables(engine: connection,
                schemas: list[str],
                ignored_tables: Iterable[str] | None = None):
-
     table_query = """
     SELECT CONCAT_WS('.', schemaname, tablename) AS table
     FROM pg_catalog.pg_tables
