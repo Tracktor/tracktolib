@@ -22,7 +22,7 @@ def _get_insert_data(table: str, data: list[dict]) -> tuple[str, list[tuple[Any,
     return query, [tuple(x.values()) for x in data]
 
 
-def insert_all(engine: connection,
+def insert_many(engine: connection,
                table: str,
                data: list[dict]):
     query, _data = _get_insert_data(table, data)
@@ -58,10 +58,11 @@ def clean_tables(engine: connection, tables: Iterable[str]):
 def get_tables(engine: connection,
                schemas: list[str],
                ignored_tables: Iterable[str] | None = None):
+
     table_query = """
     SELECT CONCAT_WS('.', schemaname, tablename) AS table
     FROM pg_catalog.pg_tables
-    WHERE schemaname IN (%s)
+    WHERE schemaname = ANY(%s)
     ORDER BY schemaname, tablename
     """
     resp = fetch_all(engine, table_query, schemas)

@@ -1,0 +1,7 @@
+CREATE SCHEMA IF NOT EXISTS foo;
+
+CREATE TABLE IF NOT EXISTS foo.bar
+(
+    foo INT PRIMARY KEY,
+    bar TEXT
+);

@@ -2,8 +2,6 @@ import logging
 from typing import Literal
 from pythonjsonlogger import jsonlogger
 
-logger = logging.getLogger('sync-legacy')
-
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
 
@@ -19,15 +17,20 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
             log_record['version'] = self.version
 
 
-def init_logging(log_format: Literal['json', 'console']):
-    stream_handler = logging.StreamHandler()
+def init_logging(logger: logging.Logger,
+                 log_format: Literal['json', 'console'],
+                 version: str,
+                 *,
+                 stream_handler: logging.StreamHandler | None = None):
+    _stream_handler = stream_handler or logging.StreamHandler()
     if log_format == 'json':
-        formatter = CustomJsonFormatter('%(asctime)s [%(levelname)s] %(message)s',
+        formatter = CustomJsonFormatter(version,
+                                        '%(asctime)s [%(levelname)s] %(message)s',
                                         datefmt='%Y-%m-%d %H:%M:%S')
     elif log_format == 'console':
         formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s',
                                       datefmt='%Y-%m-%d %H:%M:%S')
     else:
         raise NotImplementedError(f'Invalid log format {log_format!r}')
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
+    _stream_handler.setFormatter(formatter)
+    logger.addHandler(_stream_handler)
