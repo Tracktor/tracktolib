@@ -22,6 +22,10 @@ executors:
           MINIO_ROOT_PASSWORD: foobarbaz
         command: server /data
 
+  build:
+    docker:
+      - image: cimg/python:3.10
+
 jobs:
 
   run-tests:
@@ -56,7 +60,7 @@ jobs:
           path: htmlcov
 
   bump-version:
-    executor: test-build
+    executor: build
     steps:
       - gh/setup
       - checkout
@@ -80,7 +84,7 @@ jobs:
             - dist/
 
   publish:
-    executor: test-build
+    executor: build
     steps:
       - checkout
       - restore_cache:
