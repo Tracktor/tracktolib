@@ -22,3 +22,7 @@ def get_chunks(it: Iterable[T], size: int,
     for first in iterator:
         d = itertools.chain([first], itertools.islice(iterator, size - 1))
         yield d if not as_list else list(d)
+
+
+def get_uuid(i=0):
+    return f'00000000-0000-0000-0000-000000{i:06}'
