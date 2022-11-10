@@ -1,18 +1,24 @@
-import subprocess
 import itertools
+import os
+import subprocess
 from typing import Iterable, TypeVar, Iterator
 
 T = TypeVar('T')
 
 
-def exec_cmd(cmd: str | list[str]) -> str:
+def exec_cmd(cmd: str | list[str],
+             *,
+             encoding: str = 'utf-8') -> str:
+    default_shell = os.getenv('SHELL', '/bin/bash')
+
     stdout, stderr = subprocess.Popen(cmd,
                                       shell=True,
                                       stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE).communicate()
+                                      stderr=subprocess.PIPE,
+                                      executable=default_shell).communicate()
     if stderr:
-        raise Exception(stderr.decode('utf-8'))
-    return stdout.decode('utf-8')
+        raise Exception(stderr.decode(encoding))
+    return stdout.decode(encoding)
 
 
 def get_chunks(it: Iterable[T], size: int,
@@ -22,7 +28,3 @@ def get_chunks(it: Iterable[T], size: int,
     for first in iterator:
         d = itertools.chain([first], itertools.islice(iterator, size - 1))
         yield d if not as_list else list(d)
-
-
-def get_uuid(i=0):
-    return f'00000000-0000-0000-0000-000000{i:06}'
