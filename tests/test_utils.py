@@ -1,3 +1,6 @@
+import json
+import datetime as dt
+
 import pytest
 
 
@@ -20,3 +23,12 @@ def test_get_chunk(data):
 
     z = get_chunks(data, size=2, as_list=True)
     assert list(z) == [[0, 1], [2, 3], [4]]
+
+
+def test_json_serial():
+    from tracktolib.utils import json_serial
+
+    res = json.dumps({'foo': dt.datetime(2019, 1, 1)},
+                     default=json_serial)
+
+    assert res == '{"foo": "2019-01-01T00:00:00"}'

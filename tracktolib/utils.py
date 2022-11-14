@@ -2,6 +2,7 @@ import itertools
 import os
 import subprocess
 from typing import Iterable, TypeVar, Iterator
+import datetime as dt
 
 T = TypeVar('T')
 
@@ -28,3 +29,13 @@ def get_chunks(it: Iterable[T], size: int,
     for first in iterator:
         d = itertools.chain([first], itertools.islice(iterator, size - 1))
         yield d if not as_list else list(d)
+
+
+def json_serial(obj):
+    """ JSON serializer for objects not serializable by default json code """
+    if isinstance(obj, (dt.datetime, dt.date)):
+        return obj.isoformat()
+    else:
+        pass
+
+    raise TypeError(f"Type '{type(obj)}' not serializable")
