@@ -33,7 +33,7 @@ Utility functions for [minio](https://min.io/docs/minio/linux/developers/python/
 
 ## 4. logs
 
-Utility functions to initialize the logging formatting and streams.
+Utility functions to initialize the logging formatting and streams
 
 ## 5. Http 
 
