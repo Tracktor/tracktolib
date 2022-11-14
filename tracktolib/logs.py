@@ -66,5 +66,5 @@ def init_logging(logger: logging.Logger,
     return formatter, _stream_handler
 
 
-def is_valid_logging(log_format: str) -> TypeGuard[LogFormat]:
+def is_valid_log_format(log_format: str) -> TypeGuard[LogFormat]:
     return log_format in {'json', 'console'}
