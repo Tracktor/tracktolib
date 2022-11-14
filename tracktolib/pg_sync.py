@@ -26,12 +26,29 @@ def fetch_count(engine: connection, table: str, where: str | None = None) -> int
     return count[0] if count else None
 
 
-def fetch_one(engine: connection, query: str, *args) -> dict | None:
+from typing import overload, Literal
+
+
+@overload
+def fetch_one(engine: connection, query: str, *args,
+              required: Literal[False]) -> dict | None: ...
+
+
+@overload
+def fetch_one(engine: connection, query: str, *args,
+              required: Literal[True]) -> dict: ...
+
+
+def fetch_one(engine: connection, query: str, *args,
+              required: bool) -> dict | None:
     with engine.cursor() as cur:
         cur.execute(query, args)
         col_names = [desc[0] for desc in cur.description]
         resp = cur.fetchone()
-    return dict(zip(col_names, resp)) if resp else None
+    _data = dict(zip(col_names, resp)) if resp else None
+    if required and not _data:
+        raise ValueError('No value found for query')
+    return _data
 
 
 def _get_insert_data(table: str, data: list[dict]) -> tuple[str, list[tuple[Any, ...]]]:

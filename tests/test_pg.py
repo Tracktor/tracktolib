@@ -82,7 +82,8 @@ def insert_data(engine):
 def test_fetch_one(engine):
     from tracktolib.pg_sync import fetch_one
 
-    db_data = fetch_one(engine, 'SELECT foo, bar FROM foo.bar ORDER BY foo')
+    db_data = fetch_one(engine, 'SELECT foo, bar FROM foo.bar ORDER BY foo',
+                        required=True)
     assert db_data == {'foo': 1, 'bar': 'baz'}
 
 
