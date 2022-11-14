@@ -40,7 +40,7 @@ def fetch_one(engine: connection, query: str, *args,
 
 
 def fetch_one(engine: connection, query: str, *args,
-              required: bool) -> dict | None:
+              required: bool = False) -> dict | None:
     with engine.cursor() as cur:
         cur.execute(query, args)
         col_names = [desc[0] for desc in cur.description]
