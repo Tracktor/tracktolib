@@ -1,7 +1,9 @@
 import logging
-from typing import Literal, overload, Any
+from typing import Literal, overload, Any, TypeGuard
 from pythonjsonlogger import jsonlogger
 from dataclasses import dataclass
+
+LogFormat = Literal['json', 'console']
 
 
 @dataclass
@@ -42,21 +44,27 @@ def init_logging(logger: logging.Logger,
 
 
 def init_logging(logger: logging.Logger,
-                 log_format: Literal['json', 'console'],
+                 log_format: LogFormat,
                  version: str,
                  *,
                  stream_handler: logging.StreamHandler | None = None):
     _stream_handler = stream_handler or logging.StreamHandler()
-    if log_format == 'json':
-        formatter = CustomJsonFormatter(version,
-                                        '%(asctime)s [%(levelname)s] %(message)s',
-                                        datefmt='%Y-%m-%d %H:%M:%S')
-    elif log_format == 'console':
-        formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s',
-                                      datefmt='%Y-%m-%d %H:%M:%S')
-    else:
-        raise NotImplementedError(f'Invalid log format {log_format!r}')
+    match log_format:
+        case 'json':
+            formatter = CustomJsonFormatter(version,
+                                            '%(asctime)s [%(levelname)s] %(message)s',
+                                            datefmt='%Y-%m-%d %H:%M:%S')
+        case 'console':
+            formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s',
+                                          datefmt='%Y-%m-%d %H:%M:%S')
+        case _:
+            raise NotImplementedError(f'Invalid log format {log_format!r}')
+
     _stream_handler.setFormatter(formatter)
     logger.addHandler(_stream_handler)
 
     return formatter, _stream_handler
+
+
+def is_valid_logging(log_format: str) -> TypeGuard[LogFormat]:
+    return log_format in {'json', 'console'}
