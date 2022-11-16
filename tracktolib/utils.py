@@ -1,8 +1,8 @@
+import datetime as dt
 import itertools
 import os
 import subprocess
-from typing import Iterable, TypeVar, Iterator
-import datetime as dt
+from typing import Iterable, TypeVar, Iterator, Literal, overload
 
 T = TypeVar('T')
 
@@ -20,6 +20,18 @@ def exec_cmd(cmd: str | list[str],
     if stderr:
         raise Exception(stderr.decode(encoding))
     return stdout.decode(encoding)
+
+
+@overload
+def get_chunks(it: Iterable[T], size: int,
+               *,
+               as_list: Literal[False]) -> Iterator[Iterable[T]]: ...
+
+
+@overload
+def get_chunks(it: Iterable[T], size: int,
+               *,
+               as_list: Literal[True]) -> Iterator[list[T]]: ...
 
 
 def get_chunks(it: Iterable[T], size: int,
