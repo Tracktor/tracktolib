@@ -22,8 +22,11 @@ python-json-logger = "^2.0.4"
 [tool.poetry.group.pg-sync.dependencies]
 psycopg2 = "^2.9.5"
 
-[tool.poetry.group.s3-tests.dependencies]
+[tool.poetry.group.s3-minio.dependencies]
 minio = "^7.1.12"
+
+[tool.poetry.group.s3.dependencies]
+aiobotocore = "^2.4.0"
 
 [tool.poetry.group.tests.dependencies]
 deepdiff = "^6.2.1"

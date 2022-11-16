@@ -19,22 +19,26 @@ Here we only install the utilities using `psycopg2` (pg-sync) and `deepdiff` (te
 
 # Utilities
 
-## 1. pg-sync
+- **pg-sync**
 
 Utility functions based on psycopg2 such as `fetch_one`, `insert_many`, `fetch_count` ...
 
-## 2. tests
+- **tests**
 
 Utility functions for tests such as `get_uuid` (that generates a test uuid based on an integer)
 
-## 3. s3
+- **s3-minio**
 
 Utility functions for [minio](https://min.io/docs/minio/linux/developers/python/API.html)
 
-## 4. logs
+- **s3**
+
+Utility functions for [aiobotocore](https://github.com/aio-libs/aiobotocore)
+
+- **logs**
 
 Utility functions to initialize the logging formatting and streams
 
-## 5. Http 
+- **http**
 
 Utility functions using [httpx](https://www.python-httpx.org/)
