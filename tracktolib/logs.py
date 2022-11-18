@@ -1,7 +1,11 @@
 import logging
 from typing import Literal, overload, Any, TypeGuard
-from pythonjsonlogger import jsonlogger
 from dataclasses import dataclass
+
+try:
+    from pythonjsonlogger import jsonlogger
+except ImportError:
+    raise ImportError('Please install tracktolib with "log" to use this module')
 
 LogFormat = Literal['json', 'console']
 
