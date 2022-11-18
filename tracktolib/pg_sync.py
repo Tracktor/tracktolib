@@ -1,4 +1,4 @@
-from typing import Iterable, Any
+from typing import Iterable, Any, overload, Literal
 
 try:
     from psycopg2.errors import InvalidCatalogName
@@ -24,9 +24,6 @@ def fetch_count(engine: connection, table: str, where: str | None = None) -> int
         count = cur.fetchone()
 
     return count[0] if count else None
-
-
-from typing import overload, Literal
 
 
 @overload

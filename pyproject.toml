@@ -17,22 +17,22 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-python-json-logger = "^2.0.4"
+python-json-logger = { version = "^2.0.4", optional = true }
+psycopg2 = { version = "^2.9.5", optional = true }
+minio = { version = "^7.1.12", optional = true }
+aiobotocore = { version = "^2.4.0", optional = true }
+deepdiff = { version = "^6.2.1", optional = true }
+httpx = { version = "^0.23.0", optional = true }
+fastapi = { version = "^0.87.0", optional = true }
 
-[tool.poetry.group.pg-sync.dependencies]
-psycopg2 = "^2.9.5"
-
-[tool.poetry.group.s3-minio.dependencies]
-minio = "^7.1.12"
-
-[tool.poetry.group.s3.dependencies]
-aiobotocore = "^2.4.0"
-
-[tool.poetry.group.tests.dependencies]
-deepdiff = "^6.2.1"
-
-[tool.poetry.group.http.dependencies]
-httpx = "^0.23.0"
+[tool.poetry.extras]
+logs = ["python-json-logger"]
+pg-sync = ["psycopg2"]
+s3-minio = ["minio"]
+s3 = ["aiobotocore"]
+tests = ["deepdiff"]
+http = ["httpx"]
+api = ["fastapi"]
 
 [tool.poetry.group.dev.dependencies]
 pyright = "^1.1.274"
@@ -41,8 +41,6 @@ pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 pydantic = "^1.10.2"
 
-[tool.poetry.group.api.dependencies]
-fastapi = "^0.87.0"
 
 [build-system]
 requires = ["poetry-core"]

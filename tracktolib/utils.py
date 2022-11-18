@@ -47,7 +47,5 @@ def json_serial(obj):
     """ JSON serializer for objects not serializable by default json code """
     if isinstance(obj, (dt.datetime, dt.date)):
         return obj.isoformat()
-    else:
-        pass
 
     raise TypeError(f"Type '{type(obj)}' not serializable")
