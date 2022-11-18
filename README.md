@@ -42,3 +42,7 @@ Utility functions to initialize the logging formatting and streams
 - **http**
 
 Utility functions using [httpx](https://www.python-httpx.org/)
+
+- **api**
+
+Utility functions using [fastapi](https://fastapi.tiangolo.com/)
