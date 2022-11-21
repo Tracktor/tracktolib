@@ -19,6 +19,10 @@ Here we only install the utilities using `psycopg2` (pg-sync) and `deepdiff` (te
 
 # Utilities
 
+- **log**
+
+Utility functions for logging.
+
 - **pg-sync**
 
 Utility functions based on psycopg2 such as `fetch_one`, `insert_many`, `fetch_count` ...

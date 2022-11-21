@@ -1,5 +1,7 @@
-import json
 import datetime as dt
+import decimal
+import ipaddress
+import json
 
 import pytest
 
@@ -28,7 +30,12 @@ def test_get_chunk(data):
 def test_json_serial():
     from tracktolib.utils import json_serial
 
-    res = json.dumps({'foo': dt.datetime(2019, 1, 1)},
+    res = json.dumps({'dt': dt.datetime(2019, 1, 1),
+                      'decimal': decimal.Decimal('12.3'),
+                      'ipv4': ipaddress.IPv4Address('127.0.0.1'),
+                      'ipv6': ipaddress.IPv6Address('::1')
+                      },
+
                      default=json_serial)
 
-    assert res == '{"foo": "2019-01-01T00:00:00"}'
+    assert res == '{"dt": "2019-01-01T00:00:00", "decimal": "12.3", "ipv4": "127.0.0.1", "ipv6": "::1"}'

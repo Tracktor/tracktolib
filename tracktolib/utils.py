@@ -2,6 +2,8 @@ import datetime as dt
 import itertools
 import os
 import subprocess
+from decimal import Decimal
+from ipaddress import IPv4Address, IPv6Address
 from typing import Iterable, TypeVar, Iterator, Literal, overload
 
 T = TypeVar('T')
@@ -47,5 +49,8 @@ def json_serial(obj):
     """ JSON serializer for objects not serializable by default json code """
     if isinstance(obj, (dt.datetime, dt.date)):
         return obj.isoformat()
-
+    if isinstance(obj, (IPv4Address, IPv6Address)):
+        return str(obj)
+    if isinstance(obj, Decimal):
+        return str(obj)
     raise TypeError(f"Type '{type(obj)}' not serializable")
