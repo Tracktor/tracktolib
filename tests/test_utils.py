@@ -39,3 +39,9 @@ def test_json_serial():
                      default=json_serial)
 
     assert res == '{"dt": "2019-01-01T00:00:00", "decimal": "12.3", "ipv4": "127.0.0.1", "ipv6": "::1"}'
+
+
+def test_get_nb_lines(static_dir):
+    from tracktolib.utils import get_nb_lines
+
+    assert get_nb_lines(static_dir / 'test.csv') == 2

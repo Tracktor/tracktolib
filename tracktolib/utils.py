@@ -5,6 +5,8 @@ import subprocess
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
 from typing import Iterable, TypeVar, Iterator, Literal, overload
+import mmap
+from pathlib import Path
 
 T = TypeVar('T')
 
@@ -54,3 +56,17 @@ def json_serial(obj):
     if isinstance(obj, Decimal):
         return str(obj)
     raise TypeError(f"Type '{type(obj)}' not serializable")
+
+
+def get_nb_lines(file: Path) -> int:
+    """
+    Source: https://stackoverflow.com/a/68385697/2265812
+
+    """
+    with file.open("r+") as f:
+        buf = mmap.mmap(f.fileno(), 0)
+
+    nb_lines = 0
+    while buf.readline():
+        nb_lines += 1
+    return nb_lines
