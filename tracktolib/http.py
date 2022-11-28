@@ -1,3 +1,4 @@
+import typing
 from typing import BinaryIO, Callable
 
 try:
@@ -28,3 +29,19 @@ async def download_file(url: str,
             output_file.write(data)
             if on_chunk_received:
                 on_chunk_received(data)
+
+
+ContentLength: typing.TypeAlias = int
+
+
+def get_progress(update_fn: Callable[[ContentLength, int], None]):
+    content_length: ContentLength = 0
+
+    def on_response(resp: httpx.Response):
+        nonlocal content_length
+        content_length = int(resp.headers["Content-length"])
+
+    def on_chunk_received(data: bytes):
+        update_fn(content_length, len(data))
+
+    return on_response, on_chunk_received

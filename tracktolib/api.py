@@ -6,37 +6,40 @@ from typing import (
     AsyncIterator, Coroutine,
     get_type_hints, get_args, TypedDict)
 import json
+
 from .utils import json_serial
 
 try:
     from fastapi import params, APIRouter
+    from pydantic import BaseModel
+    from fastapi.responses import JSONResponse
 except ImportError:
     raise ImportError('Please install tracktolib with "api" to use this module')
 
-T = TypeVar('T')
+D = TypeVar('D')
 
 
 # noqa: N802
 def Depends(
         dependency: Callable[...,
-                             Coroutine[Any, Any, T] |
-                             Coroutine[Any, Any, T | None] |
-                             AsyncIterator[T]
-                             | T] | None = None,
+                             Coroutine[Any, Any, D] |
+                             Coroutine[Any, Any, D | None] |
+                             AsyncIterator[D]
+                             | D] | None = None,
         *,
         use_cache: bool = True
-) -> T:
+) -> D:
     """TODO: add support for __call__ (maybe see https://github.com/python/typing/discussions/1106 ?)"""
     return params.Depends(dependency, use_cache=use_cache)  # pyright: ignore [reportGeneralTypeIssues]
 
 
-R = TypeVar('R')
+B = TypeVar('B', bound=BaseModel)
 
-ReturnType = None | dict | list[dict] | R
+ReturnType = dict | list[dict] | list[B] | B
 
 Method = Literal['GET', 'POST', 'DELETE', 'PATCH', 'PUT']
 
-EnpointFn = Callable[..., ReturnType[Any]]
+EnpointFn = Callable[..., ReturnType[B]]
 
 
 class MethodMeta(TypedDict):
@@ -107,13 +110,9 @@ def add_endpoint(path: str,
             raise ValueError(f'Could not find a return type for {_method} {path}')
         router.add_api_route(path, _fn, methods=[_method],
                              name=getdoc(_fn),
-                             # TODO: fix this so | None is not needed
-                             response_model=response_model | None,
+                             response_model=response_model,
                              status_code=_status_code,
                              dependencies=dependencies)
-
-
-from fastapi.responses import JSONResponse
 
 
 class JSONSerialResponse(JSONResponse):
