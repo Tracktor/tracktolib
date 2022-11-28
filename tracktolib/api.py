@@ -34,13 +34,13 @@ def Depends(
     return params.Depends(dependency, use_cache=use_cache)  # pyright: ignore [reportGeneralTypeIssues]
 
 
-B = TypeVar('B', bound=BaseModel | Optional[BaseModel])
+B = TypeVar('B', bound=BaseModel | None | Sequence[BaseModel])
 
-ReturnType = dict | list[dict] | list[B] | B
+Response = dict | list[dict] | B
 
 Method = Literal['GET', 'POST', 'DELETE', 'PATCH', 'PUT']
 
-EnpointFn = Callable[..., ReturnType[B]]
+EnpointFn = Callable[..., Response]
 
 
 class MethodMeta(TypedDict):

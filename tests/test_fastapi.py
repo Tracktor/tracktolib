@@ -10,7 +10,7 @@ def router():
 
 
 def test_add_endpoint(router):
-    from tracktolib.api import add_endpoint, Depends, ReturnType, Endpoint
+    from tracktolib.api import add_endpoint, Depends, Response, Endpoint
     from tracktolib.tests import assert_equals
     endpoint = Endpoint()
     endpoint2 = Endpoint()
@@ -27,11 +27,15 @@ def test_add_endpoint(router):
     @endpoint.get()
     async def foo_endpoint(
             foo: int = Depends(compute_sum)
-    ) -> ReturnType[ReturnFoo]:
+    ) -> Response[ReturnFoo]:
         return {'foo': foo}
 
+    @endpoint.post()
+    async def foo2_endpoint() -> Response[list[ReturnFoo]]:
+        return [{'foo': 1}]
+
     @endpoint2.get()
-    async def bar_endpoint() -> ReturnType[ReturnBar | None]:
+    async def bar_endpoint() -> Response[ReturnBar | None]:
         return None
 
     add_endpoint('/foo', router, endpoint)
@@ -39,6 +43,9 @@ def test_add_endpoint(router):
 
     with TestClient(router) as client:
         resp = client.get('/foo')
-        resp2 = client.get('/bar')
+        resp2 = client.post('/foo')
+        resp3 = client.get('/bar')
+
     assert_equals(resp.json(), {'foo': 2})
-    assert resp2.json() is None
+    assert_equals(resp2.json(), [{'foo': 1}])
+    assert resp3.json() is None
