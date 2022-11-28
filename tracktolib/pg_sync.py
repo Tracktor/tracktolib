@@ -36,6 +36,10 @@ def fetch_one(engine: connection, query: str, *args,
               required: Literal[True]) -> dict: ...
 
 
+@overload
+def fetch_one(engine: connection, query: str, *args) -> dict | None: ...
+
+
 def fetch_one(engine: connection, query: str, *args,
               required: bool = False) -> dict | None:
     with engine.cursor() as cur:

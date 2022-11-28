@@ -4,7 +4,8 @@ from typing import (
     TypeVar, Callable, Any,
     Literal, Sequence,
     AsyncIterator, Coroutine,
-    get_type_hints, get_args, TypedDict)
+    get_type_hints, get_args, TypedDict, Optional
+)
 import json
 
 from .utils import json_serial
@@ -33,7 +34,7 @@ def Depends(
     return params.Depends(dependency, use_cache=use_cache)  # pyright: ignore [reportGeneralTypeIssues]
 
 
-B = TypeVar('B', bound=BaseModel)
+B = TypeVar('B', bound=BaseModel | Optional[BaseModel])
 
 ReturnType = dict | list[dict] | list[B] | B
 

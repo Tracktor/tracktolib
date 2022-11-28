@@ -25,6 +25,8 @@ def test_get_chunk(data):
 
     z = get_chunks(data, size=2, as_list=True)
     assert list(z) == [[0, 1], [2, 3], [4]]
+    z = get_chunks(data, size=2)
+    assert list(z) == [[0, 1], [2, 3], [4]]
 
 
 def test_json_serial():

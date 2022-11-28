@@ -38,9 +38,13 @@ def get_chunks(it: Iterable[T], size: int,
                as_list: Literal[True]) -> Iterator[list[T]]: ...
 
 
+@overload
+def get_chunks(it: Iterable[T], size: int) -> Iterator[list[T]]: ...
+
+
 def get_chunks(it: Iterable[T], size: int,
                *,
-               as_list: bool = False) -> Iterator[Iterable[T]]:
+               as_list: bool = True) -> Iterator[Iterable[T]]:
     iterator = iter(it)
     for first in iterator:
         d = itertools.chain([first], itertools.islice(iterator, size - 1))
