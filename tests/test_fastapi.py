@@ -10,6 +10,16 @@ def router():
     return APIRouter()
 
 
+def test_get_return_type():
+    from tracktolib.api import _get_return_type, Response
+    class ReturnBar(BaseModel):
+        foo: int
+
+    async def bar_endpoint() -> Response[ReturnBar | None]: ...
+
+    assert _get_return_type(bar_endpoint) == ReturnBar | None
+
+
 def test_add_endpoint(router):
     import fastapi
     from tracktolib.api import add_endpoint, Response, Endpoint, Depends
@@ -43,8 +53,8 @@ def test_add_endpoint(router):
         return [{'foo': 1}]
 
     @endpoint2.get(status_code=status.HTTP_202_ACCEPTED)
-    async def bar_endpoint() -> Response[ReturnBar | None]:
-        return None
+    async def bar_endpoint(return_empty: bool = False) -> Response[ReturnBar | None]:
+        return {'foo': 1} if not return_empty else None
 
     add_endpoint('/foo', router, endpoint)
     add_endpoint('/bar', router, endpoint2)
@@ -53,9 +63,11 @@ def test_add_endpoint(router):
         resp = client.get('/foo')
         resp2 = client.post('/foo')
         resp3 = client.get('/bar')
+        resp4 = client.get('/bar', params={'return_empty': True})
 
     assert_equals(resp.json(), {'foo': 2})
     assert_equals(resp2.json(), [{'foo': 1}])
-    assert resp3.json() is None
+    assert resp3.json() == {'foo': 1}
+    assert resp4.json() is None
     assert resp3.status_code == status.HTTP_202_ACCEPTED
     assert depends_called
