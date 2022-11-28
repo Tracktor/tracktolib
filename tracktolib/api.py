@@ -4,7 +4,8 @@ from typing import (
     TypeVar, Callable, Any,
     Literal, Sequence,
     AsyncIterator, Coroutine,
-    get_type_hints, get_args, TypedDict, Optional
+    get_type_hints, get_args, TypedDict,
+    TypeAlias
 )
 import json
 
@@ -42,10 +43,14 @@ Method = Literal['GET', 'POST', 'DELETE', 'PATCH', 'PUT']
 
 EnpointFn = Callable[..., Response]
 
+Dependencies: TypeAlias = Sequence[params.Depends] | None
+StatusCode: TypeAlias = int | None
+
 
 class MethodMeta(TypedDict):
     fn: EnpointFn
-    status_code: int | None
+    status_code: StatusCode
+    dependencies: Dependencies
 
 
 @dataclass
@@ -57,34 +62,46 @@ class Endpoint:
     def methods(self):
         return self._methods
 
-    def get(self, status_code: int | None = None):
+    def get(self, status_code: StatusCode = None,
+            dependencies: Dependencies = None):
         return _get_method_wrapper(cls=self, method='GET',
-                                   status_code=status_code)
+                                   status_code=status_code,
+                                   dependencies=dependencies)
 
-    def post(self, *, status_code: int | None = None):
+    def post(self, *, status_code: StatusCode = None,
+             dependencies: Dependencies = None):
         return _get_method_wrapper(cls=self, method='POST',
-                                   status_code=status_code)
+                                   status_code=status_code,
+                                   dependencies=dependencies)
 
-    def put(self, status_code: int | None = None):
+    def put(self, status_code: StatusCode = None,
+            dependencies: Dependencies = None):
         return _get_method_wrapper(cls=self, method='PUT',
-                                   status_code=status_code)
+                                   status_code=status_code,
+                                   dependencies=dependencies)
 
-    def delete(self, status_code: int | None = None):
+    def delete(self, status_code: StatusCode = None,
+               dependencies: Dependencies = None):
         return _get_method_wrapper(cls=self, method='DELETE',
-                                   status_code=status_code)
+                                   status_code=status_code,
+                                   dependencies=dependencies)
 
-    def patch(self, status_code: int | None = None):
+    def patch(self, status_code: StatusCode = None,
+              dependencies: Dependencies = None):
         return _get_method_wrapper(cls=self, method='PATCH',
-                                   status_code=status_code)
+                                   status_code=status_code,
+                                   dependencies=dependencies)
 
 
 def _get_method_wrapper(cls: Endpoint, method: Method,
                         *,
-                        status_code: int | None = None):
+                        status_code: StatusCode = None,
+                        dependencies: Dependencies = None):
     def _set_method_wrapper(func: EnpointFn):
         _meta: MethodMeta = {
             'fn': func,
-            'status_code': status_code
+            'status_code': status_code,
+            'dependencies': dependencies
         }
         cls._methods[method] = _meta
 
@@ -100,11 +117,12 @@ def add_endpoint(path: str,
                  router: APIRouter,
                  endpoint: Endpoint,
                  *,
-                 dependencies: Sequence[params.Depends] | None = None
+                 dependencies: Dependencies = None
                  ):
     for _method, _meta in endpoint.methods.items():
         _fn = _meta['fn']
         _status_code = _meta['status_code']
+        _dependencies = _meta['dependencies']
         try:
             response_model = _get_return_type(_fn)
         except KeyError:
@@ -113,7 +131,7 @@ def add_endpoint(path: str,
                              name=getdoc(_fn),
                              response_model=response_model,
                              status_code=_status_code,
-                             dependencies=dependencies)
+                             dependencies=[*(_dependencies or []), *(dependencies or [])])
 
 
 class JSONSerialResponse(JSONResponse):
