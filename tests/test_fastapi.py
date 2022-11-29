@@ -24,6 +24,7 @@ def test_add_endpoint(router):
     import fastapi
     from tracktolib.api import add_endpoint, Response, Endpoint, Depends
     from tracktolib.tests import assert_equals
+
     endpoint = Endpoint()
     endpoint2 = Endpoint()
 

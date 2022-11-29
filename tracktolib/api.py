@@ -133,7 +133,6 @@ def add_endpoint(path: str,
             response_model = _get_return_type(_fn)
         except KeyError:
             raise ValueError(f'Could not find a return type for {_method} {path}')
-        print(response_model)
         router.add_api_route(path, _fn, methods=[_method],
                              name=getdoc(_fn),
                              response_model=response_model,
