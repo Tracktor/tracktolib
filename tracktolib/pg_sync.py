@@ -68,6 +68,15 @@ def insert_many(engine: connection,
     engine.commit()
 
 
+def insert_one(engine: connection,
+               table: str,
+               data: dict):
+    query, _data = _get_insert_data(table, data[0])
+    with engine.cursor() as cur:
+        _ = cur.execute(query, _data[0])
+    engine.commit()
+
+
 def drop_db(conn: connection, db_name: str):
     try:
         with conn.cursor() as c:

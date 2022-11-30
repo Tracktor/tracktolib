@@ -14,7 +14,7 @@ services:
     command: server /data --console-address ":9001"
 
   postgres:
-    image: postgis/postgis:14-3.2-alpine
+    image: postgres:14-alpine
     container_name: pg-tracktolib
     ports:
       - "127.0.0.1:5432:5432"

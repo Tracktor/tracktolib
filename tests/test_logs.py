@@ -1,6 +1,6 @@
 import pytest
 import logging
-
+import io
 
 @pytest.mark.parametrize('log_format',
                          ['console', 'json'])
@@ -8,7 +8,9 @@ def test_init_logging(log_format, caplog):
     from tracktolib.logs import init_logging, is_valid_log_format
 
     logger = logging.getLogger('test')
-    stream_handler = logging.StreamHandler()
+
+    _stream = io.StringIO()
+    stream_handler = logging.StreamHandler(_stream)
 
     logger.setLevel(logging.INFO)
 
@@ -17,3 +19,6 @@ def test_init_logging(log_format, caplog):
                  stream_handler=stream_handler)
     with caplog.at_level(logging.INFO):
         logger.info('hello')
+    assert caplog.text
+    _stream.seek(0)
+    assert _stream.read()

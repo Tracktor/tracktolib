@@ -23,13 +23,55 @@ Here we only install the utilities using `psycopg2` (pg-sync) and `deepdiff` (te
 
 Utility functions for logging.
 
+```python
+import logging
+from tracktolib.logs import init_logging
+
+logger = logging.getLogger()
+formatter, stream_handler = init_logging(logger, 'json', version='0.0.1')
+```
+
+- **pg**  
+
+Utility functions for [asyncpg](https://github.com/MagicStack/asyncpg)
+
 - **pg-sync**
 
 Utility functions based on psycopg2 such as `fetch_one`, `insert_many`, `fetch_count` ...
 
+To use the functions, create a `connection` using psycopg2: `conn = psycopg2.connect()`
+
+*fetch_one*
+
+```python
+from tracktolib.pg_sync import (
+    insert_many, fetch_one, fetch_count, fetch_all
+)
+
+data = [
+    {'foo': 'bar', 'value': 1},
+    {'foo': 'baz', 'value': 2}
+]
+insert_many(conn, 'public.test', data)  # Will insert the 2 dict
+query = 'SELECT foo from public.test order by value asc'
+value = fetch_one(conn, query, required=True)  # Will return {'foo': 'bar'}, raise an error is not found
+assert fetch_count(conn, 'public.test') == 2
+query = 'SELECT * from public.test order by value asc'
+assert fetch_all(conn, query) == data
+
+```
+
 - **tests**
 
 Utility functions for tests such as `get_uuid` (that generates a test uuid based on an integer)
+
+*get_uuid*
+
+```python
+from tracktolib.tests import get_uuid
+
+assert get_uuid(1) == '00000000-0000-0000-0000-000000000001'
+```
 
 - **s3-minio**
 

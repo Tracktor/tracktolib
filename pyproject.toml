@@ -25,6 +25,8 @@ aiobotocore = { version = "^2.4.0", optional = true }
 deepdiff = { version = "^6.2.1", optional = true }
 httpx = { version = "^0.23.0", optional = true }
 fastapi = { version = "^0.88.0", optional = true }
+asyncpg = { version = "^0.27.0", optional = true }
+rich = { version = "^12.6.0", optional = true }
 
 [tool.poetry.extras]
 logs = ["python-json-logger"]
@@ -34,9 +36,10 @@ s3 = ["aiobotocore"]
 tests = ["deepdiff"]
 http = ["httpx"]
 api = ["fastapi"]
+pg = ["asyncpg", "rich"]
 
 [tool.poetry.group.dev.dependencies]
-pyright = "^1.1.274"
+pyright = "^1.1.282"
 commitizen = "^2.35.0"
 pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
@@ -53,7 +56,8 @@ testpaths = [
     "tests"
 ]
 python_files = "*.py"
-
+filterwarnings = ["ignore:::.*minio.api*",
+    "ignore:.*urllib3.contrib.pyopenssl.*:DeprecationWarning"]
 
 [tool.pyright]
 include = ["tracktolib", "tests"]

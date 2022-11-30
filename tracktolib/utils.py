@@ -1,12 +1,12 @@
 import datetime as dt
 import itertools
+import mmap
 import os
 import subprocess
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
-from typing import Iterable, TypeVar, Iterator, Literal, overload
-import mmap
 from pathlib import Path
+from typing import Iterable, TypeVar, Iterator, Literal, overload, Any
 
 T = TypeVar('T')
 
@@ -74,3 +74,16 @@ def get_nb_lines(file: Path) -> int:
     while buf.readline():
         nb_lines += 1
     return nb_lines
+
+
+def fill_dict(items: list[dict],
+              *,
+              keys: list | None = None,
+              default: Any | None = None) -> list[dict]:
+    """Returns a list of items with the same key for all"""
+
+    def _fill_dict(x):
+        return {k: x.get(k, default) for k in _keys}
+
+    _keys = keys or sorted(frozenset().union(*items))
+    return [_fill_dict(x) for x in items]
