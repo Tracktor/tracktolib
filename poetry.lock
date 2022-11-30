@@ -1,6 +1,6 @@
 [[package]]
 name = "aiobotocore"
-version = "2.4.0"
+version = "2.4.1"
 description = "Async client for aws services using botocore and aiohttp"
 category = "main"
 optional = true
@@ -163,7 +163,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7
 
 [[package]]
 name = "commitizen"
-version = "2.37.0"
+version = "2.37.1"
 description = "Python commitizen client tool"
 category = "dev"
 optional = false
@@ -187,7 +187,7 @@ name = "commonmark"
 version = "0.9.1"
 description = "Python parser for the CommonMark Markdown spec"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 
 [package.extras]
@@ -276,7 +276,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "httpcore"
-version = "0.16.1"
+version = "0.16.2"
 description = "A minimal low-level HTTP client."
 category = "main"
 optional = true
@@ -462,7 +462,7 @@ name = "pygments"
 version = "2.13.0"
 description = "Pygments is a syntax highlighting package written in Python."
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6"
 
 [package.extras]
@@ -589,7 +589,7 @@ name = "rich"
 version = "12.6.0"
 description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6.3,<4.0.0"
 
 [package.dependencies]
@@ -601,7 +601,7 @@ jupyter = ["ipywidgets (>=7.5.1,<8.0.0)"]
 
 [[package]]
 name = "setuptools"
-version = "65.6.0"
+version = "65.6.3"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 category = "dev"
 optional = false
@@ -679,11 +679,11 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "urllib3"
-version = "1.26.12"
+version = "1.26.13"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 category = "main"
 optional = true
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, <4"
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 
 [package.extras]
 brotli = ["brotli (>=1.0.9)", "brotlicffi (>=0.8.0)", "brotlipy (>=0.6.0)"]
@@ -722,7 +722,7 @@ multidict = ">=4.0"
 api = ["fastapi"]
 http = ["httpx"]
 logs = ["python-json-logger"]
-pg = ["asyncpg"]
+pg = ["asyncpg", "rich"]
 pg-sync = ["psycopg2"]
 s3 = ["aiobotocore"]
 s3-minio = ["minio"]
@@ -731,12 +731,12 @@ tests = ["deepdiff"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "cfd33d57dc06841f89d522153de9e6289690b8cab8eab00dd82e710b731a6ae3"
+content-hash = "fe4a3a377505277f02072e12cedbccce3e68ebbc70ef08dc896bb13f3f03f3d3"
 
 [metadata.files]
 aiobotocore = [
-    {file = "aiobotocore-2.4.0-py3-none-any.whl", hash = "sha256:6c25381d31b712652bc2f6008683949351c240c56d24b1d8ae252c1034a50f63"},
-    {file = "aiobotocore-2.4.0.tar.gz", hash = "sha256:f9fe0698cc497861bdb54cd16161c804031f758ada9480c35540f20c0c078385"},
+    {file = "aiobotocore-2.4.1-py3-none-any.whl", hash = "sha256:26e0d55d5901f487c3467616c028abb85036ca33a0f88e279770adae6b865c69"},
+    {file = "aiobotocore-2.4.1.tar.gz", hash = "sha256:5c8ee79d1f14273e3f8f3af5c893db889ef163227b178ecacb5aea4547d3b9a7"},
 ]
 aiohttp = [
     {file = "aiohttp-3.8.3-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:ba71c9b4dcbb16212f334126cc3d8beb6af377f6703d9dc2d9fb3874fd667ee9"},
@@ -906,8 +906,8 @@ colorama = [
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
 commitizen = [
-    {file = "commitizen-2.37.0-py3-none-any.whl", hash = "sha256:6de59b76278c66585883d9173538b66e7a233e375e1a1a5c2e78592efa769122"},
-    {file = "commitizen-2.37.0.tar.gz", hash = "sha256:c8a0df910e7360bc901be93e6bd230737824e6500800d80b443bb1e19024c6c8"},
+    {file = "commitizen-2.37.1-py3-none-any.whl", hash = "sha256:27d0b32ee635107e2a809797eeac495c7cdcf1a5e5b1366e6ec6fe2a86c2b058"},
+    {file = "commitizen-2.37.1.tar.gz", hash = "sha256:933b7f781d22e9f76b0ff3164aa13045bf36df3d07140219f21b3e7e05e54151"},
 ]
 commonmark = [
     {file = "commonmark-0.9.1-py2.py3-none-any.whl", hash = "sha256:da2f38c92590f83de410ba1a3cbceafbc74fee9def35f9251ba9a971d6d66fd9"},
@@ -1062,8 +1062,8 @@ h11 = [
     {file = "h11-0.14.0.tar.gz", hash = "sha256:8f19fbbe99e72420ff35c00b27a34cb9937e902a8b810e2c88300c6f0a3b699d"},
 ]
 httpcore = [
-    {file = "httpcore-0.16.1-py3-none-any.whl", hash = "sha256:8d393db683cc8e35cc6ecb02577c5e1abfedde52b38316d038932a84b4875ecb"},
-    {file = "httpcore-0.16.1.tar.gz", hash = "sha256:3d3143ff5e1656a5740ea2f0c167e8e9d48c5a9bbd7f00ad1f8cff5711b08543"},
+    {file = "httpcore-0.16.2-py3-none-any.whl", hash = "sha256:52c79095197178856724541e845f2db86d5f1527640d9254b5b8f6f6cebfdee6"},
+    {file = "httpcore-0.16.2.tar.gz", hash = "sha256:c35c5176dc82db732acfd90b581a3062c999a72305df30c0fc8fafd8e4aca068"},
 ]
 httpx = [
     {file = "httpx-0.23.1-py3-none-any.whl", hash = "sha256:0b9b1f0ee18b9978d637b0776bfd7f54e2ca278e063e3586d8f01cda89e042a8"},
@@ -1348,8 +1348,8 @@ rich = [
     {file = "rich-12.6.0.tar.gz", hash = "sha256:ba3a3775974105c221d31141f2c116f4fd65c5ceb0698657a11e9f295ec93fd0"},
 ]
 setuptools = [
-    {file = "setuptools-65.6.0-py3-none-any.whl", hash = "sha256:6211d2f5eddad8757bd0484923ca7c0a6302ebc4ab32ea5e94357176e0ca0840"},
-    {file = "setuptools-65.6.0.tar.gz", hash = "sha256:d1eebf881c6114e51df1664bc2c9133d022f78d12d5f4f665b9191f084e2862d"},
+    {file = "setuptools-65.6.3-py3-none-any.whl", hash = "sha256:57f6f22bde4e042978bcd50176fdb381d7c21a9efa4041202288d3737a0c6a54"},
+    {file = "setuptools-65.6.3.tar.gz", hash = "sha256:a7620757bf984b58deaf32fc8a4577a9bbc0850cf92c20e1ce41c38c19e5fb75"},
 ]
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
@@ -1380,8 +1380,8 @@ typing-extensions = [
     {file = "typing_extensions-4.4.0.tar.gz", hash = "sha256:1511434bb92bf8dd198c12b1cc812e800d4181cfcb867674e0f8279cc93087aa"},
 ]
 urllib3 = [
-    {file = "urllib3-1.26.12-py2.py3-none-any.whl", hash = "sha256:b930dd878d5a8afb066a637fbb35144fe7901e3b209d1cd4f524bd0e9deee997"},
-    {file = "urllib3-1.26.12.tar.gz", hash = "sha256:3fa96cf423e6987997fc326ae8df396db2a8b7c667747d47ddd8ecba91f4a74e"},
+    {file = "urllib3-1.26.13-py2.py3-none-any.whl", hash = "sha256:47cc05d99aaa09c9e72ed5809b60e7ba354e64b59c9c173ac3018642d8bb41fc"},
+    {file = "urllib3-1.26.13.tar.gz", hash = "sha256:c083dd0dce68dbfbe1129d5271cb90f9447dea7d52097c6e0126120c521ddea8"},
 ]
 wcwidth = [
     {file = "wcwidth-0.2.5-py2.py3-none-any.whl", hash = "sha256:beb4802a9cebb9144e99086eff703a642a13d6a0052920003a230f3294bbe784"},

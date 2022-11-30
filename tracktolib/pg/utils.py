@@ -5,8 +5,11 @@ import logging
 from pathlib import Path
 from typing import AsyncIterator
 
-import asyncpg
-from rich.progress import Progress
+try:
+    import asyncpg
+    from rich.progress import Progress
+except ImportError:
+    raise ImportError('Please install tracktolib with "pg" to use this module')
 
 from tracktolib.utils import get_chunks
 
