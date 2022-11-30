@@ -14,7 +14,7 @@ executors:
   test:
     docker:
       - image: cimg/python:3.10
-      - image: cimg/postgres:14.4-postgis
+      - image: cimg/postgres:14.4
         environment:
           POSTGRES_PASSWORD: postgres
       - image: minio/minio
