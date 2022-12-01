@@ -25,16 +25,18 @@ def compare_strings(str1: str, str2: str):
     assert str1.strip() == str2.strip()
 
 
-@pytest.mark.parametrize('data,on_conflict,expected', [
+@pytest.mark.parametrize('data,on_conflict,returning,expected', [
     (
             {'foo': 1},
             {'keys': ['id']},
+            None,
             'INSERT INTO schema.table AS t (foo) VALUES ( $1 ) '
             'ON CONFLICT (id) DO UPDATE SET foo = COALESCE(EXCLUDED.foo, t.foo)'
     ),
     (
             {'foo': 1, 'bar': 2},
             {'keys': ['id']},
+            None,
             'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
             'ON CONFLICT (id) DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar), '
             'foo = COALESCE(EXCLUDED.foo, t.foo)'
@@ -42,18 +44,35 @@ def compare_strings(str1: str, str2: str):
     (
             {'foo': 1, 'bar': 2},
             {'keys': ['id'], 'ignore_keys': ['foo']},
+            None,
             'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
             'ON CONFLICT (id) DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar)'
     ),
     (
             {'foo': 1, 'bar': 2},
             {'query': 'ON CONFLICT DO NOTHING'},
+            None,
             'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
             'ON CONFLICT DO NOTHING'
     ),
     (
             {'foo': 1, 'bar': 2},
+            {'query': 'ON CONFLICT DO NOTHING'},
+            None,
+            'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
+            'ON CONFLICT DO NOTHING'
+    ),
+    (
+            {'foo': 1, 'bar': 2},
+            {'query': 'ON CONFLICT DO NOTHING'},
+            {'key': 'bar'},
+            'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
+            'ON CONFLICT DO NOTHING RETURNING bar'
+    ),
+    (
+            {'foo': 1, 'bar': 2},
             {'constraint': 'my_constraint'},
+            None,
             """
             INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) 
             ON CONFLICT ON CONSTRAINT my_constraint 
@@ -63,10 +82,12 @@ def compare_strings(str1: str, str2: str):
             """
     )
 ])
-def test_insert_conflict_query(data, on_conflict, expected):
-    from tracktolib.pg import PGInsertQuery, PGConflictQuery
+def test_pg_insert_query(data, on_conflict, returning, expected):
+    from tracktolib.pg import PGInsertQuery, PGConflictQuery, PGReturningQuery
+    _returning = PGReturningQuery.load(**returning) if returning else None
     query = PGInsertQuery('schema.table', [data],
-                          on_conflict=PGConflictQuery(**on_conflict)).query
+                          on_conflict=PGConflictQuery(**on_conflict),
+                          returning=_returning).query
 
     compare_strings(query, expected)
 
@@ -133,12 +154,13 @@ def test_insert_conflict_many(loop, aengine, engine):
             ] == db_data
 
 
+@pytest.mark.parametrize('on_conflict', [None, 'ON CONFLICT DO NOTHING'])
 @pytest.mark.usefixtures('setup_tables')
-def test_insert_one_returning_one(loop, aengine, engine):
+def test_insert_one_returning_one(loop, aengine, engine, on_conflict):
     from tracktolib.pg import insert_returning
     new_id = loop.run_until_complete(
         insert_returning(aengine, 'foo.foo', {'id': 1, 'foo': 1},
-                         returning='id')
+                         returning='id', on_conflict=on_conflict)
     )
     assert new_id is not None
 

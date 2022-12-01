@@ -19,11 +19,7 @@ def _get_insert_query(table: str, keys: Iterable[K], values: str) -> str:
     return f"INSERT INTO {table} AS t ({_keys}) VALUES ( {values} )"
 
 
-def _get_returning_query(table: str,
-                         keys: Iterable[K],
-                         values: str,
-                         returning: Iterable[K]) -> str:
-    query = _get_insert_query(table, keys, values)
+def _get_returning_query(query: str, returning: Iterable[K]) -> str:
     _returning = ', '.join(returning)
     return f'{query} RETURNING {_returning}'
 
@@ -129,15 +125,6 @@ class PGInsertQuery(Generic[K, V]):
         _values = ', '.join(f'${i + 1}' for i, _ in enumerate(self.keys))
         _keys = self.keys
 
-        # Returning
-        if self.returning is not None:
-            if self.returning.returning_ids is None:
-                raise ValueError('No returning ids found')
-            if len(self.items) == 1:
-                return _get_returning_query(self.table, _keys, _values,
-                                            self.returning.returning_ids)
-            raise NotImplementedError('Cannot return value when inserting many.')
-
         query = _get_insert_query(self.table, _keys, _values)
 
         # Conflict
@@ -148,6 +135,15 @@ class PGInsertQuery(Generic[K, V]):
                                            self.on_conflict.ignore_keys,
                                            self.on_conflict.constraint,
                                            self.on_conflict.query)
+
+        # Returning
+        if self.returning is not None:
+            if self.returning.returning_ids is None:
+                raise ValueError('No returning ids found')
+            if len(self.items) == 1:
+                query = _get_returning_query(query, self.returning.returning_ids)
+            else:
+                raise NotImplementedError('Cannot return value when inserting many.')
 
         return query
 
