@@ -1,3 +1,4 @@
+import typing
 from dataclasses import dataclass, field
 from typing import (
     TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias,
@@ -82,11 +83,9 @@ class PGConflictQuery(Generic[K]):
 
     def __post_init__(self):
         _has_keys = 1 if (self.keys or self.ignore_keys) else 0
-        _has_conflict = 1 if self.query else 0
         _has_constraint = 1 if self.constraint else 0
-
-        if sum([_has_conflict, _has_keys, _has_constraint]) > 1:
-            raise ValueError('Please choose either keys/ignore_keys, conflict_query or constraint')
+        if self.query and sum([_has_keys, _has_constraint]) > 0:
+            raise ValueError('Please choose either keys, ignore_keys, constraint OR query')
 
 
 @dataclass
@@ -259,6 +258,11 @@ async def insert_returning(conn: asyncpg.Connection,
     fn = conn.fetchval if len(returning_values) == 1 else conn.fetchrow
 
     return await fn(query.query, *query.values)
+
+
+async def fetch_count(conn: asyncpg.Connection, query: str, *args) -> int:
+    c = await conn.fetchval(f"SELECT COUNT(*) FROM ({query}) t", *args)
+    return typing.cast(int, c)
 
 
 def Conflict(

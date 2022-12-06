@@ -91,13 +91,14 @@ def exec_req(engine: connection, req: str, *args):
     return engine.commit()
 
 
-def clean_tables(engine: connection, tables: Iterable[str]):
+def clean_tables(engine: connection, tables: Iterable[str],
+                 cascade: bool = True):
     if not tables:
         return
 
     _tables = ', '.join(set(tables))
     with engine.cursor() as cur:
-        _ = cur.execute(f'TRUNCATE {_tables}')
+        _ = cur.execute(f'TRUNCATE {_tables} {"" if not cascade else "CASCADE"}')
     return engine.commit()
 
 

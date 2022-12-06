@@ -225,3 +225,13 @@ def test_upload_csv(aengine, loop, static_dir, engine):
     assert_equals(db, expected)
     # Run again works
     loop.run_until_complete(upsert_csv(aengine, file, schema='foo', table='bar'))
+
+
+@pytest.mark.usefixtures('setup_tables', 'insert_iterate_data')
+def test_fetch_count(aengine, loop):
+    from tracktolib.pg import fetch_count
+
+    count = loop.run_until_complete(
+        fetch_count(aengine, 'SELECT 1 FROM foo.foo')
+    )
+    assert count == 10
