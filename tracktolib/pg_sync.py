@@ -3,6 +3,10 @@ from typing import Iterable, Any, overload, Literal
 try:
     from psycopg2.errors import InvalidCatalogName
     from psycopg2.extensions import connection
+    from psycopg2.extensions import connection, register_adapter
+    from psycopg2.extras import Json
+
+    register_adapter(dict, Json)
 except ImportError:
     raise ImportError('Please install tracktolib with "pg-sync" to use this module')
 
