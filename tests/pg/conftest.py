@@ -1,10 +1,10 @@
 import asyncio
 from typing import Iterator
-from typing_extensions import LiteralString
 
 import asyncpg
 import psycopg
 import pytest
+from typing_extensions import LiteralString
 
 PG_DATABASE = 'test'
 PG_USER, PG_PWD, PG_HOST, PG_PORT = 'postgres', 'postgres', 'localhost', 5432
@@ -18,23 +18,18 @@ def pg_url():
 
 @pytest.fixture(scope='session')
 def engine(pg_url) -> Iterator[psycopg.Connection]:
-    conn = psycopg.connect(pg_url)
-    try:
+    with psycopg.connect(pg_url) as conn:
         yield conn
-    finally:
-        conn.close()
 
 
 @pytest.fixture(scope='session', autouse=True)
 def clean_pg_auto():
     from tracktolib.pg_sync import drop_db
-    conn = psycopg.connect(PG_URL, autocommit=True)
-    drop_db(conn, PG_DATABASE)
-    conn.execute(f'CREATE DATABASE {PG_DATABASE}')
+    with psycopg.connect(PG_URL, autocommit=True) as conn:
+        drop_db(conn, PG_DATABASE)
+        conn.execute(f'CREATE DATABASE {PG_DATABASE}')
 
-    yield
-
-    conn.close()
+        yield
 
 
 _TABLES: list[LiteralString] = []
@@ -55,9 +50,9 @@ def clean_tables(engine):
 
 @pytest.fixture()
 def setup_tables(engine, static_dir):
-    from tracktolib.pg_sync import exec_req
     sql_file = static_dir / 'setup.sql'
-    exec_req(engine, sql_file.read_text())
+    engine.execute(sql_file.read_text())
+    engine.commit()
 
 
 @pytest.fixture(scope='session')

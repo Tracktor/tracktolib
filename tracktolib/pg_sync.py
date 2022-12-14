@@ -1,24 +1,24 @@
-from typing import Iterable, Any, overload, Literal, cast
 from pathlib import Path
+from typing import Iterable, Any, overload, Literal, cast
+
 from typing_extensions import LiteralString
 
 try:
     from psycopg import Connection, Cursor
     from psycopg.abc import Query
     from psycopg.errors import InvalidCatalogName
+    from psycopg.rows import dict_row
+    from psycopg.types.json import Json
 except ImportError:
     raise ImportError('Please install tracktolib with "pg-sync" to use this module')
 
 from .pg_utils import get_tmp_table_query
 
 
-def fetch_all(engine: Connection, query: str, *data) -> list[dict]:
-    _query = cast(LiteralString, query)
-    with engine.cursor() as cur:
-        cur.execute(_query) if not data else cur.execute(_query, data)
-        col_names = [desc[0] for desc in cur.description or []]
-        resp = cur.fetchall()
-    return [dict(zip(col_names, d)) for d in resp]
+def fetch_all(engine: Connection, query: LiteralString, *data) -> list[dict]:
+    with engine.cursor(row_factory=dict_row) as cur:
+        resp = (cur.execute(query) if not data else cur.execute(query, data)).fetchall()
+    return resp
 
 
 def fetch_count(engine: Connection, table: str, where: str | None = None) -> int | None:
@@ -26,8 +26,7 @@ def fetch_count(engine: Connection, table: str, where: str | None = None) -> int
     if where:
         query = f'{query} WHERE {where}'
     with engine.cursor() as cur:
-        cur.execute(cast(LiteralString, query))
-        count = cur.fetchone()
+        count = cur.execute(cast(LiteralString, query)).fetchone()
 
     return count[0] if count else None
 
@@ -48,21 +47,24 @@ def fetch_one(engine: Connection, query: Query, *args) -> dict | None: ...
 
 def fetch_one(engine: Connection, query: Query, *args,
               required: bool = False) -> dict | None:
-    with engine.cursor() as cur:
-        cur.execute(query, args)
-        col_names = [desc[0] for desc in cur.description or []]
-        resp = cur.fetchone()
-    _data = dict(zip(col_names, resp)) if resp else None
+    with engine.cursor(row_factory=dict_row) as cur:
+        _data = cur.execute(query, args).fetchone()
     if required and not _data:
         raise ValueError('No value found for query')
     return _data
+
+
+def _parse_value(v):
+    if isinstance(v, dict):
+        return Json(v)
+    return v
 
 
 def _get_insert_data(table: LiteralString, data: list[dict]) -> tuple[LiteralString, list[tuple[Any, ...]]]:
     keys = data[0].keys()
     _values = ','.join(f'%s' for _ in range(0, len(keys)))
     query = f"INSERT INTO {table} as t ({','.join(keys)}) VALUES ({_values})"
-    return query, [tuple(x.values()) for x in data]
+    return query, [tuple(_parse_value(_x) for _x in x.values()) for x in data]
 
 
 def insert_many(engine: Connection,
@@ -90,21 +92,14 @@ def drop_db(conn: Connection, db_name: LiteralString):
         pass
 
 
-def exec_req(engine: Connection, req: LiteralString, *args):
-    with engine.cursor() as curr:
-        curr.execute(req, args)
-    return engine.commit()
-
-
 def clean_tables(engine: Connection, tables: Iterable[LiteralString],
                  cascade: bool = True):
     if not tables:
         return
 
     _tables = ', '.join(set(tables))
-    with engine.cursor() as cur:
-        _ = cur.execute(f'TRUNCATE {_tables} {"" if not cascade else "CASCADE"}')
-    return engine.commit()
+    engine.execute(f'TRUNCATE {_tables} {"" if not cascade else "CASCADE"}')
+    engine.commit()
 
 
 def get_tables(engine: Connection,

@@ -44,6 +44,15 @@ def test_fetch_count(engine):
     assert fetch_count(engine, 'foo.bar', where='foo = 1') == 1
 
 
+def test_insert_many(engine):
+    from tracktolib.pg_sync import insert_many, fetch_all
+    from tracktolib.tests import assert_equals
+    data = [{'bar': {'foo': 1}, 'baz': {'foo': 2}}]
+    insert_many(engine, 'foo.baz', data)
+    db_data = fetch_all(engine, 'SELECT bar, baz FROM foo.baz')
+    assert_equals(data, db_data)
+
+
 @pytest.mark.usefixtures('setup_tables')
 def test_insert_csv(engine, static_dir):
     from tracktolib.pg_sync import insert_csv, fetch_all
