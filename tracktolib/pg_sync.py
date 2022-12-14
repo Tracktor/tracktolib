@@ -1,5 +1,6 @@
-from typing import Iterable, Any, overload, Literal
+from typing import Iterable, Any, overload, Literal, cast
 from pathlib import Path
+from typing_extensions import LiteralString
 
 try:
     from psycopg import Connection, Cursor
@@ -11,9 +12,10 @@ except ImportError:
 from .pg_utils import get_tmp_table_query
 
 
-def fetch_all(engine: Connection, query: Query, *data) -> list[dict]:
+def fetch_all(engine: Connection, query: str, *data) -> list[dict]:
+    _query = cast(LiteralString, query)
     with engine.cursor() as cur:
-        cur.execute(query) if not data else cur.execute(query, data)
+        cur.execute(_query) if not data else cur.execute(_query, data)
         col_names = [desc[0] for desc in cur.description or []]
         resp = cur.fetchall()
     return [dict(zip(col_names, d)) for d in resp]
@@ -24,7 +26,7 @@ def fetch_count(engine: Connection, table: str, where: str | None = None) -> int
     if where:
         query = f'{query} WHERE {where}'
     with engine.cursor() as cur:
-        cur.execute(query)
+        cur.execute(cast(LiteralString, query))
         count = cur.fetchone()
 
     return count[0] if count else None
@@ -56,7 +58,7 @@ def fetch_one(engine: Connection, query: Query, *args,
     return _data
 
 
-def _get_insert_data(table: str, data: list[dict]) -> tuple[str, list[tuple[Any, ...]]]:
+def _get_insert_data(table: LiteralString, data: list[dict]) -> tuple[LiteralString, list[tuple[Any, ...]]]:
     keys = data[0].keys()
     _values = ','.join(f'%s' for _ in range(0, len(keys)))
     query = f"INSERT INTO {table} as t ({','.join(keys)}) VALUES ({_values})"
@@ -64,7 +66,7 @@ def _get_insert_data(table: str, data: list[dict]) -> tuple[str, list[tuple[Any,
 
 
 def insert_many(engine: Connection,
-                table: str,
+                table: LiteralString,
                 data: list[dict]):
     query, _data = _get_insert_data(table, data)
     with engine.cursor() as cur:
@@ -73,7 +75,7 @@ def insert_many(engine: Connection,
 
 
 def insert_one(engine: Connection,
-               table: str,
+               table: LiteralString,
                data: dict):
     query, _data = _get_insert_data(table, data[0])
     with engine.cursor() as cur:
@@ -81,20 +83,20 @@ def insert_one(engine: Connection,
     engine.commit()
 
 
-def drop_db(conn: Connection, db_name: str):
+def drop_db(conn: Connection, db_name: LiteralString):
     try:
         conn.execute(f'DROP DATABASE {db_name}')
     except InvalidCatalogName:
         pass
 
 
-def exec_req(engine: Connection, req: str, *args):
+def exec_req(engine: Connection, req: LiteralString, *args):
     with engine.cursor() as curr:
         curr.execute(req, args)
     return engine.commit()
 
 
-def clean_tables(engine: Connection, tables: Iterable[str],
+def clean_tables(engine: Connection, tables: Iterable[LiteralString],
                  cascade: bool = True):
     if not tables:
         return
@@ -122,21 +124,21 @@ def get_tables(engine: Connection,
 
 
 def insert_csv(cur: Cursor,
-               schema: str,
-               table: str,
+               schema: LiteralString,
+               table: LiteralString,
                csv_path: Path,
-               query: str | None = None,
+               query: Query | None = None,
                *,
-               delimiter: str = ',',
+               delimiter: LiteralString = ',',
                block_size: int = 1000):
     _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table)
     _columns = csv_path.open().readline()
-    _query = query or f"""
+    _query: Query = query or cast(LiteralString, f"""
     COPY {_tmp_table}({_columns})
     FROM STDIN
     DELIMITER {delimiter!r}
     CSV HEADER
-    """
+    """)
     cur.execute(_tmp_query)
     with csv_path.open() as f:
         with cur.copy(_query) as copy:

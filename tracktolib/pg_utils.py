@@ -1,4 +1,8 @@
-def get_tmp_table_query(schema: str, table: str):
+from typing_extensions import LiteralString
+
+
+def get_tmp_table_query(schema: LiteralString,
+                        table: LiteralString):
     tmp_table_name = f'{schema}_{table}_tmp'
     create_tmp_table_query = f"""
     CREATE TEMP TABLE {tmp_table_name}

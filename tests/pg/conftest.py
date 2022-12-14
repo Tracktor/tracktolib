@@ -1,5 +1,6 @@
 import asyncio
 from typing import Iterator
+from typing_extensions import LiteralString
 
 import asyncpg
 import psycopg
@@ -36,7 +37,7 @@ def clean_pg_auto():
     conn.close()
 
 
-_TABLES: list[str] = []
+_TABLES: list[LiteralString] = []
 
 
 @pytest.fixture(scope='function', autouse=True)

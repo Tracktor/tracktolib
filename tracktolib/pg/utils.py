@@ -4,6 +4,7 @@ import functools
 import logging
 from pathlib import Path
 from typing import AsyncIterator
+from typing_extensions import LiteralString
 
 try:
     import asyncpg
@@ -83,8 +84,8 @@ def _fmt_record_tuple(record: dict, data_types: dict) -> tuple:
 
 async def upsert_csv(conn: asyncpg.Connection,
                      csv_path: Path,
-                     schema: str,
-                     table: str,
+                     schema: LiteralString,
+                     table: LiteralString,
                      *,
                      chunk_size: int = 5_000,
                      show_progress: bool = False,
