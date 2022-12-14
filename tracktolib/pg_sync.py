@@ -1,21 +1,25 @@
 from typing import Iterable, Any, overload, Literal
+from pathlib import Path
 
 try:
-    from psycopg2.errors import InvalidCatalogName
-    from psycopg2.extensions import connection
+    from psycopg import Connection, Cursor
+    from psycopg.errors import InvalidCatalogName
+    from psycopg import connection, cursor
 except ImportError:
     raise ImportError('Please install tracktolib with "pg-sync" to use this module')
 
+from .pg_utils import get_tmp_table_query
 
-def fetch_all(engine: connection, query: str, *data) -> list[dict]:
+
+def fetch_all(engine: Connection, query: str, *data) -> list[dict]:
     with engine.cursor() as cur:
         cur.execute(query) if not data else cur.execute(query, data)
-        col_names = [desc[0] for desc in cur.description]
+        col_names = [desc[0] for desc in cur.description or []]
         resp = cur.fetchall()
     return [dict(zip(col_names, d)) for d in resp]
 
 
-def fetch_count(engine: connection, table: str, where: str | None = None) -> int | None:
+def fetch_count(engine: Connection, table: str, where: str | None = None) -> int | None:
     query = f'SELECT count(*) from {table}'
     if where:
         query = f'{query} WHERE {where}'
@@ -27,24 +31,24 @@ def fetch_count(engine: connection, table: str, where: str | None = None) -> int
 
 
 @overload
-def fetch_one(engine: connection, query: str, *args,
+def fetch_one(engine: Connection, query: str, *args,
               required: Literal[False]) -> dict | None: ...
 
 
 @overload
-def fetch_one(engine: connection, query: str, *args,
+def fetch_one(engine: Connection, query: str, *args,
               required: Literal[True]) -> dict: ...
 
 
 @overload
-def fetch_one(engine: connection, query: str, *args) -> dict | None: ...
+def fetch_one(engine: Connection, query: str, *args) -> dict | None: ...
 
 
-def fetch_one(engine: connection, query: str, *args,
+def fetch_one(engine: Connection, query: str, *args,
               required: bool = False) -> dict | None:
     with engine.cursor() as cur:
         cur.execute(query, args)
-        col_names = [desc[0] for desc in cur.description]
+        col_names = [desc[0] for desc in cur.description or []]
         resp = cur.fetchone()
     _data = dict(zip(col_names, resp)) if resp else None
     if required and not _data:
@@ -59,7 +63,7 @@ def _get_insert_data(table: str, data: list[dict]) -> tuple[str, list[tuple[Any,
     return query, [tuple(x.values()) for x in data]
 
 
-def insert_many(engine: connection,
+def insert_many(engine: Connection,
                 table: str,
                 data: list[dict]):
     query, _data = _get_insert_data(table, data)
@@ -68,7 +72,7 @@ def insert_many(engine: connection,
     engine.commit()
 
 
-def insert_one(engine: connection,
+def insert_one(engine: Connection,
                table: str,
                data: dict):
     query, _data = _get_insert_data(table, data[0])
@@ -77,21 +81,20 @@ def insert_one(engine: connection,
     engine.commit()
 
 
-def drop_db(conn: connection, db_name: str):
+def drop_db(conn: Connection, db_name: str):
     try:
-        with conn.cursor() as c:
-            c.execute(f'DROP DATABASE {db_name}')
+        conn.execute(f'DROP DATABASE {db_name}')
     except InvalidCatalogName:
         pass
 
 
-def exec_req(engine: connection, req: str, *args):
+def exec_req(engine: Connection, req: str, *args):
     with engine.cursor() as curr:
         curr.execute(req, args)
     return engine.commit()
 
 
-def clean_tables(engine: connection, tables: Iterable[str],
+def clean_tables(engine: Connection, tables: Iterable[str],
                  cascade: bool = True):
     if not tables:
         return
@@ -102,7 +105,7 @@ def clean_tables(engine: connection, tables: Iterable[str],
     return engine.commit()
 
 
-def get_tables(engine: connection,
+def get_tables(engine: Connection,
                schemas: list[str],
                ignored_tables: Iterable[str] | None = None):
     table_query = """
@@ -116,3 +119,27 @@ def get_tables(engine: connection,
     # Foreign keys
     _ignored_tables = set(ignored_tables) if ignored_tables else []
     return [x['table'] for x in resp if x['table'] not in _ignored_tables]
+
+
+def insert_csv(cur: Cursor,
+               schema: str,
+               table: str,
+               csv_path: Path,
+               query: str | None = None,
+               *,
+               delimiter: str = ',',
+               block_size: int = 1000):
+    _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table)
+    _columns = csv_path.open().readline()
+    _query = query or f"""
+    COPY {_tmp_table}({_columns})
+    FROM STDIN
+    DELIMITER {delimiter!r}
+    CSV HEADER
+    """
+    cur.execute(_tmp_query)
+    with csv_path.open() as f:
+        with cur.copy(_query) as copy:
+            while data := f.read(block_size):
+                copy.write(data)
+    cur.execute(_insert_query)

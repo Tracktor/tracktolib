@@ -9,7 +9,7 @@ try:
 except ImportError:
     raise ImportError('Please install tracktolib with "pg" to use this module')
 
-from ..utils import fill_dict
+from tracktolib.utils import fill_dict
 
 K = TypeVar('K', bound=str)
 V = TypeVar('V')

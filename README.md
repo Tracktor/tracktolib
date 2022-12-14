@@ -15,7 +15,7 @@ the [extra](https://python-poetry.org/docs/cli/#options-4) parameter such as:
 poetry add tracktolib@latest -E pg-sync -E tests --group dev 
 ```
 
-Here we only install the utilities using `psycopg2` (pg-sync) and `deepdiff` (tests) for the dev environment.
+Here we only install the utilities using `psycopg` (pg-sync) and `deepdiff` (tests) for the dev environment.
 
 # Utilities
 
@@ -37,14 +37,14 @@ Utility functions for [asyncpg](https://github.com/MagicStack/asyncpg)
 
 - **pg-sync**
 
-Utility functions based on psycopg2 such as `fetch_one`, `insert_many`, `fetch_count` ...
+Utility functions based on psycopg such as `fetch_one`, `insert_many`, `fetch_count` ...
 
-To use the functions, create a `connection` using psycopg2: `conn = psycopg2.connect()`
+To use the functions, create a `Connection` using psycopg: `conn = psycopg2.connect()`
 
 *fetch_one*
 
 ```python
-from tracktolib.pg_sync import (
+from pg.pg_sync import (
     insert_many, fetch_one, fetch_count, fetch_all
 )
 

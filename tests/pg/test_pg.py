@@ -1,6 +1,3 @@
-import pprint
-
-import asyncpg
 import pytest
 
 from tracktolib.pg_sync import fetch_all

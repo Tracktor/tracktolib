@@ -2,9 +2,8 @@ import asyncio
 from typing import Iterator
 
 import asyncpg
-import psycopg2
+import psycopg
 import pytest
-from psycopg2.extensions import connection, ISOLATION_LEVEL_AUTOCOMMIT
 
 PG_DATABASE = 'test'
 PG_USER, PG_PWD, PG_HOST, PG_PORT = 'postgres', 'postgres', 'localhost', 5432
@@ -17,21 +16,20 @@ def pg_url():
 
 
 @pytest.fixture(scope='session')
-def engine(pg_url) -> Iterator[connection]:
-    conn = psycopg2.connect(pg_url)
-    yield conn
-    conn.close()
+def engine(pg_url) -> Iterator[psycopg.Connection]:
+    conn = psycopg.connect(pg_url)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 @pytest.fixture(scope='session', autouse=True)
 def clean_pg_auto():
     from tracktolib.pg_sync import drop_db
-    conn = psycopg2.connect(PG_URL)
-    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    conn = psycopg.connect(PG_URL, autocommit=True)
     drop_db(conn, PG_DATABASE)
-
-    with conn.cursor() as c:
-        c.execute(f'CREATE DATABASE {PG_DATABASE}')
+    conn.execute(f'CREATE DATABASE {PG_DATABASE}')
 
     yield
 

@@ -1,3 +1,5 @@
+import pprint
+
 import pytest
 
 
@@ -40,3 +42,20 @@ def test_fetch_count(engine):
 
     assert fetch_count(engine, 'foo.bar') == 2
     assert fetch_count(engine, 'foo.bar', where='foo = 1') == 1
+
+
+@pytest.mark.usefixtures('setup_tables')
+def test_insert_csv(engine, static_dir):
+    from tracktolib.pg_sync import insert_csv, fetch_all
+    from tracktolib.tests import assert_equals
+
+    file = static_dir / 'test.csv'
+
+    for i in range(0, 2):
+        # Works on conflict
+        with engine.cursor() as c:
+            insert_csv(c, 'foo', 'bar', file)
+        engine.commit()
+
+        db_data = fetch_all(engine, 'SELECT foo, bar FROM foo.bar ORDER BY foo')
+        assert_equals(db_data, [{'bar': '2', 'foo': 1}])

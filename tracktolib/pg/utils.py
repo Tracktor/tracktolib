@@ -12,6 +12,7 @@ except ImportError:
     raise ImportError('Please install tracktolib with "pg" to use this module')
 
 from tracktolib.utils import get_chunks
+from tracktolib.pg_utils import get_tmp_table_query
 
 logger = logging.Logger('tracktolib-pg')
 
@@ -34,16 +35,6 @@ _GET_TABLE_INFOS_QUERY = """
 SELECT column_name, data_type, character_maximum_length
 FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2;
 """
-
-
-def get_tmp_table_query(schema: str, table: str):
-    tmp_table_name = f'{schema}_{table}_tmp'
-    create_tmp_table_query = f"""
-    CREATE TEMP TABLE {tmp_table_name}
-    (LIKE {schema}.{table} INCLUDING DEFAULTS)
-    ON COMMIT DROP;
-    """
-    return tmp_table_name, create_tmp_table_query
 
 
 def _str_to_date(value: str) -> dt.date | None:
@@ -104,7 +95,7 @@ async def upsert_csv(conn: asyncpg.Connection,
         reader = csv.DictReader(f)
         _columns = [x.lower() for x in (reader.fieldnames or [])]
         async with conn.transaction():
-            _tmp_table, _tmp_query = get_tmp_table_query(schema, table)
+            _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table)
             logger.info(f'Creating tmp table: {_tmp_table!r}')
             await conn.execute(_tmp_query)
             logger.info(f'Inserting data from {csv_path!r} to {_tmp_table!r}')
@@ -117,12 +108,5 @@ async def upsert_csv(conn: asyncpg.Connection,
                                                      columns=_columns,
                                                      records=_data)
                     progress.update(task1, advance=chunk_size)
-
-            _insert_table_to_table = f"""
-                INSERT INTO {schema}.{table}
-                SELECT *
-                FROM {_tmp_table}
-                ON CONFLICT DO NOTHING;
-            """
             logger.info(f'Inserting data from {_tmp_table} to "{schema}.{table}"')
-            await conn.execute(_insert_table_to_table)
+            await conn.execute(_insert_query)
