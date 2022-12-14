@@ -3,15 +3,15 @@ from pathlib import Path
 
 try:
     from psycopg import Connection, Cursor
+    from psycopg.abc import Query
     from psycopg.errors import InvalidCatalogName
-    from psycopg import connection, cursor
 except ImportError:
     raise ImportError('Please install tracktolib with "pg-sync" to use this module')
 
 from .pg_utils import get_tmp_table_query
 
 
-def fetch_all(engine: Connection, query: str, *data) -> list[dict]:
+def fetch_all(engine: Connection, query: Query, *data) -> list[dict]:
     with engine.cursor() as cur:
         cur.execute(query) if not data else cur.execute(query, data)
         col_names = [desc[0] for desc in cur.description or []]
@@ -31,20 +31,20 @@ def fetch_count(engine: Connection, table: str, where: str | None = None) -> int
 
 
 @overload
-def fetch_one(engine: Connection, query: str, *args,
+def fetch_one(engine: Connection, query: Query, *args,
               required: Literal[False]) -> dict | None: ...
 
 
 @overload
-def fetch_one(engine: Connection, query: str, *args,
+def fetch_one(engine: Connection, query: Query, *args,
               required: Literal[True]) -> dict: ...
 
 
 @overload
-def fetch_one(engine: Connection, query: str, *args) -> dict | None: ...
+def fetch_one(engine: Connection, query: Query, *args) -> dict | None: ...
 
 
-def fetch_one(engine: Connection, query: str, *args,
+def fetch_one(engine: Connection, query: Query, *args,
               required: bool = False) -> dict | None:
     with engine.cursor() as cur:
         cur.execute(query, args)

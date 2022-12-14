@@ -737,7 +737,7 @@ tests = ["deepdiff"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "a0ee02a1a9dc3dc331a5f5da02eeca8bd6c10ca0717b44a1d0f8d8448246c30d"
+content-hash = "2a50d5e5f1a9a6370708aa3bc89ded2cbf70f9ed3f6c38cfc69050f5fb397ee1"
 
 [metadata.files]
 aiobotocore = [
