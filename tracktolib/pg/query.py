@@ -2,7 +2,7 @@ import typing
 from dataclasses import dataclass, field
 from typing import (
     TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias,
-    overload)
+    overload, Any)
 
 try:
     import asyncpg
@@ -234,7 +234,7 @@ async def insert_returning(conn: asyncpg.Connection,
                            item: dict,
                            returning: str,
                            on_conflict: OnConflict | None = None,
-                           fill: bool = False): ...
+                           fill: bool = False) -> Any | None: ...
 
 
 @overload
@@ -243,7 +243,7 @@ async def insert_returning(conn: asyncpg.Connection,
                            item: dict,
                            returning: list[str],
                            on_conflict: OnConflict | None = None,
-                           fill: bool = False) -> asyncpg.Record: ...
+                           fill: bool = False) -> asyncpg.Record | None: ...
 
 
 async def insert_returning(conn: asyncpg.Connection,
@@ -251,7 +251,7 @@ async def insert_returning(conn: asyncpg.Connection,
                            item: dict,
                            returning: list[str] | str,
                            on_conflict: OnConflict | None = None,
-                           fill: bool = False) -> asyncpg.Record:
+                           fill: bool = False) -> asyncpg.Record | Any | None:
     returning_values = [returning] if isinstance(returning, str) else returning
     query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill,
                       returning=returning_values)
