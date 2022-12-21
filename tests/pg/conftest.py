@@ -60,3 +60,10 @@ def aengine(loop, pg_url) -> asyncpg.Connection:
     conn = loop.run_until_complete(asyncpg.connect(pg_url))
     yield conn
     loop.run_until_complete(asyncio.wait_for(conn.close(), timeout=1))
+
+
+@pytest.fixture(scope='session')
+def apool(loop, pg_url) -> Iterator[asyncpg.pool.Pool]:
+    pool = loop.run_until_complete(asyncpg.create_pool(pg_url, loop=loop))
+    yield pool
+    loop.run_until_complete(asyncio.wait_for(pool.close(), timeout=1))

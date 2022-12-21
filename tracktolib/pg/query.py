@@ -55,6 +55,8 @@ def _get_on_conflict_query(query: str,
 ReturningFn = Callable[[Iterable[K] | None, K | None], None]
 ConflictFn = Callable[[Iterable[K] | None, Iterable[K] | None, str | None], None]
 
+_Connection = asyncpg.Connection | asyncpg.pool.Pool
+
 
 @dataclass
 class PGReturningQuery(Generic[K]):
@@ -158,26 +160,26 @@ class PGInsertQuery(Generic[K, V]):
     def _get_values(self):
         return next(self.iter_values()) if len(self.items) == 1 else list(self.iter_values())
 
-    async def run(self, conn: asyncpg.Connection,
+    async def run(self, conn: _Connection,
                   timeout: float | None = None):
         if len(self.items) == 1:
             await conn.execute(self.query, *self.values, timeout=timeout)
         else:
             await conn.executemany(self.query, self.values, timeout=timeout)
 
-    async def fetch(self, conn: asyncpg.Connection,
+    async def fetch(self, conn: _Connection,
                     timeout: float | None = None) -> list[asyncpg.Record]:
         return await conn.fetch(self.query,
                                 self._get_values(),
                                 timeout=timeout)
 
-    async def fetchrow(self, conn: asyncpg.Connection,
+    async def fetchrow(self, conn: _Connection,
                        timeout: float | None = None) -> asyncpg.Record | None:
         return await conn.fetchrow(self.query,
                                    *self._get_values(),
                                    timeout=timeout)
 
-    async def fetchval(self, conn: asyncpg.Connection,
+    async def fetchval(self, conn: _Connection,
                        *,
                        column: int = 0,
                        timeout: float | None = None):
@@ -185,7 +187,7 @@ class PGInsertQuery(Generic[K, V]):
                                    *self._get_values(),
                                    timeout=timeout, column=column)
 
-    async def exists(self, conn: asyncpg.Connection,
+    async def exists(self, conn: _Connection,
                      *,
                      timeout: float | None = None) -> bool:
         return await conn.fetchval(f'SELECT EXISTS({self.query})',
@@ -210,7 +212,7 @@ def insert_pg(
                          returning=_returning)
 
 
-async def insert_one(conn: asyncpg.Connection,
+async def insert_one(conn: _Connection,
                      table: str, item: dict,
                      *,
                      on_conflict: OnConflict | None = None,
@@ -219,7 +221,7 @@ async def insert_one(conn: asyncpg.Connection,
     await query.run(conn)
 
 
-async def insert_many(conn: asyncpg.Connection,
+async def insert_many(conn: _Connection,
                       table: str, items: list[dict],
                       *,
                       on_conflict: OnConflict | None = None,
@@ -229,7 +231,7 @@ async def insert_many(conn: asyncpg.Connection,
 
 
 @overload
-async def insert_returning(conn: asyncpg.Connection,
+async def insert_returning(conn: _Connection,
                            table: str,
                            item: dict,
                            returning: str,
@@ -238,7 +240,7 @@ async def insert_returning(conn: asyncpg.Connection,
 
 
 @overload
-async def insert_returning(conn: asyncpg.Connection,
+async def insert_returning(conn: _Connection,
                            table: str,
                            item: dict,
                            returning: list[str],
@@ -246,7 +248,7 @@ async def insert_returning(conn: asyncpg.Connection,
                            fill: bool = False) -> asyncpg.Record | None: ...
 
 
-async def insert_returning(conn: asyncpg.Connection,
+async def insert_returning(conn: _Connection,
                            table: str,
                            item: dict,
                            returning: list[str] | str,
@@ -260,7 +262,7 @@ async def insert_returning(conn: asyncpg.Connection,
     return await fn(query.query, *query.values)
 
 
-async def fetch_count(conn: asyncpg.Connection, query: str, *args) -> int:
+async def fetch_count(conn: _Connection, query: str, *args) -> int:
     c = await conn.fetchval(f"SELECT COUNT(*) FROM ({query}) t", *args)
     return typing.cast(int, c)
 

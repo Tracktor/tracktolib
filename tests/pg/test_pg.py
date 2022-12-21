@@ -89,20 +89,28 @@ def test_pg_insert_query(data, on_conflict, returning, expected):
     compare_strings(query, expected)
 
 
+@pytest.mark.parametrize('async_engine', ['connection', 'pool'])
 @pytest.mark.usefixtures('setup_tables')
-def test_insert_one(loop, aengine, engine):
+def test_insert_one(loop, aengine, apool, engine, async_engine):
     from tracktolib.pg import insert_one
-    loop.run_until_complete(insert_one(aengine, 'foo.foo', {'foo': 1}))
+
+    _engine = aengine if async_engine == 'connection' else apool
+
+    loop.run_until_complete(insert_one(_engine, 'foo.foo', {'foo': 1}))
 
     db_data = fetch_all(engine, 'SELECT bar, foo FROM foo.foo')
     assert db_data == [{'bar': None, 'foo': 1}]
 
 
+@pytest.mark.parametrize('async_engine', ['connection', 'pool'])
 @pytest.mark.usefixtures('setup_tables')
-def test_insert_many(loop, aengine, engine):
+def test_insert_many(loop, aengine, apool, engine, async_engine):
     from tracktolib.pg import insert_many
+
+    _engine = aengine if async_engine == 'connection' else apool
+
     loop.run_until_complete(
-        insert_many(aengine, 'foo.foo', [{'foo': 1}, {'bar': 'hello'}],
+        insert_many(_engine, 'foo.foo', [{'foo': 1}, {'bar': 'hello'}],
                     fill=True)
     )
 
