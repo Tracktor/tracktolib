@@ -1,3 +1,4 @@
+import json
 from dataclasses import field, dataclass
 from inspect import getdoc
 from typing import (
@@ -7,7 +8,6 @@ from typing import (
     get_type_hints, get_args, TypedDict,
     TypeAlias
 )
-import json
 
 from .utils import json_serial
 
@@ -51,6 +51,7 @@ class MethodMeta(TypedDict):
     fn: EnpointFn
     status_code: StatusCode
     dependencies: Dependencies
+    path: str | None
 
 
 @dataclass
@@ -63,45 +64,57 @@ class Endpoint:
         return self._methods
 
     def get(self, status_code: StatusCode = None,
-            dependencies: Dependencies = None):
+            dependencies: Dependencies = None,
+            path: str | None = None):
         return _get_method_wrapper(cls=self, method='GET',
                                    status_code=status_code,
-                                   dependencies=dependencies)
+                                   dependencies=dependencies,
+                                   path=path)
 
     def post(self, *, status_code: StatusCode = None,
-             dependencies: Dependencies = None):
+             dependencies: Dependencies = None,
+             path: str | None = None):
         return _get_method_wrapper(cls=self, method='POST',
                                    status_code=status_code,
-                                   dependencies=dependencies)
+                                   dependencies=dependencies,
+                                   path=path)
 
     def put(self, status_code: StatusCode = None,
-            dependencies: Dependencies = None):
+            dependencies: Dependencies = None,
+            path: str | None = None):
         return _get_method_wrapper(cls=self, method='PUT',
                                    status_code=status_code,
-                                   dependencies=dependencies)
+                                   dependencies=dependencies,
+                                   path=path)
 
     def delete(self, status_code: StatusCode = None,
-               dependencies: Dependencies = None):
+               dependencies: Dependencies = None,
+               path: str | None = None):
         return _get_method_wrapper(cls=self, method='DELETE',
                                    status_code=status_code,
-                                   dependencies=dependencies)
+                                   dependencies=dependencies,
+                                   path=path)
 
     def patch(self, status_code: StatusCode = None,
-              dependencies: Dependencies = None):
+              dependencies: Dependencies = None,
+              path: str | None = None):
         return _get_method_wrapper(cls=self, method='PATCH',
                                    status_code=status_code,
-                                   dependencies=dependencies)
+                                   dependencies=dependencies,
+                                   path=path)
 
 
 def _get_method_wrapper(cls: Endpoint, method: Method,
                         *,
                         status_code: StatusCode = None,
-                        dependencies: Dependencies = None):
+                        dependencies: Dependencies = None,
+                        path: str | None = None):
     def _set_method_wrapper(func: EnpointFn):
         _meta: MethodMeta = {
             'fn': func,
             'status_code': status_code,
-            'dependencies': dependencies
+            'dependencies': dependencies,
+            'path': path
         }
         cls._methods[method] = _meta
 
@@ -129,11 +142,16 @@ def add_endpoint(path: str,
         _fn = _meta['fn']
         _status_code = _meta['status_code']
         _dependencies = _meta['dependencies']
+        _path = _meta['path']
+
         try:
             response_model = _get_return_type(_fn)
         except KeyError:
             raise ValueError(f'Could not find a return type for {_method} {path}')
-        router.add_api_route(path, _fn, methods=[_method],
+
+        full_path = path if not _path else f'{path}/{_path}'
+        router.add_api_route(full_path,
+                             _fn, methods=[_method],
                              name=getdoc(_fn),
                              response_model=response_model,
                              status_code=_status_code,
