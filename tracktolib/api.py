@@ -6,7 +6,7 @@ from typing import (
     Literal, Sequence,
     AsyncIterator, Coroutine,
     get_type_hints, get_args, TypedDict,
-    TypeAlias
+    TypeAlias, Type
 )
 
 from .utils import json_serial
@@ -35,6 +35,8 @@ def Depends(
     return params.Depends(dependency, use_cache=use_cache)  # pyright: ignore [reportGeneralTypeIssues]
 
 
+ResponseModel: TypeAlias = Type[BaseModel] | Sequence[Type[BaseModel]]
+
 B = TypeVar('B', bound=BaseModel | None | Sequence[BaseModel])
 
 Response = dict | list[dict] | B
@@ -52,6 +54,7 @@ class MethodMeta(TypedDict):
     status_code: StatusCode
     dependencies: Dependencies
     path: str | None
+    response_model: ResponseModel | None
 
 
 @dataclass
@@ -65,56 +68,68 @@ class Endpoint:
 
     def get(self, status_code: StatusCode = None,
             dependencies: Dependencies = None,
-            path: str | None = None):
+            path: str | None = None,
+            model: ResponseModel | None = None):
         return _get_method_wrapper(cls=self, method='GET',
                                    status_code=status_code,
                                    dependencies=dependencies,
-                                   path=path)
+                                   path=path,
+                                   model=model)
 
     def post(self, *, status_code: StatusCode = None,
              dependencies: Dependencies = None,
-             path: str | None = None):
+             path: str | None = None,
+             model: ResponseModel | None = None):
         return _get_method_wrapper(cls=self, method='POST',
                                    status_code=status_code,
                                    dependencies=dependencies,
-                                   path=path)
+                                   path=path,
+                                   model=model)
 
     def put(self, status_code: StatusCode = None,
             dependencies: Dependencies = None,
-            path: str | None = None):
+            path: str | None = None,
+            model: ResponseModel | None = None):
         return _get_method_wrapper(cls=self, method='PUT',
                                    status_code=status_code,
                                    dependencies=dependencies,
-                                   path=path)
+                                   path=path,
+                                   model=model)
 
     def delete(self, status_code: StatusCode = None,
                dependencies: Dependencies = None,
-               path: str | None = None):
+               path: str | None = None,
+               model: ResponseModel | None = None):
         return _get_method_wrapper(cls=self, method='DELETE',
                                    status_code=status_code,
                                    dependencies=dependencies,
-                                   path=path)
+                                   path=path,
+                                   model=model)
 
     def patch(self, status_code: StatusCode = None,
               dependencies: Dependencies = None,
-              path: str | None = None):
+              path: str | None = None,
+              model: ResponseModel | None = None):
         return _get_method_wrapper(cls=self, method='PATCH',
                                    status_code=status_code,
                                    dependencies=dependencies,
-                                   path=path)
+                                   path=path,
+                                   model=model)
 
 
 def _get_method_wrapper(cls: Endpoint, method: Method,
                         *,
                         status_code: StatusCode = None,
                         dependencies: Dependencies = None,
-                        path: str | None = None):
+                        path: str | None = None,
+                        model: ResponseModel | None = None):
     def _set_method_wrapper(func: EnpointFn):
         _meta: MethodMeta = {
             'fn': func,
             'status_code': status_code,
             'dependencies': dependencies,
-            'path': path
+            'path': path,
+            'response_model': model
         }
         cls._methods[method] = _meta
 
@@ -143,17 +158,18 @@ def add_endpoint(path: str,
         _status_code = _meta['status_code']
         _dependencies = _meta['dependencies']
         _path = _meta['path']
-
-        try:
-            response_model = _get_return_type(_fn)
-        except KeyError:
-            raise ValueError(f'Could not find a return type for {_method} {path}')
+        _response_model = _meta['response_model']
+        if not _response_model:
+            try:
+                _response_model = _get_return_type(_fn)
+            except KeyError:
+                raise ValueError(f'Could not find a return type for {_method} {path}')
 
         full_path = path if not _path else f'{path}/{_path}'
         router.add_api_route(full_path,
                              _fn, methods=[_method],
                              name=getdoc(_fn),
-                             response_model=response_model,
+                             response_model=_response_model,
                              status_code=_status_code,
                              dependencies=[*(_dependencies or []), *(dependencies or [])])
 

@@ -21,12 +21,12 @@ def fetch_all(engine: Connection, query: LiteralString, *data) -> list[dict]:
     return resp
 
 
-def fetch_count(engine: Connection, table: str, where: str | None = None) -> int | None:
+def fetch_count(engine: Connection, table: str, *args, where: str | None = None) -> int | None:
     query = f'SELECT count(*) from {table}'
     if where:
         query = f'{query} WHERE {where}'
     with engine.cursor() as cur:
-        count = cur.execute(cast(LiteralString, query)).fetchone()
+        count = cur.execute(cast(LiteralString, query), params=args).fetchone()
 
     return count[0] if count else None
 

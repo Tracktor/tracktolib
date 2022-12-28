@@ -62,9 +62,10 @@ def test_add_endpoint(router):
     async def bar_endpoint(return_empty: bool = False) -> Response[ReturnBar | None]:
         return {'foo': 1} if not return_empty else None
 
-    @endpoint3.get(path='foo/{foo}/bar/{bar}')
+    @endpoint3.get(path='foo/{foo}/bar/{bar}',
+                   model=ReturnFooBar)
     async def path_endpoint(foo: int,
-                            bar: str) -> Response[ReturnFooBar]:
+                            bar: str):
         return {'foo': foo, 'bar': bar}
 
     add_endpoint('/foo', router, endpoint)

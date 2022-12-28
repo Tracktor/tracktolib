@@ -91,12 +91,9 @@ class PGConflictQuery(Generic[K]):
 
 
 @dataclass
-class PGInsertQuery(Generic[K, V]):
+class PGQuery(Generic[K, V]):
     table: str
     items: list[dict[K, V]]
-
-    returning: PGReturningQuery | None = None
-    on_conflict: PGConflictQuery | None = None
 
     fill: bool = field(kw_only=True, default=False)
 
@@ -114,44 +111,14 @@ class PGInsertQuery(Generic[K, V]):
             yield tuple(_item[k] for k in _keys)
 
     @property
-    def has_conflict(self):
-        return self.on_conflict is not None
-
-    @property
-    def is_returning(self):
-        return self.returning is not None
-
-    @property
     def query(self) -> str:
-        _values = ', '.join(f'${i + 1}' for i, _ in enumerate(self.keys))
-        _keys = self.keys
-
-        query = _get_insert_query(self.table, _keys, _values)
-
-        # Conflict
-        if self.on_conflict:
-            query = _get_on_conflict_query(query,
-                                           _keys,
-                                           self.on_conflict.keys,
-                                           self.on_conflict.ignore_keys,
-                                           self.on_conflict.constraint,
-                                           self.on_conflict.query)
-
-        # Returning
-        if self.returning is not None:
-            if self.returning.returning_ids is None:
-                raise ValueError('No returning ids found')
-            if len(self.items) == 1:
-                query = _get_returning_query(query, self.returning.returning_ids)
-            else:
-                raise NotImplementedError('Cannot return value when inserting many.')
-
-        return query
+        raise NotImplementedError()
 
     def _check_keys(self, keys: list[K]):
         invalid_keys = set(keys) - set(self.keys)
         if invalid_keys:
-            raise ValueError(f'Invalid keys found: {invalid_keys}')
+            _invalid_keys = ', '.join(f'{x!r}' for x in invalid_keys)
+            raise ValueError(f'Invalid key(s) found: {_invalid_keys}')
 
     @property
     def values(self):
@@ -193,6 +160,112 @@ class PGInsertQuery(Generic[K, V]):
         return await conn.fetchval(f'SELECT EXISTS({self.query})',
                                    *self._get_values(),
                                    timeout=timeout)
+
+
+@dataclass
+class PGInsertQuery(PGQuery):
+    returning: PGReturningQuery | None = None
+    on_conflict: PGConflictQuery | None = None
+
+    @property
+    def has_conflict(self):
+        return self.on_conflict is not None
+
+    @property
+    def is_returning(self):
+        return self.returning is not None
+
+    @property
+    def query(self) -> str:
+        _values = ', '.join(f'${i + 1}' for i, _ in enumerate(self.keys))
+        _keys = self.keys
+
+        query = _get_insert_query(self.table, _keys, _values)
+
+        # Conflict
+        if self.on_conflict:
+            query = _get_on_conflict_query(query,
+                                           _keys,
+                                           self.on_conflict.keys,
+                                           self.on_conflict.ignore_keys,
+                                           self.on_conflict.constraint,
+                                           self.on_conflict.query)
+
+        # Returning
+        if self.returning is not None:
+            if self.returning.returning_ids is None:
+                raise ValueError('No returning ids found')
+            if len(self.items) == 1:
+                query = _get_returning_query(query, self.returning.returning_ids)
+            else:
+                raise NotImplementedError('Cannot return value when inserting many.')
+
+        return query
+
+
+def get_update_fields(item: dict, *, start_from: int = 0,
+                      ignore_keys: list[str] | None = None) -> tuple[str, list]:
+    values, fields, where_values = [], [], []
+    counter = 0
+    for k, v in item.items():
+        if ignore_keys and k in ignore_keys:
+            where_values.append(v)
+            continue
+        values.append(v)
+        fields.append(f'{k} = ${counter + start_from + 1}')
+        counter += 1
+    return ',\n'.join(fields), values + where_values
+
+
+@dataclass
+class PGUpdateQuery(PGQuery):
+    """Value to start the arguments from:
+    For instance, with a value of 10, the first argument will be $11
+    """
+    start_from: int | None = None
+    """Keys to use for the WHERE clause. Theses fields will not be updated"""
+    where_keys: list[str] | None = None
+    """Where condition for the update query"""
+    where: str | None = None
+    returning: str | list[str] | None = None
+
+    _update_fields: str | None = field(init=False, default=None)
+    _values: list | None = field(init=False, default=None)
+
+    def __post_init__(self):
+        if self.where_keys:
+            self._check_keys(self.where_keys)
+        self._update_fields, self._values = get_update_fields(self.items[0],
+                                                              start_from=self.start_from or 0,
+                                                              ignore_keys=self.where_keys)
+
+    @property
+    def values(self):
+        if not self._values:
+            raise ValueError('No values found')
+        return self._values
+
+    def _get_where_query(self) -> str:
+        if self.where:
+            return self.where
+        elif self.where_keys is not None:
+            start_from = self.start_from if self.start_from is not None else len(self.values) - len(self.where_keys)
+            return 'WHERE ' + ' AND '.join(f'{k} = ${i + start_from + 1}' for i, k in enumerate(self.where_keys))
+        return ''
+
+    @property
+    def query(self) -> str:
+        if not self._update_fields:
+            raise ValueError('No update fields found')
+
+        query = f"""
+        UPDATE {self.table}
+            SET {self._update_fields}
+        {self._get_where_query()}
+        """
+        if self.returning:
+            query = _get_returning_query(query.strip(), self.returning)
+        return query
 
 
 OnConflict: TypeAlias = PGConflictQuery | str
@@ -272,3 +345,60 @@ def Conflict(
         ignore_keys: Iterable[K] | None = None,
 ) -> PGConflictQuery:
     return PGConflictQuery(keys=keys, ignore_keys=ignore_keys)
+
+
+async def update_one(
+        conn: _Connection,
+        table: str,
+        item: dict,
+        *args,
+        keys: list[str] | None = None,
+        start_from: int | None = None,
+        where: str | None = None,
+):
+    query = PGUpdateQuery(table=table, items=[item],
+                          start_from=start_from,
+                          where_keys=keys,
+                          where=where)
+    await conn.execute(query.query, *args, *query.values)
+
+
+@overload
+async def update_returning(conn: _Connection,
+                           table: str,
+                           item: dict,
+                           *args,
+                           returning: str,
+                           where: str | None = None,
+                           keys: list[str] | None = None,
+                           start_from: int | None = None) -> Any | None: ...
+
+
+@overload
+async def update_returning(conn: _Connection,
+                           table: str,
+                           item: dict,
+                           *args,
+                           returning: list[str],
+                           where: str | None = None,
+                           keys: list[str] | None = None,
+                           start_from: int | None = None,
+                           ) -> asyncpg.Record | None: ...
+
+
+async def update_returning(
+        conn: _Connection,
+        table: str,
+        item: dict,
+        *args,
+        returning: list[str] | str,
+        where: str | None = None,
+        keys: list[str] | None = None,
+        start_from: int | None = None,
+) -> Any | asyncpg.Record | None:
+    returning_values = [returning] if isinstance(returning, str) else returning
+    query = PGUpdateQuery(table=table, items=[item],
+                          start_from=start_from, where=where, where_keys=keys,
+                          returning=returning_values)
+    fn = conn.fetchval if len(returning_values) == 1 else conn.fetchrow
+    return await fn(query.query, *args, *query.values)

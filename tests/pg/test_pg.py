@@ -240,3 +240,69 @@ def test_fetch_count(aengine, loop):
         fetch_count(aengine, 'SELECT 1 FROM foo.foo')
     )
     assert count == 10
+
+
+@pytest.mark.parametrize('data,params,expected', [
+    (
+            {'foo': 1},
+            {'start_from': 0, 'where': None, 'returning': None},
+            'UPDATE schema.table SET foo = $1'
+    ),
+    (
+            {'foo': 1},
+            {'start_from': 1, 'where': 'WHERE bar = $1', 'returning': None},
+            'UPDATE schema.table SET foo = $2 WHERE bar = $1'
+    ),
+    (
+            {'foo': 1},
+            {'returning': ['foo']},
+            'UPDATE schema.table SET foo = $1 RETURNING foo'
+    ),
+    (
+            {'foo': 1, 'id': 1},
+            {'where_keys': ['id']},
+            'UPDATE schema.table SET foo = $1 WHERE id = $2'
+    ),
+])
+def test_pg_update_query(data, params, expected):
+    from tracktolib.pg import PGUpdateQuery
+    query = PGUpdateQuery('schema.table', [data], **params).query
+    compare_strings(query, expected)
+
+
+@pytest.mark.usefixtures('setup_tables', 'insert_data')
+def test_update_one(aengine, loop, engine):
+    from tracktolib.pg import update_one
+    loop.run_until_complete(
+        update_one(aengine, 'foo.foo', {'foo': 1},
+                   1,
+                   start_from=1,
+                   where='WHERE id = $1')
+    )
+
+
+@pytest.mark.usefixtures('setup_tables', 'insert_data')
+def test_update_one_keys(aengine, loop, engine):
+    from tracktolib.pg import update_one
+    loop.run_until_complete(
+        update_one(aengine, 'foo.foo', {'foo': 2, 'id': 1},
+                   keys=['id'])
+    )
+
+
+@pytest.mark.parametrize('param_args,params_kwargs,expected', [
+    ([{'foo': 1}, 1], {'returning': 'foo', 'start_from': 1, 'where': 'WHERE id =$1'}, 1),
+    ([{'foo': 2, 'id': 1}], {'returning': 'foo', 'keys': ['id']}, 2),
+])
+@pytest.mark.usefixtures('setup_tables', 'insert_data')
+def test_update_one_returning(aengine, loop, engine,
+                              param_args,
+                              params_kwargs,
+                              expected):
+    from tracktolib.pg import update_returning
+    value = loop.run_until_complete(
+        update_returning(aengine, 'foo.foo',
+                         *param_args,
+                         **params_kwargs)
+    )
+    assert value == expected

@@ -42,6 +42,7 @@ def test_fetch_count(engine):
 
     assert fetch_count(engine, 'foo.bar') == 2
     assert fetch_count(engine, 'foo.bar', where='foo = 1') == 1
+    assert fetch_count(engine, 'foo.bar', 1, where='foo = %s') == 1
 
 
 def test_insert_many(engine):
