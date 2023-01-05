@@ -314,3 +314,11 @@ def test_update_one_returning(aengine, loop, engine,
                          **params_kwargs)
     )
     assert value if not isinstance(value, asyncpg.Record) else dict(value) == expected
+
+
+async def check_update_one_types(aengine):
+    """This won't be called, only used to check types"""
+    from tracktolib.pg import update_returning
+
+    await update_returning(aengine, 'foo.foo', {'foo': 1}, returning='foo')
+    await update_returning(aengine, 'foo.foo', {'foo': 1}, return_keys=True)
