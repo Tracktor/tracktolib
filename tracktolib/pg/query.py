@@ -2,7 +2,7 @@ import typing
 from dataclasses import dataclass, field
 from typing import (
     TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias,
-    overload, Any)
+    overload, Any, Literal)
 
 try:
     import asyncpg
@@ -228,6 +228,8 @@ class PGUpdateQuery(PGQuery):
     """Where condition for the update query"""
     where: str | None = None
     returning: str | list[str] | None = None
+    """If True, the query will return all the updated fields"""
+    return_keys: bool = False
 
     _update_fields: str | None = field(init=False, default=None)
     _values: list | None = field(init=False, default=None)
@@ -238,6 +240,8 @@ class PGUpdateQuery(PGQuery):
         self._update_fields, self._values = get_update_fields(self.items[0],
                                                               start_from=self.start_from or 0,
                                                               ignore_keys=self.where_keys)
+        if self.returning and self.return_keys:
+            raise ValueError('Please choose either returning or return_keys')
 
     @property
     def values(self):
@@ -263,8 +267,9 @@ class PGUpdateQuery(PGQuery):
             SET {self._update_fields}
         {self._get_where_query()}
         """
-        if self.returning:
-            query = _get_returning_query(query.strip(), self.returning)
+        if self.returning or self.return_keys:
+            returning = self.returning or [k for k in self.keys if k not in self.where_keys]
+            query = _get_returning_query(query.strip(), returning)
         return query
 
 
@@ -369,6 +374,7 @@ async def update_returning(conn: _Connection,
                            item: dict,
                            *args,
                            returning: str,
+                           return_keys: bool,
                            where: str | None = None,
                            keys: list[str] | None = None,
                            start_from: int | None = None) -> Any | None: ...
@@ -380,6 +386,20 @@ async def update_returning(conn: _Connection,
                            item: dict,
                            *args,
                            returning: list[str],
+                           return_keys: bool,
+                           where: str | None = None,
+                           keys: list[str] | None = None,
+                           start_from: int | None = None,
+                           ) -> asyncpg.Record | None: ...
+
+
+@overload
+async def update_returning(conn: _Connection,
+                           table: str,
+                           item: dict,
+                           *args,
+                           returning: list[str] | str,
+                           return_keys: Literal[True],
                            where: str | None = None,
                            keys: list[str] | None = None,
                            start_from: int | None = None,
@@ -391,14 +411,19 @@ async def update_returning(
         table: str,
         item: dict,
         *args,
-        returning: list[str] | str,
+        returning: list[str] | str | None = None,
+        return_keys: bool = False,
         where: str | None = None,
         keys: list[str] | None = None,
         start_from: int | None = None,
 ) -> Any | asyncpg.Record | None:
-    returning_values = [returning] if isinstance(returning, str) else returning
+    if returning is not None:
+        returning_values = [returning] if isinstance(returning, str) else returning
+    else:
+        returning_values = None
     query = PGUpdateQuery(table=table, items=[item],
                           start_from=start_from, where=where, where_keys=keys,
+                          return_keys=return_keys,
                           returning=returning_values)
-    fn = conn.fetchval if len(returning_values) == 1 else conn.fetchrow
+    fn = conn.fetchval if len(returning_values or []) == 1 else conn.fetchrow
     return await fn(query.query, *args, *query.values)

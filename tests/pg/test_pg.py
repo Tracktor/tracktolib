@@ -1,3 +1,4 @@
+import asyncpg
 import pytest
 
 from tracktolib.pg_sync import fetch_all
@@ -263,6 +264,11 @@ def test_fetch_count(aengine, loop):
             {'where_keys': ['id']},
             'UPDATE schema.table SET foo = $1 WHERE id = $2'
     ),
+    (
+            {'foo': 1, 'id': 1},
+            {'where_keys': ['id'], 'return_keys': True},
+            'UPDATE schema.table SET foo = $1 WHERE id = $2 RETURNING foo'
+    ),
 ])
 def test_pg_update_query(data, params, expected):
     from tracktolib.pg import PGUpdateQuery
@@ -293,6 +299,8 @@ def test_update_one_keys(aengine, loop, engine):
 @pytest.mark.parametrize('param_args,params_kwargs,expected', [
     ([{'foo': 1}, 1], {'returning': 'foo', 'start_from': 1, 'where': 'WHERE id =$1'}, 1),
     ([{'foo': 2, 'id': 1}], {'returning': 'foo', 'keys': ['id']}, 2),
+    ([{'foo': 2, 'id': 1}], {'returning': 'foo', 'keys': ['id']}, 2),
+    ([{'foo': 2, 'id': 1}], {'return_keys': True, 'keys': ['id']}, {'foo': 2}),
 ])
 @pytest.mark.usefixtures('setup_tables', 'insert_data')
 def test_update_one_returning(aengine, loop, engine,
@@ -305,4 +313,4 @@ def test_update_one_returning(aengine, loop, engine,
                          *param_args,
                          **params_kwargs)
     )
-    assert value == expected
+    assert value if not isinstance(value, asyncpg.Record) else dict(value) == expected
