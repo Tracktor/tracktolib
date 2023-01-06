@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from starlette import status
+from dataclasses import dataclass
 
 
 @pytest.fixture()
@@ -87,3 +88,19 @@ def test_add_endpoint(router):
     assert resp5.json() == [{'foo': 2, 'bar': 'baz'}]
 
     assert depends_called
+
+
+def check_json_serial_types():
+    from tracktolib.api import JSONSerialResponse
+
+    @dataclass
+    class Bar:
+        foo: int = 1
+
+    def _json_serial(obj):
+        if isinstance(obj, Bar):
+            return str(obj.foo)
+        raise TypeError(f'Object of type {type(obj)} is not JSON serializable')
+
+    class Foo(JSONSerialResponse):
+        json_serial = _json_serial

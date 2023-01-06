@@ -6,7 +6,7 @@ from typing import (
     Literal, Sequence,
     AsyncIterator, Coroutine,
     get_type_hints, get_args, TypedDict,
-    TypeAlias, Type
+    TypeAlias, Type, ClassVar
 )
 
 from .utils import json_serial
@@ -172,7 +172,12 @@ def add_endpoint(path: str,
                              dependencies=[*(_dependencies or []), *(dependencies or [])])
 
 
+@dataclass
 class JSONSerialResponse(JSONResponse):
+    json_serial: ClassVar[Callable[[Any], str]] = field(default=json_serial)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def render(self, content: Any) -> bytes:
         return json.dumps(
@@ -181,5 +186,5 @@ class JSONSerialResponse(JSONResponse):
             allow_nan=False,
             indent=None,
             separators=(",", ":"),
-            default=json_serial
+            default=self.json_serial
         ).encode("utf-8")
