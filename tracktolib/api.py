@@ -35,8 +35,6 @@ def Depends(
     return params.Depends(dependency, use_cache=use_cache)  # pyright: ignore [reportGeneralTypeIssues]
 
 
-ResponseModel: TypeAlias = Type[BaseModel] | Sequence[Type[BaseModel]]
-
 B = TypeVar('B', bound=BaseModel | None | Sequence[BaseModel])
 
 Response = dict | list[dict] | B
@@ -54,7 +52,7 @@ class MethodMeta(TypedDict):
     status_code: StatusCode
     dependencies: Dependencies
     path: str | None
-    response_model: ResponseModel | None
+    response_model: Type[BaseModel | None | Sequence[BaseModel]] | None
 
 
 @dataclass
@@ -69,7 +67,7 @@ class Endpoint:
     def get(self, status_code: StatusCode = None,
             dependencies: Dependencies = None,
             path: str | None = None,
-            model: ResponseModel | None = None):
+            model: Type[B] = None):
         return _get_method_wrapper(cls=self, method='GET',
                                    status_code=status_code,
                                    dependencies=dependencies,
@@ -79,7 +77,7 @@ class Endpoint:
     def post(self, *, status_code: StatusCode = None,
              dependencies: Dependencies = None,
              path: str | None = None,
-             model: ResponseModel | None = None):
+             model: Type[B] | None = None):
         return _get_method_wrapper(cls=self, method='POST',
                                    status_code=status_code,
                                    dependencies=dependencies,
@@ -89,7 +87,7 @@ class Endpoint:
     def put(self, status_code: StatusCode = None,
             dependencies: Dependencies = None,
             path: str | None = None,
-            model: ResponseModel | None = None):
+            model: Type[B] | None = None):
         return _get_method_wrapper(cls=self, method='PUT',
                                    status_code=status_code,
                                    dependencies=dependencies,
@@ -99,7 +97,7 @@ class Endpoint:
     def delete(self, status_code: StatusCode = None,
                dependencies: Dependencies = None,
                path: str | None = None,
-               model: ResponseModel | None = None):
+               model: Type[B] | None = None):
         return _get_method_wrapper(cls=self, method='DELETE',
                                    status_code=status_code,
                                    dependencies=dependencies,
@@ -109,7 +107,7 @@ class Endpoint:
     def patch(self, status_code: StatusCode = None,
               dependencies: Dependencies = None,
               path: str | None = None,
-              model: ResponseModel | None = None):
+              model: Type[B] | None = None):
         return _get_method_wrapper(cls=self, method='PATCH',
                                    status_code=status_code,
                                    dependencies=dependencies,
@@ -122,7 +120,7 @@ def _get_method_wrapper(cls: Endpoint, method: Method,
                         status_code: StatusCode = None,
                         dependencies: Dependencies = None,
                         path: str | None = None,
-                        model: ResponseModel | None = None):
+                        model: Type[B] | None = None):
     def _set_method_wrapper(func: EnpointFn):
         _meta: MethodMeta = {
             'fn': func,

@@ -63,10 +63,10 @@ def test_add_endpoint(router):
         return {'foo': 1} if not return_empty else None
 
     @endpoint3.get(path='foo/{foo}/bar/{bar}',
-                   model=ReturnFooBar)
+                   model=list[ReturnFooBar])
     async def path_endpoint(foo: int,
                             bar: str):
-        return {'foo': foo, 'bar': bar}
+        return [{'foo': foo, 'bar': bar}]
 
     add_endpoint('/foo', router, endpoint)
     add_endpoint('/bar', router, endpoint2)
@@ -84,6 +84,6 @@ def test_add_endpoint(router):
     assert resp3.json() == {'foo': 1}
     assert resp3.status_code == status.HTTP_202_ACCEPTED
     assert resp4.json() is None
-    assert resp5.json() == {'foo': 2, 'bar': 'baz'}
+    assert resp5.json() == [{'foo': 2, 'bar': 'baz'}]
 
     assert depends_called
