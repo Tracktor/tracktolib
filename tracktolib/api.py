@@ -13,10 +13,10 @@ from .utils import json_serial
 
 try:
     from fastapi import params, APIRouter
-    from pydantic import BaseModel
     from fastapi.responses import JSONResponse
+    from pydantic import BaseModel
 except ImportError:
-    raise ImportError('Please install tracktolib with "api" to use this module')
+    raise ImportError('Please install fastapi and pydantic or tracktolib with "api" to use this module')
 
 D = TypeVar('D')
 
@@ -172,12 +172,9 @@ def add_endpoint(path: str,
                              dependencies=[*(_dependencies or []), *(dependencies or [])])
 
 
-@dataclass
+@dataclass(init=False)
 class JSONSerialResponse(JSONResponse):
     json_serial: ClassVar[Callable[[Any], str]] = field(default=json_serial)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     def render(self, content: Any) -> bytes:
         return json.dumps(

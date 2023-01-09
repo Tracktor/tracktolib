@@ -4,7 +4,7 @@ try:
     from minio.deleteobjects import DeleteObject
     from minio import Minio
 except ImportError:
-    raise ImportError('Please install tracktolib with "s3-minio" to use this module')
+    raise ImportError('Please install minio or tracktolib with "s3-minio" to use this module')
 
 
 def download_bucket(minio: Minio, bucket_name: str, output_dir: Path) -> list[Path]:

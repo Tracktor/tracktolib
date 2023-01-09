@@ -4,7 +4,7 @@ from typing import Iterable
 try:
     import deepdiff
 except ImportError:
-    raise ImportError('Please install tracktolib with "tests" to use this module')
+    raise ImportError('Please install deepdiff or tracktolib with "tests" to use this module')
 
 
 def get_uuid(i: int = 0):

@@ -4,7 +4,7 @@ from pathlib import Path
 try:
     from aiobotocore.client import AioBaseClient
 except ImportError:
-    raise ImportError('Please install tracktolib with "s3" to use this module')
+    raise ImportError('Please install aiobotocore or tracktolib with "s3" to use this module')
 
 
 async def upload_file(client: AioBaseClient,

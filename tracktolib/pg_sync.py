@@ -10,7 +10,7 @@ try:
     from psycopg.rows import dict_row
     from psycopg.types.json import Json
 except ImportError:
-    raise ImportError('Please install tracktolib with "pg-sync" to use this module')
+    raise ImportError('Please install psycopg or tracktolib with "pg-sync" to use this module')
 
 from .pg_utils import get_tmp_table_query
 

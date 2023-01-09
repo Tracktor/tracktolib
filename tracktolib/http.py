@@ -5,7 +5,7 @@ try:
     import httpx
     from httpx._types import QueryParamTypes
 except ImportError:
-    raise ImportError('Please install tracktolib with "http" to use this module')
+    raise ImportError('Please install httpx or tracktolib with "http" to use this module')
 
 MB_1 = 1024 * 1024
 

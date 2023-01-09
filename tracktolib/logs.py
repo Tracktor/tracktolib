@@ -5,7 +5,7 @@ from dataclasses import dataclass
 try:
     from pythonjsonlogger import jsonlogger
 except ImportError:
-    raise ImportError('Please install tracktolib with "log" to use this module')
+    raise ImportError('Please install pythonjsonlogger or tracktolib with "log" to use this module')
 
 LogFormat = Literal['json', 'console']
 

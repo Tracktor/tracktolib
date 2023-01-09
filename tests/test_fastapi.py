@@ -1,5 +1,5 @@
 import pytest
-from fastapi import APIRouter
+from fastapi import FastAPI, APIRouter
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from starlette import status
@@ -7,8 +7,12 @@ from dataclasses import dataclass
 
 
 @pytest.fixture()
-def router():
-    return APIRouter()
+def app():
+    from tracktolib.api import JSONSerialResponse
+    return FastAPI(
+        openapi_tags=[{'name': 'foo', 'description': 'bar'}],
+        default_response_class=JSONSerialResponse
+    )
 
 
 def test_get_return_type():
@@ -21,7 +25,7 @@ def test_get_return_type():
     assert _get_return_type(bar_endpoint) == ReturnBar | None
 
 
-def test_add_endpoint(router):
+def test_add_endpoint(app):
     import fastapi
     from tracktolib.api import add_endpoint, Response, Endpoint, Depends
     from tracktolib.tests import assert_equals
@@ -69,16 +73,22 @@ def test_add_endpoint(router):
                             bar: str):
         return [{'foo': foo, 'bar': bar}]
 
+    router = APIRouter()
+
     add_endpoint('/foo', router, endpoint)
     add_endpoint('/bar', router, endpoint2)
     add_endpoint('/path_endpoint', router, endpoint3)
 
-    with TestClient(router) as client:
+    app.include_router(router)
+
+    with TestClient(app) as client:
         resp = client.get('/foo')
         resp2 = client.post('/foo')
         resp3 = client.get('/bar')
         resp4 = client.get('/bar', params={'return_empty': True})
         resp5 = client.get('/path_endpoint/foo/2/bar/baz')
+
+        doc_resp = client.get('/openapi.json')
 
     assert_equals(resp.json(), {'foo': 2})
     assert_equals(resp2.json(), [{'foo': 1}])
@@ -86,6 +96,7 @@ def test_add_endpoint(router):
     assert resp3.status_code == status.HTTP_202_ACCEPTED
     assert resp4.json() is None
     assert resp5.json() == [{'foo': 2, 'bar': 'baz'}]
+    assert doc_resp.status_code == status.HTTP_200_OK
 
     assert depends_called
 
