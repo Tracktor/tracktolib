@@ -7,6 +7,7 @@ from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import Iterable, TypeVar, Iterator, Literal, overload, Any
+import importlib.util
 
 T = TypeVar('T')
 
@@ -24,6 +25,24 @@ def exec_cmd(cmd: str | list[str],
     if stderr:
         raise Exception(stderr.decode(encoding))
     return stdout.decode(encoding)
+
+
+def import_module(path: Path):
+    """
+    Import a module from a path.
+    Eg:
+        >>> from tracktolib.utils import import_module
+        >>> module = import_module(Path('~/my_module.py'))
+        >>> module.my_function()
+    """
+    name = path.name.removesuffix('.py')
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None:
+        raise ImportError(f'Could not import {path}')
+    module = importlib.util.module_from_spec(spec)
+    if spec.loader is not None:
+        spec.loader.exec_module(module)
+    return module
 
 
 @overload
