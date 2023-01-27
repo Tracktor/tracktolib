@@ -247,33 +247,44 @@ def test_fetch_count(aengine, loop):
     (
             {'foo': 1},
             {'start_from': 0, 'where': None, 'returning': None},
-            'UPDATE schema.table SET foo = $1'
+            {'query': 'UPDATE schema.table SET foo = $1', 'values': [1]}
     ),
     (
             {'foo': 1},
             {'start_from': 1, 'where': 'WHERE bar = $1', 'returning': None},
-            'UPDATE schema.table SET foo = $2 WHERE bar = $1'
+            {'query': 'UPDATE schema.table SET foo = $2 WHERE bar = $1', 'values': [1]}
     ),
     (
             {'foo': 1},
             {'returning': ['foo']},
-            'UPDATE schema.table SET foo = $1 RETURNING foo'
+            {'query': 'UPDATE schema.table SET foo = $1 RETURNING foo', 'values': [1]}
     ),
     (
             {'foo': 1, 'id': 1},
             {'where_keys': ['id']},
-            'UPDATE schema.table SET foo = $1 WHERE id = $2'
+            {'query': 'UPDATE schema.table SET foo = $1 WHERE id = $2', 'values': [1, 1]}
     ),
     (
             {'foo': 1, 'id': 1},
             {'where_keys': ['id'], 'return_keys': True},
-            'UPDATE schema.table SET foo = $1 WHERE id = $2 RETURNING foo'
+            {'query': 'UPDATE schema.table SET foo = $1 WHERE id = $2 RETURNING foo', 'values': [1, 1]}
+    ),
+    (
+            {'foo': 2, 'id': 1, 'bar': 3},
+            {'where_keys': ['id', 'bar'], 'return_keys': True},
+            {'query': 'UPDATE schema.table SET foo = $1 WHERE bar = $2 AND id = $3 RETURNING foo', 'values': [2, 3, 1]}
+    ),
+    (
+            {'foo': 2, 'id': 1, 'bar': 3},
+            {'where_keys': ['bar', 'id'], 'return_keys': True},
+            {'query': 'UPDATE schema.table SET foo = $1 WHERE bar = $2 AND id = $3 RETURNING foo', 'values': [2, 3, 1]}
     ),
 ])
 def test_pg_update_query(data, params, expected):
     from tracktolib.pg import PGUpdateQuery
-    query = PGUpdateQuery('schema.table', [data], **params).query
-    compare_strings(query, expected)
+    query = PGUpdateQuery('schema.table', [data], **params)
+    compare_strings(query.query, expected['query'])
+    assert query.values == expected['values']
 
 
 @pytest.mark.usefixtures('setup_tables', 'insert_data')

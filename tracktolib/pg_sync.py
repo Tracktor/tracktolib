@@ -62,7 +62,7 @@ def _parse_value(v):
 
 def _get_insert_data(table: LiteralString, data: list[dict]) -> tuple[LiteralString, list[tuple[Any, ...]]]:
     keys = data[0].keys()
-    _values = ','.join(f'%s' for _ in range(0, len(keys)))
+    _values = ','.join('%s' for _ in range(0, len(keys)))
     query = f"INSERT INTO {table} as t ({','.join(keys)}) VALUES ({_values})"
     return query, [tuple(_parse_value(_x) for _x in x.values()) for x in data]
 

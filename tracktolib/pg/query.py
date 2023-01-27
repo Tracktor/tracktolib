@@ -203,11 +203,12 @@ class PGInsertQuery(PGQuery):
         return query
 
 
-def get_update_fields(item: dict, *, start_from: int = 0,
+def get_update_fields(item: dict, keys: list[str], *, start_from: int = 0,
                       ignore_keys: list[str] | None = None) -> tuple[str, list]:
     values, fields, where_values = [], [], []
     counter = 0
-    for k, v in item.items():
+    for k in keys:
+        v = item[k]
         if ignore_keys and k in ignore_keys:
             where_values.append(v)
             continue
@@ -237,7 +238,11 @@ class PGUpdateQuery(PGQuery):
     def __post_init__(self):
         if self.where_keys:
             self._check_keys(self.where_keys)
+            # Ordering the keys
+            self.where_keys = [k for k in self.keys if k in self.where_keys]
+
         self._update_fields, self._values = get_update_fields(self.items[0],
+                                                              self.keys,
                                                               start_from=self.start_from or 0,
                                                               ignore_keys=self.where_keys)
         if self.returning and self.return_keys:
@@ -254,7 +259,9 @@ class PGUpdateQuery(PGQuery):
             return self.where
         elif self.where_keys is not None:
             start_from = self.start_from if self.start_from is not None else len(self.values) - len(self.where_keys)
-            return 'WHERE ' + ' AND '.join(f'{k} = ${i + start_from + 1}' for i, k in enumerate(self.where_keys))
+
+            return 'WHERE ' + ' AND '.join(
+                f'{k} = ${i + start_from + 1}' for i, k in enumerate(self.where_keys))
         return ''
 
     @property
