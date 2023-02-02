@@ -1,24 +1,42 @@
 from io import BytesIO
 from pathlib import Path
 import datetime as dt
-from typing import TypedDict
+from typing import TypedDict, Literal
 
 try:
     from aiobotocore.client import AioBaseClient
 except ImportError:
     raise ImportError('Please install aiobotocore or tracktolib with "s3" to use this module')
 
+ACL = Literal[
+    'private',
+    'public-read',
+    'public-read-write',
+    'authenticated-read',
+    'aws-exec-read',
+    'bucket-owner-read',
+    'bucket-owner-full-control'
+]
+
 
 async def upload_file(client: AioBaseClient,
                       bucket: str,
                       file: Path,
-                      path: str):
+                      path: str,
+                      *,
+                      acl: ACL | None = 'private') -> dict[str, str]:
     """
-    Upload a file to s3
+    Upload a file to s3.
+    See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html?highlight=put_object#S3.Bucket.put_object
+    for more options
     """
+    extra_args = {}
+    if acl is not None:
+        extra_args['ACL'] = acl
     resp = await client.put_object(Bucket=bucket,
                                    Key=path,
-                                   Body=file.read_bytes())
+                                   Body=file.read_bytes(),
+                                   **extra_args)
     return resp
 
 

@@ -45,11 +45,12 @@ def test_upload_list_file(s3_bucket, loop,
                               'foo/test.csv')
             await upload_file(client, s3_bucket,
                               static_dir / 'test.csv',
-                              'foo/test.tsv')
+                              'foo/test.tsv',
+                              acl='public-read')
             bucket_data = await list_files(client, s3_bucket, 'foo')
             assert sorted([x['Key'] for x in bucket_data]) == ['foo/test.csv', 'foo/test.tsv']
             bucket_data = await list_files(client, s3_bucket, 'foo',
-                                           search_query='Contents[?ends_with(Key, `csv`)]')
-            assert [x['Key'] for x in bucket_data] == ['foo/test.csv']
+                                           search_query='Contents[?ends_with(Key, `tsv`)]')
+            assert [x['Key'] for x in bucket_data] == ['foo/test.tsv']
 
     loop.run_until_complete(_test())
