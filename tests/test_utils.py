@@ -47,3 +47,13 @@ def test_get_nb_lines(static_dir):
     from tracktolib.utils import get_nb_lines
 
     assert get_nb_lines(static_dir / 'test.csv') == 2
+
+
+def test_to_snake_case():
+    from tracktolib.utils import to_snake_case
+    assert to_snake_case('HelloWorld') == 'hello_world'
+
+
+def test_to_camel_case():
+    from tracktolib.utils import to_camel_case
+    assert to_camel_case('hello_world') == 'helloWorld'

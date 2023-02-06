@@ -106,3 +106,11 @@ def fill_dict(items: list[dict],
 
     _keys = keys or sorted(frozenset().union(*items))
     return [_fill_dict(x) for x in items]
+
+
+def to_snake_case(string: str) -> str:
+    return ''.join(['_' + i.lower() if i.isupper() else i for i in string]).lstrip('_')
+
+
+def to_camel_case(string: str) -> str:
+    return ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(string.split('_')))

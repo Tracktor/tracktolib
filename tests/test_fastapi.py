@@ -100,6 +100,33 @@ def test_add_endpoint(app):
 
     assert depends_called
 
+def test_camelcase_model(app):
+    from tracktolib.api import add_endpoint, Response, Endpoint, CamelCaseModel
+    from tracktolib.tests import assert_equals
+
+    endpoint = Endpoint()
+
+    class InputModel(CamelCaseModel):
+        foo_bar: int
+
+    class OutputModel(CamelCaseModel):
+        foo_bar: int
+
+    @endpoint.post(model=OutputModel)
+    async def foo_endpoint(data: InputModel):
+        return {'foo_bar': data.foo_bar}
+
+    router = APIRouter()
+
+    add_endpoint('/foo', router, endpoint)
+    app.include_router(router)
+
+    with TestClient(app) as client:
+        resp = client.post('/foo', json={'foo_bar': 1})
+
+    assert_equals(resp.json(), {'fooBar': 1})
+
+
 
 def check_json_serial_types():
     from tracktolib.api import JSONSerialResponse

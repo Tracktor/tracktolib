@@ -9,7 +9,7 @@ from typing import (
     TypeAlias, Type, ClassVar
 )
 
-from .utils import json_serial
+from .utils import json_serial, to_camel_case
 
 try:
     from fastapi import params, APIRouter
@@ -24,10 +24,10 @@ D = TypeVar('D')
 # noqa: N802
 def Depends(
         dependency: Callable[...,
-                             Coroutine[Any, Any, D] |
-                             Coroutine[Any, Any, D | None] |
-                             AsyncIterator[D]
-                             | D] | None = None,
+        Coroutine[Any, Any, D] |
+        Coroutine[Any, Any, D | None] |
+        AsyncIterator[D]
+        | D] | None = None,
         *,
         use_cache: bool = True
 ) -> D:
@@ -185,3 +185,9 @@ class JSONSerialResponse(JSONResponse):
             separators=(",", ":"),
             default=self.json_serial
         ).encode("utf-8")
+
+
+class CamelCaseModel(BaseModel):
+    class Config:
+        alias_generator = to_camel_case
+        allow_population_by_field_name = True
