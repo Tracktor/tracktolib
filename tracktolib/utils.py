@@ -114,3 +114,29 @@ def to_snake_case(string: str) -> str:
 
 def to_camel_case(string: str) -> str:
     return ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(string.split('_')))
+
+
+def dict_to_camel(d: dict | list) -> dict | list:
+    """
+    Convert all keys of a dict or list of dicts to camel case
+    """
+
+    def _parse_item(v):
+        return dict_to_camel(v) if isinstance(v, dict) else v
+
+    def _parse_list(dl):
+        return [_parse_item(v) for v in dl]
+
+    if isinstance(d, list):
+        return _parse_list(d)
+
+    return {to_camel_case(k): _parse_list(v) if isinstance(v, list) else _parse_item(v) for k, v in d.items()}
+
+
+def rm_keys(data: dict | list[dict], keys: list[str]):
+    """Remove keys from a dict or a list of dicts"""
+    _data = data if isinstance(data, list) else [data]
+    for d in _data:
+        for key in keys:
+            assert d.pop(key, None) is not None
+    return _data if isinstance(data, list) else _data[0]

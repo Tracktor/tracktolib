@@ -2,7 +2,7 @@ import datetime as dt
 import decimal
 import ipaddress
 import json
-
+from tracktolib.tests import assert_equals
 import pytest
 
 
@@ -57,3 +57,22 @@ def test_to_snake_case():
 def test_to_camel_case():
     from tracktolib.utils import to_camel_case
     assert to_camel_case('hello_world') == 'helloWorld'
+
+
+@pytest.mark.parametrize('data, expected', [
+    ({'foo': 1, 'bar': 2}, {'foo': 1}),
+    ([{'foo': 1, 'bar': 2}], [{'foo': 1}]),
+])
+def test_rm_keys(data, expected):
+    from tracktolib.utils import rm_keys
+    assert_equals(rm_keys(data, ['bar']), expected)
+
+
+@pytest.mark.parametrize('data, expected', [
+    ({'foo_bar': 1, 'bar': 2}, {'fooBar': 1, 'bar': 2}),
+    ([{'foo': [{'foo_bar': {'bar_baz': 'foo_bar'}}]}],
+     [{'foo': [{'fooBar': {'barBaz': 'foo_bar'}}]}]),
+])
+def test_dict_to_camel(data, expected):
+    from tracktolib.utils import dict_to_camel
+    assert_equals(dict_to_camel(data), expected)

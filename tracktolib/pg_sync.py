@@ -140,3 +140,13 @@ def insert_csv(cur: Cursor,
             while data := f.read(block_size):
                 copy.write(data)
     cur.execute(_insert_query)
+
+
+def set_seq_max(engine: Connection,
+                seq_name: str,
+                table_name: str):
+    # To avoid potential conflicts
+    with engine.cursor() as cursor:
+        query = cast(LiteralString, f"SELECT SETVAL(%s, (SELECT MAX(id) + 1 FROM {table_name}))")
+        cursor.execute(query, (seq_name,))
+    engine.commit()
