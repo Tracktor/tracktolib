@@ -67,7 +67,7 @@ class Endpoint:
     def get(self, status_code: StatusCode = None,
             dependencies: Dependencies = None,
             path: str | None = None,
-            model: Type[B] = None):
+            model: Type[B] | None = None):
         return _get_method_wrapper(cls=self, method='GET',
                                    status_code=status_code,
                                    dependencies=dependencies,
