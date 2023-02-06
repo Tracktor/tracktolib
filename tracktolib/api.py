@@ -15,8 +15,10 @@ try:
     from fastapi import params, APIRouter
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel
+    import starlette.status
+    import httpx
 except ImportError:
-    raise ImportError('Please install fastapi and pydantic or tracktolib with "api" to use this module')
+    raise ImportError('Please install fastapi, pydantic, httpx or tracktolib with "api" to use this module')
 
 D = TypeVar('D')
 
@@ -191,3 +193,7 @@ class CamelCaseModel(BaseModel):
     class Config:
         alias_generator = to_camel_case
         allow_population_by_field_name = True
+
+
+def check_status(resp: httpx.Response, status: int = starlette.status.HTTP_200_OK):
+    assert resp.status_code == status, json.dumps(resp.json(), indent=4)
