@@ -116,7 +116,15 @@ def to_camel_case(string: str) -> str:
     return ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(string.split('_')))
 
 
-def dict_to_camel(d: dict | list) -> dict | list:
+@overload
+def dict_to_camel(d: dict) -> dict: ...
+
+
+@overload
+def dict_to_camel(d: list[dict]) -> list[dict]: ...
+
+
+def dict_to_camel(d: dict | list):
     """
     Convert all keys of a dict or list of dicts to camel case
     """
@@ -131,6 +139,14 @@ def dict_to_camel(d: dict | list) -> dict | list:
         return _parse_list(d)
 
     return {to_camel_case(k): _parse_list(v) if isinstance(v, list) else _parse_item(v) for k, v in d.items()}
+
+
+@overload
+def rm_keys(data: dict, keys: list[str]) -> dict: ...
+
+
+@overload
+def rm_keys(data: list[dict], keys: list[str]) -> list[dict]: ...
 
 
 def rm_keys(data: dict | list[dict], keys: list[str]):
