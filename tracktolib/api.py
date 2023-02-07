@@ -8,7 +8,6 @@ from typing import (
     get_type_hints, get_args, TypedDict,
     TypeAlias, Type, ClassVar
 )
-
 from .utils import json_serial, to_camel_case
 
 try:
@@ -194,5 +193,5 @@ class CamelCaseModel(BaseModel):
         allow_population_by_field_name = True
 
 
-def check_status(resp: 'httpx.Response', status: int = starlette.status.HTTP_200_OK):
+def check_status(resp, status: int = starlette.status.HTTP_200_OK):
     assert resp.status_code == status, json.dumps(resp.json(), indent=4)
