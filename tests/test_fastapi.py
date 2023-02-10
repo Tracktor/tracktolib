@@ -101,7 +101,7 @@ def test_add_endpoint(app):
     assert depends_called
 
 def test_camelcase_model(app):
-    from tracktolib.api import add_endpoint, Response, Endpoint, CamelCaseModel
+    from tracktolib.api import add_endpoint, Endpoint, CamelCaseModel
     from tracktolib.tests import assert_equals
 
     endpoint = Endpoint()

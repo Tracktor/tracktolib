@@ -27,7 +27,9 @@ async def upload_file(client: AioBaseClient,
                       acl: ACL | None = 'private') -> dict[str, str]:
     """
     Upload a file to s3.
-    See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html?highlight=put_object#S3.Bucket.put_object
+    See:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html?highlight=put_object
+    #S3.Bucket.put_object
     for more options
     """
     extra_args = {}
