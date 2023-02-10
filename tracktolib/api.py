@@ -16,7 +16,7 @@ try:
     from pydantic import BaseModel
     import starlette.status
 except ImportError:
-    raise ImportError('Please install fastapi, pydantic, httpx or tracktolib with "api" to use this module')
+    raise ImportError('Please install fastapi, pydantic or tracktolib with "api" to use this module')
 
 D = TypeVar('D')
 

@@ -36,7 +36,7 @@ s3-minio = ["minio"]
 s3 = ["aiobotocore"]
 tests = ["deepdiff"]
 http = ["httpx"]
-api = ["fastapi", "httpx"]
+api = ["fastapi"]
 pg = ["asyncpg", "rich"]
 
 [tool.poetry.group.dev.dependencies]
@@ -93,3 +93,11 @@ ignore = ["E999"]
     #
     "F405"
 ]
+
+[tool.ruff.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "single"
+
+[tool.ruff.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"

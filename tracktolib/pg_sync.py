@@ -79,7 +79,7 @@ def insert_many(engine: Connection,
 def insert_one(engine: Connection,
                table: LiteralString,
                data: dict):
-    query, _data = _get_insert_data(table, data[0])
+    query, _data = _get_insert_data(table, [data])
     with engine.cursor() as cur:
         _ = cur.execute(query, _data[0])
     engine.commit()

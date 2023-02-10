@@ -31,7 +31,7 @@ logger = logging.getLogger()
 formatter, stream_handler = init_logging(logger, 'json', version='0.0.1')
 ```
 
-- **pg**  
+- **pg**
 
 Utility functions for [asyncpg](https://github.com/MagicStack/asyncpg)
 
@@ -63,15 +63,7 @@ assert fetch_all(conn, query) == data
 
 - **tests**
 
-Utility functions for tests such as `get_uuid` (that generates a test uuid based on an integer)
-
-*get_uuid*
-
-```python
-from tracktolib.tests import get_uuid
-
-assert get_uuid(1) == '00000000-0000-0000-0000-000000000001'
-```
+Utility functions for testing
 
 - **s3-minio**
 
