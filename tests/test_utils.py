@@ -79,7 +79,7 @@ def test_dict_to_camel(data, expected):
 
 
 @pytest.mark.parametrize('data, expected', [
-    ([0, 1], 0),
+    ([0, 1], 2),
     ([1, None, None], 1),
     ([None, None], 0),
 ])

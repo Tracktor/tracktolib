@@ -162,4 +162,4 @@ def num_not_none(*args) -> int:
     """
     Count the number of non None arguments
     """
-    return sum(1 for x in args if x is None)
+    return sum(1 for x in args if x is not None)
