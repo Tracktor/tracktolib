@@ -156,3 +156,10 @@ def rm_keys(data: dict | list[dict], keys: list[str]):
         for key in keys:
             assert d.pop(key, None) is not None
     return _data if isinstance(data, list) else _data[0]
+
+
+def num_not_none(*args) -> int:
+    """
+    Count the number of non None arguments
+    """
+    return sum(1 for x in args if x is None)

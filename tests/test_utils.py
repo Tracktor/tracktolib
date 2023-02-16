@@ -76,3 +76,13 @@ def test_rm_keys(data, expected):
 def test_dict_to_camel(data, expected):
     from tracktolib.utils import dict_to_camel
     assert_equals(dict_to_camel(data), expected)
+
+
+@pytest.mark.parametrize('data, expected', [
+    ([0, 1], 0),
+    ([1, None, None], 1),
+    ([None, None], 0),
+])
+def test_num_not_null(data, expected):
+    from tracktolib.utils import num_not_none
+    assert num_not_none(*data) == expected
