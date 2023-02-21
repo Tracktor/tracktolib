@@ -342,7 +342,7 @@ async def insert_returning(conn: _Connection,
     returning_values = [returning] if isinstance(returning, str) else returning
     query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill,
                       returning=returning_values)
-    fn = conn.fetchval if len(returning_values) == 1 else conn.fetchrow
+    fn = conn.fetchval if len(returning_values) == 1 and returning != '*' else conn.fetchrow
 
     return await fn(query.query, *query.values)
 

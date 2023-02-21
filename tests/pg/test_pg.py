@@ -1,7 +1,10 @@
+import pprint
+
 import asyncpg
 import pytest
 
 from tracktolib.pg_sync import fetch_all
+from tracktolib.tests import assert_equals
 
 
 def test_insert_one_query():
@@ -185,6 +188,10 @@ def test_insert_one_returning_many(loop, aengine, engine):
     returned_value = dict(returned_value)
     assert returned_value.pop('id') is not None
     assert returned_value == {'bar': None}
+    returned_values = loop.run_until_complete(
+        insert_returning(aengine, 'foo.foo', {'id': 2, 'foo': 2}, returning='*')
+    )
+    assert_equals(dict(returned_values), {'id': 2, 'foo': 2, 'bar': None})
 
 
 @pytest.fixture()
