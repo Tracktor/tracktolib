@@ -77,3 +77,25 @@ def test_insert_csv(engine, static_dir):
 
         db_data = fetch_all(engine, 'SELECT foo, bar FROM foo.bar ORDER BY foo')
         assert_equals(db_data, [{'bar': '2', 'foo': 1}])
+
+
+@pytest.mark.usefixtures('setup_tables')
+def test_insert_csv_exclude_columns(engine, static_dir):
+    from tracktolib.pg_sync import insert_csv, fetch_all
+    from tracktolib.tests import assert_equals
+
+    file = static_dir / 'test-generated.csv'
+
+    for i in range(0, 2):
+        # Works on conflict
+        with engine.cursor() as c:
+            insert_csv(c, schema='foo', table='generated', csv_path=file,
+                       exclude_columns=['bar_lower'])
+        engine.commit()
+
+        db_data = fetch_all(engine, 'SELECT bar, bar_lower FROM foo.generated ORDER BY bar')
+        expected = [
+            {'bar': 'Hello', 'bar_lower': 'hello'},
+            {'bar': 'World', 'bar_lower': 'world'}
+        ]
+        assert_equals(db_data, expected)

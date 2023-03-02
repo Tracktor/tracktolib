@@ -124,6 +124,7 @@ def insert_csv(cur: Cursor,
                csv_path: Path,
                query: Query | None = None,
                *,
+               exclude_columns: Iterable[str] | None = None,
                delimiter: LiteralString = ',',
                block_size: int = 1000):
     _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table)
@@ -135,6 +136,13 @@ def insert_csv(cur: Cursor,
     CSV HEADER
     """)
     cur.execute(_tmp_query)
+    if exclude_columns:
+        _drop_columns = ','.join(f'DROP COLUMN {x}' for x in exclude_columns)
+        _alter_query = f"""
+        ALTER TABLE {_tmp_table}
+        {_drop_columns}
+        """
+        cur.execute(cast(LiteralString, _alter_query))
     with csv_path.open() as f:
         with cur.copy(_query) as copy:
             while data := f.read(block_size):
