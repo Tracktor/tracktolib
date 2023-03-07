@@ -93,12 +93,18 @@ def drop_db(conn: Connection, db_name: LiteralString):
 
 
 def clean_tables(engine: Connection, tables: Iterable[LiteralString],
+                 reset_seq: bool = True,
                  cascade: bool = True):
     if not tables:
         return
 
     _tables = ', '.join(set(tables))
-    engine.execute(f'TRUNCATE {_tables} {"" if not cascade else "CASCADE"}')
+    query = f'TRUNCATE {_tables}'
+    if reset_seq:
+        query = f'{query} RESTART IDENTITY'
+    if cascade:
+        query = f'{query} CASCADE'
+    engine.execute(query)
     engine.commit()
 
 
