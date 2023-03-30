@@ -2,7 +2,6 @@ import pprint
 from typing import Iterable
 import warnings
 
-
 try:
     import deepdiff
 except ImportError:
@@ -14,5 +13,8 @@ def get_uuid(i: int = 0):
     return f'00000000-0000-0000-0000-000000{i:06}'
 
 
-def assert_equals(d1: dict | Iterable, d2: dict | Iterable):
-    assert d1 == d2, pprint.pprint(deepdiff.DeepDiff(d1, d2))
+def assert_equals(d1: dict | Iterable, d2: dict | Iterable,
+                  *,
+                  ignore_order: bool = False):
+    diff = deepdiff.DeepDiff(d1, d2, ignore_order=ignore_order)
+    assert not diff, pprint.pprint(diff)
