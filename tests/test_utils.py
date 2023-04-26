@@ -1,3 +1,5 @@
+import asyncio
+
 import datetime as dt
 import decimal
 import ipaddress
@@ -13,6 +15,16 @@ import pytest
 def test_exec_cmd(cmd):
     from tracktolib.utils import exec_cmd
     output = exec_cmd(cmd)
+    assert output
+
+
+@pytest.mark.parametrize('cmd', [
+    'ls -alh',
+    ['ls', '-alh']
+])
+def test_aexec_cmd(cmd):
+    from tracktolib.utils import aexec_cmd
+    output = asyncio.run(aexec_cmd(cmd))
     assert output
 
 

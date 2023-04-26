@@ -8,6 +8,7 @@ from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import Iterable, TypeVar, Iterator, Literal, overload, Any
 import importlib.util
+import asyncio
 
 T = TypeVar('T')
 
@@ -25,6 +26,25 @@ def exec_cmd(cmd: str | list[str],
                                       executable=default_shell,
                                       env=env).communicate()
     if stderr:
+        raise Exception(stderr.decode(encoding))
+    return stdout.decode(encoding)
+
+
+async def aexec_cmd(cmd: str | list[str],
+                    *,
+                    encoding: str = 'utf-8',
+                    env: dict | None = None) -> str:
+    _cmd = cmd if isinstance(cmd, str) else ' '.join(cmd)
+    default_shell = os.getenv('SHELL', '/bin/bash')
+
+    proc = await asyncio.create_subprocess_shell(_cmd,
+                                                 shell=True,
+                                                 stdout=subprocess.PIPE,
+                                                 stderr=subprocess.PIPE,
+                                                 executable=default_shell,
+                                                 env=env)
+    stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
         raise Exception(stderr.decode(encoding))
     return stdout.decode(encoding)
 
