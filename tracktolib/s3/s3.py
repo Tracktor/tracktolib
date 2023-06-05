@@ -60,6 +60,16 @@ async def download_file(client: AioBaseClient,
     return _file
 
 
+async def delete_file(client: AioBaseClient,
+                      bucket: str,
+                      path: str) -> bool:
+    """
+    Delete a file from a s3 bucket.
+    Returns True if the file exists else False
+    """
+    return await client.delete_object(Bucket=bucket, Key=path)
+
+
 class S3Item(TypedDict):
     """
     Represents an item in a s3 bucket
