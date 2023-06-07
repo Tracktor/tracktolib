@@ -3,7 +3,7 @@ import datetime as dt
 import functools
 import logging
 from pathlib import Path
-from typing import AsyncIterator, Literal, Iterable
+from typing import AsyncIterator, Iterable, Sequence
 from typing_extensions import LiteralString
 from ..pg_utils import get_conflict_query
 
@@ -93,7 +93,7 @@ async def upsert_csv(conn: asyncpg.Connection,
                      nb_lines: int | None = None,
                      on_conflict_keys: Iterable[LiteralString] | None = None,
                      delimiter: str = ',',
-                     col_names: Iterable[str] | None = None,
+                     col_names: Sequence[str] | None = None,
                      skip_header: bool = False):
     infos = await get_table_infos(conn, schema, table)
 

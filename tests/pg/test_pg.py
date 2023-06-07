@@ -251,6 +251,7 @@ def test_upload_csv(aengine, loop, static_dir, engine):
     expected = [{'bar': '11', 'foo': 1}, {'bar': '22', 'foo': 2}]
     assert_equals(db, expected)
 
+
 @pytest.mark.usefixtures('setup_tables', 'insert_iterate_data')
 def test_fetch_count(aengine, loop):
     from tracktolib.pg import fetch_count
