@@ -229,6 +229,7 @@ def test_upload_csv(aengine, loop, static_dir, engine):
     from tracktolib.tests import assert_equals
 
     file = static_dir / 'test.csv'
+    file2 = static_dir / 'test2.csv'
 
     loop.run_until_complete(upsert_csv(aengine, file, schema='foo', table='bar'))
     db = fetch_all(engine, 'SELECT * FROM foo.bar ORDER BY foo')
@@ -239,7 +240,16 @@ def test_upload_csv(aengine, loop, static_dir, engine):
     # Run again works with update
     loop.run_until_complete(upsert_csv(aengine, file, schema='foo', table='bar',
                                        on_conflict_keys=['foo']))
-
+    # Run again works with update and other file
+    loop.run_until_complete(upsert_csv(aengine, file2, schema='foo', table='bar',
+                                       on_conflict_keys=['foo'],
+                                       delimiter=';',
+                                       col_names=['foo', 'bar'],
+                                       skip_header=True
+                                       ))
+    db = fetch_all(engine, 'SELECT * FROM foo.bar ORDER BY foo')
+    expected = [{'bar': '11', 'foo': 1}, {'bar': '22', 'foo': 2}]
+    assert_equals(db, expected)
 
 @pytest.mark.usefixtures('setup_tables', 'insert_iterate_data')
 def test_fetch_count(aengine, loop):

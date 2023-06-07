@@ -91,7 +91,10 @@ async def upsert_csv(conn: asyncpg.Connection,
                      chunk_size: int = 5_000,
                      show_progress: bool = False,
                      nb_lines: int | None = None,
-                     on_conflict_keys: Iterable[LiteralString] | None = None):
+                     on_conflict_keys: Iterable[LiteralString] | None = None,
+                     delimiter: str = ',',
+                     col_names: Iterable[str] | None = None,
+                     skip_header: bool = False):
     infos = await get_table_infos(conn, schema, table)
 
     on_conflict_str = 'ON CONFLICT DO NOTHING'
@@ -100,8 +103,10 @@ async def upsert_csv(conn: asyncpg.Connection,
                                              update_keys=on_conflict_keys)
 
     with csv_path.open('r') as f:
-        reader = csv.DictReader(f)
-        _columns = [x.lower() for x in (reader.fieldnames or [])]
+        reader = csv.DictReader(f, delimiter=delimiter, fieldnames=col_names)
+        if skip_header:
+            next(reader)
+        _columns = col_names if col_names else [x.lower() for x in (reader.fieldnames or [])]
         async with conn.transaction():
             _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table,
                                                                         columns=infos.keys(),
