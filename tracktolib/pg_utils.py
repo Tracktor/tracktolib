@@ -18,7 +18,7 @@ def get_tmp_table_query(schema: LiteralString,
         _columns = ','.join(columns)
         insert_query = f"""
             INSERT INTO {schema}.{table} as t({_columns})
-            SELECT *
+            SELECT {_columns}
             FROM {tmp_table_name}
             {on_conflict};
         """
