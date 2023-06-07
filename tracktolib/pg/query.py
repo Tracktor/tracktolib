@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import (
     TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias,
     overload, Any, Literal)
+from ..pg_utils import get_conflict_query
 
 try:
     import asyncpg
@@ -29,27 +30,11 @@ def _get_on_conflict_query(query: str,
                            keys: Iterable[K],
                            update_keys: Iterable[K] | None,
                            ignore_keys: Iterable[K] | None,
-                           constraint: str | None,
-                           on_conflict: str | None) -> str:
-    if on_conflict:
-        return f'{query} {on_conflict}'
-
-    if constraint:
-        query = f'{query} ON CONFLICT ON CONSTRAINT {constraint}'
-    elif update_keys:
-        update_keys_str = ', '.join(sorted(update_keys))
-        query = f'{query} ON CONFLICT ({update_keys_str})'
-    else:
-        raise NotImplementedError('update_keys or constraint must be set')
-
-    _ignore_keys = [*(update_keys or []), *(ignore_keys or [])]
-    fields = ', '.join(f'{x} = COALESCE(EXCLUDED.{x}, t.{x})'
-                       for x in keys
-                       if x not in _ignore_keys)
-    if not fields:
-        raise ValueError('No fields set')
-
-    return f'{query} DO UPDATE SET {fields}'
+                           constraint: K | None,
+                           on_conflict: K | None) -> str:
+    _on_conflict = get_conflict_query(keys=keys, update_keys=update_keys, ignore_keys=ignore_keys,
+                                      constraint=constraint, on_conflict=on_conflict)
+    return f'{query} {_on_conflict}'
 
 
 ReturningFn = Callable[[Iterable[K] | None, K | None], None]

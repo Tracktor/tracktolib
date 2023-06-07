@@ -1,4 +1,3 @@
-
 import asyncpg
 import pytest
 
@@ -235,8 +234,11 @@ def test_upload_csv(aengine, loop, static_dir, engine):
     db = fetch_all(engine, 'SELECT * FROM foo.bar ORDER BY foo')
     expected = [{'bar': '2', 'foo': 1}]
     assert_equals(db, expected)
-    # Run again works
+    # Run again works with on conflict ignore
     loop.run_until_complete(upsert_csv(aengine, file, schema='foo', table='bar'))
+    # Run again works with update
+    loop.run_until_complete(upsert_csv(aengine, file, schema='foo', table='bar',
+                                       on_conflict_keys=['foo']))
 
 
 @pytest.mark.usefixtures('setup_tables', 'insert_iterate_data')

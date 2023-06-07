@@ -3,8 +3,9 @@ import datetime as dt
 import functools
 import logging
 from pathlib import Path
-from typing import AsyncIterator
+from typing import AsyncIterator, Literal, Iterable
 from typing_extensions import LiteralString
+from ..pg_utils import get_conflict_query
 
 try:
     import asyncpg
@@ -89,14 +90,22 @@ async def upsert_csv(conn: asyncpg.Connection,
                      *,
                      chunk_size: int = 5_000,
                      show_progress: bool = False,
-                     nb_lines: int | None = None):
+                     nb_lines: int | None = None,
+                     on_conflict_keys: Iterable[LiteralString] | None = None):
     infos = await get_table_infos(conn, schema, table)
+
+    on_conflict_str = 'ON CONFLICT DO NOTHING'
+    if on_conflict_keys is not None:
+        on_conflict_str = get_conflict_query(keys=infos.keys(),
+                                             update_keys=on_conflict_keys)
 
     with csv_path.open('r') as f:
         reader = csv.DictReader(f)
         _columns = [x.lower() for x in (reader.fieldnames or [])]
         async with conn.transaction():
-            _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table)
+            _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table,
+                                                                        columns=infos.keys(),
+                                                                        on_conflict=on_conflict_str)
             logger.info(f'Creating tmp table: {_tmp_table!r}')
             await conn.execute(_tmp_query)
             logger.info(f'Inserting data from {csv_path!r} to {_tmp_table!r}')
