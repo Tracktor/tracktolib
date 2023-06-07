@@ -4,6 +4,7 @@ from typing import Iterator
 import asyncpg
 import psycopg
 import pytest
+
 from typing_extensions import LiteralString
 
 PG_DATABASE = 'test'
@@ -58,7 +59,7 @@ def setup_tables(engine, static_dir):
 @pytest.fixture(scope='session')
 def aengine(loop, pg_url) -> asyncpg.Connection:
     conn = loop.run_until_complete(asyncpg.connect(pg_url))
-    yield conn
+    yield conn # type: ignore
     loop.run_until_complete(asyncio.wait_for(conn.close(), timeout=1))
 
 

@@ -3,7 +3,7 @@ import datetime as dt
 import functools
 import logging
 from pathlib import Path
-from typing import AsyncIterator, Iterable, Sequence
+from typing import AsyncIterator, Iterable, cast
 from typing_extensions import LiteralString
 from ..pg_utils import get_conflict_query
 
@@ -54,16 +54,24 @@ def _str_to_datetime(value: str) -> dt.datetime | None:
     return dt.datetime.fromisoformat(value) if value else None
 
 
+def _str_to_point(value: str) -> tuple[float, float] | None:
+    return tuple(float(x) for x in value.split(',')) if value else None
+
+
 def _get_type(data_type: str, char_max_length: int | None):
     match data_type:
         case 'integer':
             return int
         case 'timestamp without time zone':
             return _str_to_datetime
+        case 'timestamp with time zone':
+            return _str_to_datetime
         case 'date':
             return _str_to_date
         case 'boolean':
             return bool
+        case 'point':
+            return _str_to_point
 
     return functools.partial(_str_max_size, max_size=char_max_length)
 
@@ -77,10 +85,17 @@ async def get_table_infos(conn: asyncpg.Connection, schema: str, table: str):
     }
 
 
-def _fmt_record_tuple(record: dict, data_types: dict) -> tuple:
-    return tuple(data_types[k.lower()](v) if v not in {'', '-'} and v is not None
-                 else None
-                 for k, v in record.items())
+def _fmt_record_tuple(record: dict, data_types: dict, columns: list[str]) -> tuple:
+    _record = []
+    for col_name in columns:
+        value = record[col_name]
+        try:
+            _record.append(data_types[col_name](value) if value not in {'', '-'} and value is not None else None)
+        except ValueError:
+            logger.error(f"Could not convert field {col_name!r} with value {value!r}")
+            raise
+
+    return tuple(_record)
 
 
 async def upsert_csv(conn: asyncpg.Connection,
@@ -93,7 +108,7 @@ async def upsert_csv(conn: asyncpg.Connection,
                      nb_lines: int | None = None,
                      on_conflict_keys: Iterable[LiteralString] | None = None,
                      delimiter: str = ',',
-                     col_names: Sequence[str] | None = None,
+                     col_names: list[LiteralString] | None = None,
                      skip_header: bool = False):
     infos = await get_table_infos(conn, schema, table)
 
@@ -106,10 +121,15 @@ async def upsert_csv(conn: asyncpg.Connection,
         reader = csv.DictReader(f, delimiter=delimiter, fieldnames=col_names)
         if skip_header:
             next(reader)
-        _columns = col_names if col_names else [x.lower() for x in (reader.fieldnames or [])]
+        _columns = col_names if col_names else cast(list[LiteralString], [x.lower() for x in (reader.fieldnames or [])])
+
+        missing_cols = set(_columns) - set(infos.keys())
+        if missing_cols:
+            raise ValueError(f'Could not find the following columns in the table: {",".join(missing_cols)}')
+
         async with conn.transaction():
             _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table,
-                                                                        columns=infos.keys(),
+                                                                        columns=_columns,
                                                                         on_conflict=on_conflict_str)
             logger.info(f'Creating tmp table: {_tmp_table!r}')
             await conn.execute(_tmp_query)
@@ -118,7 +138,7 @@ async def upsert_csv(conn: asyncpg.Connection,
             with Progress(disable=not show_progress) as progress:
                 task1 = progress.add_task("[red]Inserting csv chunks....", total=nb_lines)
                 for records in get_chunks(reader, size=chunk_size, as_list=False):
-                    _data = [_fmt_record_tuple(x, infos) for x in records]
+                    _data = [_fmt_record_tuple(x, infos, _columns) for x in records]
                     await conn.copy_records_to_table(table_name=_tmp_table,
                                                      columns=_columns,
                                                      records=_data)

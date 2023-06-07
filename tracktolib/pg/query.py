@@ -115,9 +115,9 @@ class PGQuery(Generic[K, V]):
     async def run(self, conn: _Connection,
                   timeout: float | None = None):
         if len(self.items) == 1:
-            await conn.execute(self.query, *self.values, timeout=timeout)
+            await conn.execute(self.query, *self.values, timeout=timeout)  # type: ignore
         else:
-            await conn.executemany(self.query, self.values, timeout=timeout)
+            await conn.executemany(self.query, self.values, timeout=timeout)  # type: ignore
 
     async def fetch(self, conn: _Connection,
                     timeout: float | None = None) -> list[asyncpg.Record]:
@@ -142,9 +142,10 @@ class PGQuery(Generic[K, V]):
     async def exists(self, conn: _Connection,
                      *,
                      timeout: float | None = None) -> bool:
-        return await conn.fetchval(f'SELECT EXISTS({self.query})',
-                                   *self._get_values(),
-                                   timeout=timeout)
+        _exists = await conn.fetchval(f'SELECT EXISTS({self.query})',
+                                      *self._get_values(),
+                                      timeout=timeout)
+        return _exists or False
 
 
 @dataclass

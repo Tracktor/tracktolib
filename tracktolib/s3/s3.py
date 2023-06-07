@@ -38,7 +38,7 @@ async def upload_file(client: AioBaseClient,
     resp = await client.put_object(Bucket=bucket,
                                    Key=path,
                                    Body=file.read_bytes(),
-                                   **extra_args)
+                                   **extra_args)  # type: ignore
     return resp
 
 
@@ -50,7 +50,7 @@ async def download_file(client: AioBaseClient,
     """
     try:
         resp = await client.get_object(Bucket=bucket,
-                                       Key=path)
+                                       Key=path)  # type: ignore
     except client.exceptions.NoSuchKey:
         _file = None
     else:
@@ -67,7 +67,7 @@ async def delete_file(client: AioBaseClient,
     Delete a file from a s3 bucket.
     Returns True if the file exists else False
     """
-    return await client.delete_object(Bucket=bucket, Key=path)
+    return await client.delete_object(Bucket=bucket, Key=path)  # type: ignore
 
 
 class S3Item(TypedDict):
