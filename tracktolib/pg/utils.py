@@ -3,8 +3,10 @@ import datetime as dt
 import functools
 import logging
 from pathlib import Path
-from typing import AsyncIterator, Iterable, cast
+from typing import AsyncIterator, Iterable, cast, NamedTuple
 from typing_extensions import LiteralString
+from dataclasses import dataclass
+from contextlib import contextmanager
 from ..pg_utils import get_conflict_query
 
 try:
@@ -12,6 +14,12 @@ try:
     from rich.progress import Progress
 except ImportError:
     raise ImportError('Please install tracktolib with "pg" to use this module')
+
+from asyncpg.exceptions import (
+    CheckViolationError,
+    ForeignKeyViolationError,
+    UniqueViolationError,
+)
 
 from tracktolib.utils import get_chunks
 from tracktolib.pg_utils import get_tmp_table_query
@@ -145,3 +153,45 @@ async def upsert_csv(conn: asyncpg.Connection,
                     progress.update(task1, advance=chunk_size)
             logger.info(f'Inserting data from {_tmp_table} to "{schema}.{table}"')
             await conn.execute(_insert_query)
+
+
+class PGError(NamedTuple):
+    key: str
+    reason: str
+
+
+@dataclass
+class PGException(Exception):
+    reason: str
+
+
+@contextmanager
+def safe_pg_context(errors: list[PGError]):
+    try:
+        yield
+    except (UniqueViolationError, CheckViolationError, ForeignKeyViolationError) as e:
+        for error in errors:
+            if error.key in e.args[0]:
+                raise PGException(
+                    reason=error.reason
+                )
+        raise e
+
+
+def safe_pg(errors: list[PGError]):
+    """
+    Decorator to handle errors from PG.
+    When an error is encountered,
+    this will check if the error is in the list of errors to handle
+    and display a custom error message.
+    """
+
+    def wrapper(fn):
+        @functools.wraps(fn)
+        async def _fn(*args, **kwargs):
+            with safe_pg_context(errors):
+                return await fn(*args, **kwargs)
+
+        return _fn
+
+    return wrapper

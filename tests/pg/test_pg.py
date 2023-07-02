@@ -352,3 +352,19 @@ async def check_update_one_types(aengine):
 
     await update_returning(aengine, 'foo.foo', {'foo': 1}, returning='foo')
     await update_returning(aengine, 'foo.foo', {'foo': 1}, return_keys=True)
+
+
+def test_safe_pg(aengine, loop):
+    from tracktolib.pg import insert_one, safe_pg, PGError, PGException, safe_pg_context
+
+    @safe_pg([PGError('bar_unique', 'Another bar value exists')])
+    async def insert_bar():
+        await insert_one(aengine, 'foo.generated', {'bar': 'foo'})
+
+    loop.run_until_complete(insert_bar())
+    with pytest.raises(PGException):
+        loop.run_until_complete(insert_bar())
+
+    with pytest.raises(PGException):
+        with safe_pg_context([PGError('bar_unique', 'Another bar value exists')]):
+            loop.run_until_complete(insert_bar())
