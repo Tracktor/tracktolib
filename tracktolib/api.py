@@ -53,7 +53,7 @@ class MethodMeta(TypedDict):
     dependencies: Dependencies
     path: str | None
     response_model: Type[BaseModel | None | Sequence[BaseModel]] | None
-
+    openapi_extra: dict[str, Any] | None
 
 @dataclass
 class Endpoint:
@@ -67,52 +67,62 @@ class Endpoint:
     def get(self, status_code: StatusCode = None,
             dependencies: Dependencies = None,
             path: str | None = None,
-            model: Type[B] | None = None):
+            model: Type[B] | None = None,
+            openapi_extra: dict[str, Any] | None = None):
         return _get_method_wrapper(cls=self, method='GET',
                                    status_code=status_code,
                                    dependencies=dependencies,
                                    path=path,
-                                   model=model)
+                                   model=model,
+                                   openapi_extra=openapi_extra)
 
     def post(self, *, status_code: StatusCode = None,
              dependencies: Dependencies = None,
              path: str | None = None,
-             model: Type[B] | None = None):
+             model: Type[B] | None = None,
+             openapi_extra: dict[str, Any] | None = None):
         return _get_method_wrapper(cls=self, method='POST',
                                    status_code=status_code,
                                    dependencies=dependencies,
                                    path=path,
-                                   model=model)
+                                   model=model,
+                                   openapi_extra=openapi_extra)
 
     def put(self, status_code: StatusCode = None,
             dependencies: Dependencies = None,
             path: str | None = None,
-            model: Type[B] | None = None):
+            model: Type[B] | None = None,
+            openapi_extra: dict[str, Any] | None = None):
         return _get_method_wrapper(cls=self, method='PUT',
                                    status_code=status_code,
                                    dependencies=dependencies,
                                    path=path,
-                                   model=model)
+                                   model=model,
+                                   openapi_extra=openapi_extra)
 
     def delete(self, status_code: StatusCode = None,
                dependencies: Dependencies = None,
                path: str | None = None,
-               model: Type[B] | None = None):
+               model: Type[B] | None = None,
+               openapi_extra: dict[str, Any] | None = None):
         return _get_method_wrapper(cls=self, method='DELETE',
                                    status_code=status_code,
                                    dependencies=dependencies,
                                    path=path,
-                                   model=model)
+                                   model=model,
+                                   openapi_extra=openapi_extra)
 
     def patch(self, status_code: StatusCode = None,
               dependencies: Dependencies = None,
               path: str | None = None,
-              model: Type[B] | None = None):
+              model: Type[B] | None = None,
+              openapi_extra: dict[str, Any] | None = None):
         return _get_method_wrapper(cls=self, method='PATCH',
                                    status_code=status_code,
                                    dependencies=dependencies,
                                    path=path,
-                                   model=model)
+                                   model=model,
+                                   openapi_extra=openapi_extra)
 
 
 def _get_method_wrapper(cls: Endpoint, method: Method,
@@ -120,14 +130,16 @@ def _get_method_wrapper(cls: Endpoint, method: Method,
                         status_code: StatusCode = None,
                         dependencies: Dependencies = None,
                         path: str | None = None,
-                        model: Type[B] | None = None):
+                        model: Type[B] | None = None,
+                        openapi_extra: dict[str, Any] | None = None):
     def _set_method_wrapper(func: EnpointFn):
         _meta: MethodMeta = {
             'fn': func,
             'status_code': status_code,
             'dependencies': dependencies,
             'path': path,
-            'response_model': model
+            'response_model': model,
+            'openapi_extra': openapi_extra
         }
         cls._methods[method] = _meta
 
@@ -169,7 +181,8 @@ def add_endpoint(path: str,
                              name=getdoc(_fn),
                              response_model=_response_model,
                              status_code=_status_code,
-                             dependencies=[*(_dependencies or []), *(dependencies or [])])
+                             dependencies=[*(_dependencies or []), *(dependencies or [])],
+                             openapi_extra=_meta.get('openapi_extra'))
 
 
 @dataclass(init=False)
