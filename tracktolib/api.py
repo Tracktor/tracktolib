@@ -202,7 +202,7 @@ class JSONSerialResponse(JSONResponse):
 
 
 if pydantic.__version__ < '2.0.0':
-    class CamelCaseModel(BaseModel):
+    class CamelCaseModel(BaseModel): # type: ignore
         class Config:
             alias_generator = to_camel_case
             allow_population_by_field_name = True
