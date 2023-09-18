@@ -13,6 +13,7 @@ from .utils import json_serial, to_camel_case
 try:
     from fastapi import params, APIRouter
     from fastapi.responses import JSONResponse
+    import pydantic
     from pydantic import BaseModel
     import starlette.status
 except ImportError:
@@ -200,11 +201,15 @@ class JSONSerialResponse(JSONResponse):
         ).encode("utf-8")
 
 
-class CamelCaseModel(BaseModel):
-    class Config:
-        alias_generator = to_camel_case
-        allow_population_by_field_name = True
-
+if pydantic.__version__ < '2.0.0':
+    class CamelCaseModel(BaseModel):
+        class Config:
+            alias_generator = to_camel_case
+            allow_population_by_field_name = True
+else:
+    class CamelCaseModel(BaseModel):
+        def __init__(self):
+            raise NotImplementedError('Please use pydantic < 2.0.0')
 
 def check_status(resp, status: int = starlette.status.HTTP_200_OK):
     assert resp.status_code == status, json.dumps(resp.json(), indent=4)
