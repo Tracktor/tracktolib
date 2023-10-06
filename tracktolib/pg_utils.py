@@ -36,7 +36,8 @@ def get_conflict_query(keys: Iterable[str],
                        update_keys: Iterable[str] | None = None,
                        ignore_keys: Iterable[str] | None = None,
                        constraint: str | None = None,
-                       on_conflict: str | None = None) -> LiteralString:
+                       on_conflict: str | None = None,
+                       where: str | None = None) -> LiteralString:
     if on_conflict:
         return cast(LiteralString, on_conflict)
 
@@ -45,6 +46,8 @@ def get_conflict_query(keys: Iterable[str],
     elif update_keys:
         update_keys_str = ', '.join(sorted(update_keys))
         query = f'ON CONFLICT ({update_keys_str})'
+        if where:
+            query += f' WHERE {where}'
     else:
         raise NotImplementedError('update_keys or constraint must be set')
 

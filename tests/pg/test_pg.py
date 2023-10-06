@@ -42,6 +42,14 @@ def compare_strings(str1: str, str2: str):
     ),
     (
             {'foo': 1, 'bar': 2},
+            {'keys': ['id'], 'where': 'id = 2'},
+            None,
+            'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
+            'ON CONFLICT (id) WHERE id = 2 DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar), '
+            'foo = COALESCE(EXCLUDED.foo, t.foo)'
+    ),
+    (
+            {'foo': 1, 'bar': 2},
             {'keys': ['id'], 'ignore_keys': ['foo']},
             None,
             'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '

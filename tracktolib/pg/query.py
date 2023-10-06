@@ -31,9 +31,11 @@ def _get_on_conflict_query(query: str,
                            update_keys: Iterable[K] | None,
                            ignore_keys: Iterable[K] | None,
                            constraint: K | None,
-                           on_conflict: K | None) -> str:
+                           on_conflict: K | None,
+                           where: K | None) -> str:
     _on_conflict = get_conflict_query(keys=keys, update_keys=update_keys, ignore_keys=ignore_keys,
-                                      constraint=constraint, on_conflict=on_conflict)
+                                      constraint=constraint, on_conflict=on_conflict,
+                                      where=where)
     return f'{query} {_on_conflict}'
 
 
@@ -67,6 +69,7 @@ class PGConflictQuery(Generic[K]):
     ignore_keys: Iterable[K] | None = None
     query: str | None = None
     constraint: str | None = None
+    where: str | None = None
 
     def __post_init__(self):
         _has_keys = 1 if (self.keys or self.ignore_keys) else 0
@@ -175,7 +178,8 @@ class PGInsertQuery(PGQuery):
                                            self.on_conflict.keys,
                                            self.on_conflict.ignore_keys,
                                            self.on_conflict.constraint,
-                                           self.on_conflict.query)
+                                           self.on_conflict.query,
+                                           self.on_conflict.where)
 
         # Returning
         if self.returning is not None:
