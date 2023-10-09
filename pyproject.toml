@@ -19,14 +19,15 @@ include = [
 python = ">=3.10,<4.0"
 
 python-json-logger = { version = ">=2.0.4", optional = true }
-psycopg = { version = ">=3.1.5", optional = true }
-minio = { version = ">=7.1.15", optional = true }
-aiobotocore = { version = ">=2.4.0", optional = true }
-deepdiff = { version = ">=6.2.1", optional = true }
-httpx = { version = ">=0.23.3", optional = true }
-fastapi = { version = ">=0.88.0", optional = true }
+psycopg = { version = ">=3.1.12", optional = true }
+minio = { version = ">=7.1.17", optional = true }
+aiobotocore = { version = ">=2.6.0", optional = true }
+deepdiff = { version = ">=6.6.0", optional = true }
+httpx = { version = ">=0.25.0", optional = true }
+fastapi = { version = ">=0.103.2", optional = true }
+pydantic = { version = ">=1.10.12", optional = true }
 asyncpg = ">=0.27.0"
-rich = { version = ">=12.6.0", optional = true }
+rich = { version = ">=13.6.0", optional = true }
 
 
 [tool.poetry.extras]
@@ -36,7 +37,7 @@ s3-minio = ["minio"]
 s3 = ["aiobotocore"]
 tests = ["deepdiff"]
 http = ["httpx"]
-api = ["fastapi"]
+api = ["fastapi", "pydantic"]
 pg = ["asyncpg", "rich"]
 
 [tool.poetry.group.dev.dependencies]
