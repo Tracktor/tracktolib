@@ -3,7 +3,7 @@ import datetime as dt
 import functools
 import logging
 from pathlib import Path
-from typing import AsyncIterator, Iterable, cast, NamedTuple
+from typing import AsyncIterator, Iterable, cast, NamedTuple, Sequence
 from typing_extensions import LiteralString
 from dataclasses import dataclass
 from contextlib import contextmanager
@@ -62,7 +62,7 @@ def _str_to_datetime(value: str) -> dt.datetime | None:
     return dt.datetime.fromisoformat(value) if value else None
 
 
-def _str_to_point(value: str) -> tuple[float, float] | None:
+def _str_to_point(value: str) -> tuple[float, ...] | None:
     return tuple(float(x) for x in value.split(',')) if value else None
 
 
@@ -93,7 +93,7 @@ async def get_table_infos(conn: asyncpg.Connection, schema: str, table: str):
     }
 
 
-def _fmt_record_tuple(record: dict, data_types: dict, columns: list[str]) -> tuple:
+def _fmt_record_tuple(record: dict, data_types: dict, columns: Sequence[str]) -> tuple:
     _record = []
     for col_name in columns:
         value = record[col_name]
