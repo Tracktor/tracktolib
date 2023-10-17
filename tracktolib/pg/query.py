@@ -1,7 +1,6 @@
 import typing
 from dataclasses import dataclass, field
 from typing import (
-    cast,
     TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias,
     overload, Any, Literal)
 from ..pg_utils import get_conflict_query
@@ -17,9 +16,9 @@ K = TypeVar('K', bound=str)
 V = TypeVar('V')
 
 
-def _get_insert_query(table: str, keys: Iterable[K], values: str) -> str:
-    _keys = ', '.join(keys)
-    return f"INSERT INTO {table} AS t ({_keys}) VALUES ( {values} )"
+def _get_insert_query(table: str, columns: Iterable[K], values: str) -> str:
+    _columns = ', '.join(columns)
+    return f"INSERT INTO {table} AS t ({_columns}) VALUES ( {values} )"
 
 
 def _get_returning_query(query: str, returning: Iterable[K]) -> str:
@@ -28,13 +27,13 @@ def _get_returning_query(query: str, returning: Iterable[K]) -> str:
 
 
 def _get_on_conflict_query(query: str,
-                           keys: Iterable[K],
-                           update_keys: Iterable[K] | None,
-                           ignore_keys: Iterable[K] | None,
+                           columns: Iterable[K],
+                           update_columns: Iterable[K] | None,
+                           ignore_columns: Iterable[K] | None,
                            constraint: K | None,
                            on_conflict: K | None,
                            where: K | None) -> str:
-    _on_conflict = get_conflict_query(keys=keys, update_keys=update_keys, ignore_keys=ignore_keys,
+    _on_conflict = get_conflict_query(columns=columns, update_columns=update_columns, ignore_columns=ignore_columns,
                                       constraint=constraint, on_conflict=on_conflict,
                                       where=where)
     return f'{query} {_on_conflict}'
@@ -93,10 +92,11 @@ class PGQuery(Generic[K, V]):
 
     @property
     def keys(self) -> list[K]:
-        _keys = sorted(self.items[0].keys())
-        if self.quote_columns:
-            return cast(list[K], [f'"{k}"' for k in _keys])
-        return _keys
+        return sorted(self.items[0].keys())
+
+    @property
+    def columns(self):
+        return [f'"{x}"' for x in self.keys] if self.quote_columns else self.keys
 
     def iter_values(self) -> Iterator[tuple]:
         _keys = self.keys
@@ -171,15 +171,15 @@ class PGInsertQuery(PGQuery):
 
     @property
     def query(self) -> str:
-        _values = ', '.join(f'${i + 1}' for i, _ in enumerate(self.keys))
-        _keys = self.keys
+        _columns = self.columns
+        _values = ', '.join(f'${i + 1}' for i, _ in enumerate(_columns))
 
-        query = _get_insert_query(self.table, _keys, _values)
+        query = _get_insert_query(self.table, _columns, _values)
 
         # Conflict
         if self.on_conflict:
             query = _get_on_conflict_query(query,
-                                           _keys,
+                                           _columns,
                                            self.on_conflict.keys,
                                            self.on_conflict.ignore_keys,
                                            self.on_conflict.constraint,
@@ -199,7 +199,8 @@ class PGInsertQuery(PGQuery):
 
 
 def get_update_fields(item: dict, keys: list[str], *, start_from: int = 0,
-                      ignore_keys: list[str] | None = None) -> tuple[str, list]:
+                      ignore_keys: list[str] | None = None,
+                      quote_columns: bool = False) -> tuple[str, list]:
     values, fields, where_values = [], [], []
     counter = 0
     for k in keys:
@@ -208,7 +209,8 @@ def get_update_fields(item: dict, keys: list[str], *, start_from: int = 0,
             where_values.append(v)
             continue
         values.append(v)
-        fields.append(f'{k} = ${counter + start_from + 1}')
+        _col = f'"{k}"' if quote_columns else k
+        fields.append(f'{_col} = ${counter + start_from + 1}')
         counter += 1
     return ',\n'.join(fields), values + where_values
 
@@ -239,7 +241,8 @@ class PGUpdateQuery(PGQuery):
         self._update_fields, self._values = get_update_fields(self.items[0],
                                                               self.keys,
                                                               start_from=self.start_from or 0,
-                                                              ignore_keys=self.where_keys)
+                                                              ignore_keys=self.where_keys,
+                                                              quote_columns=self.quote_columns)
         if self.returning and self.return_keys:
             raise ValueError('Please choose either returning or return_keys')
 

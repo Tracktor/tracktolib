@@ -96,7 +96,7 @@ def compare_strings(str1: str, str2: str):
             """,
             False
     ),
-     (
+    (
             {'foo': 1, 'bar': 2},
             {'constraint': 'my_constraint'},
             None,
@@ -134,16 +134,20 @@ def test_insert_one(loop, aengine, apool, engine, async_engine):
     assert db_data == [{'bar': None, 'foo': 1}]
 
 
+@pytest.mark.parametrize('quote_columns', [True, False])
 @pytest.mark.parametrize('async_engine', ['connection', 'pool'])
 @pytest.mark.usefixtures('setup_tables')
-def test_insert_many(loop, aengine, apool, engine, async_engine):
+def test_insert_many(loop, aengine, apool, engine, async_engine,
+                     quote_columns):
     from tracktolib.pg import insert_many
 
     _engine = aengine if async_engine == 'connection' else apool
 
     loop.run_until_complete(
         insert_many(_engine, 'foo.foo', [{'foo': 1}, {'bar': 'hello'}],
-                    fill=True)
+                    fill=True,
+                    quote_columns=quote_columns
+                    )
     )
 
     db_data = fetch_all(engine, 'SELECT bar, foo FROM foo.foo ORDER BY foo')
@@ -171,9 +175,9 @@ def test_insert_conflict_one(loop, aengine, engine):
     db_data = fetch_all(engine, 'SELECT bar, foo FROM foo.foo WHERE id = 1')
     assert db_data == [{'bar': 'baz', 'foo': 1}]
 
-@pytest.mark.parametrize('quote_columns', [True, False])
+
 @pytest.mark.usefixtures('setup_tables', 'insert_data')
-def test_insert_conflict_many(loop, aengine, engine, quote_columns):
+def test_insert_conflict_many(loop, aengine, engine):
     from tracktolib.pg import insert_many, Conflict
 
     data = [
@@ -182,8 +186,7 @@ def test_insert_conflict_many(loop, aengine, engine, quote_columns):
     ]
     loop.run_until_complete(
         insert_many(aengine, 'foo.foo', data, fill=True,
-                    on_conflict=Conflict(keys=['id'], ignore_keys=['foo'])
-                    )
+                    on_conflict=Conflict(keys=['id'], ignore_keys=['foo']))
     )
     db_data = fetch_all(engine, 'SELECT bar, foo FROM foo.foo ORDER BY foo')
     assert [{'bar': 'baz', 'foo': 10},

@@ -122,8 +122,8 @@ async def upsert_csv(conn: asyncpg.Connection,
 
     on_conflict_str = 'ON CONFLICT DO NOTHING'
     if on_conflict_keys is not None:
-        on_conflict_str = get_conflict_query(keys=infos.keys(),
-                                             update_keys=on_conflict_keys)
+        on_conflict_str = get_conflict_query(columns=infos.keys(),
+                                             update_columns=on_conflict_keys)
 
     with csv_path.open('r') as f:
         reader = csv.DictReader(f, delimiter=delimiter, fieldnames=col_names)
