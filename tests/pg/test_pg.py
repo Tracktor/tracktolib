@@ -24,13 +24,14 @@ def compare_strings(str1: str, str2: str):
     assert str1.strip() == str2.strip()
 
 
-@pytest.mark.parametrize('data,on_conflict,returning,expected', [
+@pytest.mark.parametrize('data,on_conflict,returning,expected,quote_columns', [
     (
             {'foo': 1},
             {'keys': ['id']},
             None,
             'INSERT INTO schema.table AS t (foo) VALUES ( $1 ) '
-            'ON CONFLICT (id) DO UPDATE SET foo = COALESCE(EXCLUDED.foo, t.foo)'
+            'ON CONFLICT (id) DO UPDATE SET foo = COALESCE(EXCLUDED.foo, t.foo)',
+            False
     ),
     (
             {'foo': 1, 'bar': 2},
@@ -38,7 +39,8 @@ def compare_strings(str1: str, str2: str):
             None,
             'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
             'ON CONFLICT (id) DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar), '
-            'foo = COALESCE(EXCLUDED.foo, t.foo)'
+            'foo = COALESCE(EXCLUDED.foo, t.foo)',
+            False
     ),
     (
             {'foo': 1, 'bar': 2},
@@ -46,35 +48,40 @@ def compare_strings(str1: str, str2: str):
             None,
             'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
             'ON CONFLICT (id) WHERE id = 2 DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar), '
-            'foo = COALESCE(EXCLUDED.foo, t.foo)'
+            'foo = COALESCE(EXCLUDED.foo, t.foo)',
+            False
     ),
     (
             {'foo': 1, 'bar': 2},
             {'keys': ['id'], 'ignore_keys': ['foo']},
             None,
             'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
-            'ON CONFLICT (id) DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar)'
+            'ON CONFLICT (id) DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar)',
+            False
     ),
     (
             {'foo': 1, 'bar': 2},
             {'query': 'ON CONFLICT DO NOTHING'},
             None,
             'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
-            'ON CONFLICT DO NOTHING'
+            'ON CONFLICT DO NOTHING',
+            False
     ),
     (
             {'foo': 1, 'bar': 2},
             {'query': 'ON CONFLICT DO NOTHING'},
             None,
             'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
-            'ON CONFLICT DO NOTHING'
+            'ON CONFLICT DO NOTHING',
+            False
     ),
     (
             {'foo': 1, 'bar': 2},
             {'query': 'ON CONFLICT DO NOTHING'},
             {'key': 'bar'},
             'INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) '
-            'ON CONFLICT DO NOTHING RETURNING bar'
+            'ON CONFLICT DO NOTHING RETURNING bar',
+            False
     ),
     (
             {'foo': 1, 'bar': 2},
@@ -86,15 +93,30 @@ def compare_strings(str1: str, str2: str):
             DO UPDATE SET 
                 bar = COALESCE(EXCLUDED.bar, t.bar), 
                 foo = COALESCE(EXCLUDED.foo, t.foo)
+            """,
+            False
+    ),
+     (
+            {'foo': 1, 'bar': 2},
+            {'constraint': 'my_constraint'},
+            None,
             """
+            INSERT INTO schema.table AS t ("bar", "foo") VALUES ( $1, $2 ) 
+            ON CONFLICT ON CONSTRAINT my_constraint 
+            DO UPDATE SET 
+                "bar" = COALESCE(EXCLUDED."bar", t."bar"), 
+                "foo" = COALESCE(EXCLUDED."foo", t."foo")
+            """,
+            True
     )
 ])
-def test_pg_insert_query(data, on_conflict, returning, expected):
+def test_pg_insert_query(data, on_conflict, returning, expected, quote_columns):
     from tracktolib.pg import PGInsertQuery, PGConflictQuery, PGReturningQuery
     _returning = PGReturningQuery.load(**returning) if returning else None
     query = PGInsertQuery('schema.table', [data],
                           on_conflict=PGConflictQuery(**on_conflict),
-                          returning=_returning).query
+                          returning=_returning,
+                          quote_columns=quote_columns).query
 
     compare_strings(query, expected)
 
@@ -149,9 +171,9 @@ def test_insert_conflict_one(loop, aengine, engine):
     db_data = fetch_all(engine, 'SELECT bar, foo FROM foo.foo WHERE id = 1')
     assert db_data == [{'bar': 'baz', 'foo': 1}]
 
-
+@pytest.mark.parametrize('quote_columns', [True, False])
 @pytest.mark.usefixtures('setup_tables', 'insert_data')
-def test_insert_conflict_many(loop, aengine, engine):
+def test_insert_conflict_many(loop, aengine, engine, quote_columns):
     from tracktolib.pg import insert_many, Conflict
 
     data = [

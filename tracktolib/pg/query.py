@@ -1,6 +1,7 @@
 import typing
 from dataclasses import dataclass, field
 from typing import (
+    cast,
     TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias,
     overload, Any, Literal)
 from ..pg_utils import get_conflict_query
@@ -84,6 +85,7 @@ class PGQuery(Generic[K, V]):
     items: list[dict[K, V]]
 
     fill: bool = field(kw_only=True, default=False)
+    quote_columns: bool = field(kw_only=True, default=False)
 
     def __post_init__(self):
         if self.fill:
@@ -91,7 +93,10 @@ class PGQuery(Generic[K, V]):
 
     @property
     def keys(self) -> list[K]:
-        return sorted(self.items[0].keys())
+        _keys = sorted(self.items[0].keys())
+        if self.quote_columns:
+            return cast(list[K], [f'"{k}"' for k in _keys])
+        return _keys
 
     def iter_values(self) -> Iterator[tuple]:
         _keys = self.keys
@@ -279,20 +284,24 @@ def insert_pg(
         *,
         on_conflict: OnConflict | None = None,
         returning: Iterable[K] | None = None,
-        fill: bool = False
+        fill: bool = False,
+        quote_columns: bool = False
 ) -> PGInsertQuery:
     _on_conflict = PGConflictQuery(query=on_conflict) if isinstance(on_conflict, str) else on_conflict
     _returning = PGReturningQuery.load(keys=returning) if returning else None
     return PGInsertQuery(table, items, fill=fill, on_conflict=_on_conflict,
-                         returning=_returning)
+                         returning=_returning,
+                         quote_columns=quote_columns)
 
 
 async def insert_one(conn: _Connection,
                      table: str, item: dict,
                      *,
                      on_conflict: OnConflict | None = None,
-                     fill: bool = False):
-    query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill)
+                     fill: bool = False,
+                     quote_columns: bool = False):
+    query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill,
+                      quote_columns=quote_columns)
     await query.run(conn)
 
 
@@ -300,8 +309,9 @@ async def insert_many(conn: _Connection,
                       table: str, items: list[dict],
                       *,
                       on_conflict: OnConflict | None = None,
-                      fill: bool = False):
-    query = insert_pg(table=table, items=items, on_conflict=on_conflict, fill=fill)
+                      fill: bool = False,
+                      quote_columns: bool = False):
+    query = insert_pg(table=table, items=items, on_conflict=on_conflict, fill=fill, quote_columns=quote_columns)
     await query.run(conn)
 
 
@@ -357,6 +367,7 @@ async def update_one(
         keys: list[str] | None = None,
         start_from: int | None = None,
         where: str | None = None,
+
 ):
     query = PGUpdateQuery(table=table, items=[item],
                           start_from=start_from,
