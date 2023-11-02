@@ -140,14 +140,13 @@ def _get_method_wrapper(cls: Endpoint, method: Method,
         if model_is_non_empty_list:
             name = get_args(model)[0].__name__
             updated_openapi_extra.update(generate_list_name_model(name))
-
         _meta: MethodMeta = {
             'fn': func,
             'status_code': status_code,
             'dependencies': dependencies,
             'path': path,
             'response_model': model,
-            'openapi_extra': openapi_extra
+            'openapi_extra': updated_openapi_extra
         }
         cls._methods[method] = _meta
 
@@ -224,15 +223,14 @@ def check_status(resp, status: int = starlette.status.HTTP_200_OK):
 
 
 def generate_list_name_model(class_name: str):
-    name = f"List{class_name}"
+    name = f"Array[{class_name}]"
     return {
         "responses": {
             "200": {
                 "content": {
                     "application/json": {
                         "schema": {
-                            "title": name,
-                            "type": "array",
+                            "title": name
                         }
                     }
                 }
