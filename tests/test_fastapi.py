@@ -142,3 +142,47 @@ def check_json_serial_types():
 
     class Foo(JSONSerialResponse):
         json_serial = _json_serial
+
+
+def test_update_array_metadata(app):
+    import json
+    from fastapi.openapi.docs import get_swagger_ui_html
+    from fastapi.openapi.utils import get_openapi
+    from tracktolib.api import Endpoint, CamelCaseModel, add_endpoint
+    from tracktolib.tests import assert_equals
+
+    endpoint_a = Endpoint()
+    endpoint_b = Endpoint()
+
+    class Foo(CamelCaseModel):
+        foo: int
+
+    @endpoint_a.get(model=list[Foo])
+    async def foo_endpoint():
+        return [{'foo': 1}, {'foo': 2}]
+
+    @endpoint_b.get(model=Foo)
+    async def foobar_endpoint():
+        return {'foo': 1}
+
+    router = APIRouter()
+
+    add_endpoint('/foo', router, endpoint_a)
+    add_endpoint('/foobar', router, endpoint_b)
+    app.include_router(router)
+
+    with TestClient(app) as client:
+        resp_a = client.get('/foo')
+        resp_b = client.get('/foobar')
+    assert_equals(resp_a.json(), [{'foo': 1}, {'foo': 2}])
+    assert_equals(resp_b.json(), {'foo': 1})
+
+    openapi_schema = get_openapi(title="title", version="0.1", routes=app.routes)
+    schema_a = openapi_schema["paths"]["/foo"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    schema_b = openapi_schema["components"]["schemas"]["Foo"]
+    title_response_a = schema_a.get("title", "No title found")
+    title_response_b = schema_b.get("title", "No title found")
+    assert_equals(title_response_a, "Array[Foo]")
+    assert_equals(title_response_b, "Foo")
+
+
