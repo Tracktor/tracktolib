@@ -145,8 +145,6 @@ def check_json_serial_types():
 
 
 def test_update_array_metadata(app):
-    import json
-    from fastapi.openapi.docs import get_swagger_ui_html
     from fastapi.openapi.utils import get_openapi
     from tracktolib.api import Endpoint, CamelCaseModel, add_endpoint
     from tracktolib.tests import assert_equals
