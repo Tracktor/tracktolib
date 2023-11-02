@@ -6,7 +6,7 @@ from typing import (
     Literal, Sequence,
     AsyncIterator, Coroutine,
     get_type_hints, get_args, TypedDict,
-    TypeAlias, Type, ClassVar
+    TypeAlias, Type, ClassVar, get_origin
 )
 from .utils import json_serial, to_camel_case
 
@@ -135,10 +135,10 @@ def _get_method_wrapper(cls: Endpoint, method: Method,
                         openapi_extra: dict[str, Any] | None = None):
     def _set_method_wrapper(func: EnpointFn):
         updated_openapi_extra = openapi_extra or {}
-        model_is_list = model is not None and hasattr(model, "__origin__") and model.__origin__ is list  # type: ignore
-        model_is_non_empty_list = model_is_list and len(model.__args__) > 0  # type: ignore
+        model_is_list = model is not None and get_origin(model) and get_origin(model) is list
+        model_is_non_empty_list = model_is_list and len(get_args(model)) > 0
         if model_is_non_empty_list:
-            name = model.__args__[0].__name__  # type: ignore
+            name = get_args(model)[0].__name__
             updated_openapi_extra.update(generate_list_name_model(name))
 
         _meta: MethodMeta = {
