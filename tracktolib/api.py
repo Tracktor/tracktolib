@@ -135,10 +135,11 @@ def _get_method_wrapper(cls: Endpoint, method: Method,
                         openapi_extra: dict[str, Any] | None = None):
     def _set_method_wrapper(func: EnpointFn):
         updated_openapi_extra = openapi_extra or {}
-        if hasattr(model, "__origin__"):
-            if model.__origin__ is list and len(model.__args__) > 0:
-                name = model.__args__[0].__name__
-                updated_openapi_extra.update(generate_list_name_model(name))
+        model_is_list = model is not None and hasattr(model, "__origin__") and model.__origin__ is list  # type: ignore
+        model_is_non_empty_list = model_is_list and len(model.__args__) > 0  # type: ignore
+        if model_is_non_empty_list:
+            name = model.__args__[0].__name__  # type: ignore
+            updated_openapi_extra.update(generate_list_name_model(name))
 
         _meta: MethodMeta = {
             'fn': func,
