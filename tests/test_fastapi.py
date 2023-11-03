@@ -52,6 +52,7 @@ def test_add_endpoint(app):
 
     @endpoint.get()
     async def foo_endpoint(foo: int = Depends(compute_sum)) -> Response[ReturnFoo]:
+        """Get route"""
         return {"foo": foo}
 
     depends_called = False
@@ -62,14 +63,17 @@ def test_add_endpoint(app):
 
     @endpoint.post(dependencies=[fastapi.Depends(foo_depends)])
     async def foo2_endpoint() -> Response[list[ReturnFoo]]:
+        """Post route"""
         return [{"foo": 1}]
 
     @endpoint2.get(status_code=status.HTTP_202_ACCEPTED)
     async def bar_endpoint(return_empty: bool = False) -> Response[ReturnBar | None]:
+        """Get route"""
         return {"foo": 1} if not return_empty else None
 
     @endpoint3.get(path="foo/{foo}/bar/{bar}", model=list[ReturnFooBar])
     async def path_endpoint(foo: int, bar: str):
+        """Get route"""
         return [{"foo": foo, "bar": bar}]
 
     router = APIRouter()
@@ -114,6 +118,7 @@ def test_camelcase_model(app):
 
     @endpoint.post(model=OutputModel)
     async def foo_endpoint(data: InputModel):
+        """Post route"""
         return {"foo_bar": data.foo_bar}
 
     router = APIRouter()
