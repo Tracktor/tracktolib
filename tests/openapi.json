@@ -1,0 +1,88 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "title",
+    "version": "0.1"
+  },
+  "paths": {
+    "/foo": {
+      "get": {
+        "summary": "Nice Description",
+        "description": "Nice description",
+        "operationId": "Nice_description_foo_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Foo",
+                  "title": "Foo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bar": {
+      "get": {
+        "summary": "Another Nice Description",
+        "description": "Another nice description",
+        "operationId": "Another_nice_description_bar_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Bar"
+                  },
+                  "type": "array",
+                  "title": "Array[Bar]"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Bar": {
+        "properties": {
+          "barInt": {
+            "type": "integer",
+            "title": "Barint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "barInt"
+        ],
+        "title": "Bar",
+        "example": {
+          "bar_int": 2
+        }
+      },
+      "Foo": {
+        "properties": {
+          "fooInt": {
+            "type": "integer",
+            "title": "Fooint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fooInt"
+        ],
+        "title": "Foo",
+        "example": {
+          "foo_int": 1
+        }
+      }
+    }
+  }
+}
