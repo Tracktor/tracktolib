@@ -144,7 +144,6 @@ def check_json_serial_types():
 
 
 def test_update_array_metadata(app):
-    import json
     from fastapi.openapi.utils import get_openapi
     from tracktolib.api import Endpoint, CamelCaseModel, add_endpoint
     from tracktolib.tests import assert_equals
@@ -172,7 +171,7 @@ def test_update_array_metadata(app):
         return {"foo_int": 1}
 
     @second_endpoint.get(model=list[Bar], status_code=200)
-    async def foo_endpoint():
+    async def bar_endpoint():
         """
         Another nice description
         """
