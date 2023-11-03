@@ -1,4 +1,5 @@
 import json
+import inspect
 from dataclasses import field, dataclass
 from inspect import getdoc
 from typing import (
@@ -232,6 +233,10 @@ def add_endpoint(
                 raise ValueError(f"Could not find a return type for {_method} {path}")
 
         full_path = path if not _path else f"{path}/{_path}"
+
+        if not inspect.getdoc(_fn):
+            raise ValueError(f"Docstring is missing for {_method} {path}")
+
         # Todo: add warning name is not None
         router.add_api_route(
             full_path,

@@ -201,3 +201,63 @@ def test_update_array_metadata(app):
     title_response_bar = schema_bar.get("title", "No title found")
     assert_equals(title_response_foo, "Foo")
     assert_equals(title_response_bar, "Array[Bar]")
+
+
+def test_warning_without_docstring(app):
+    import unittest
+    from tracktolib.api import Endpoint, add_endpoint, CamelCaseModel
+
+    class Foo(CamelCaseModel):
+        foo_int: int
+
+    first_endpoint = Endpoint()
+    second_endpoint = Endpoint()
+    third_endpoint = Endpoint()
+    router = APIRouter()
+
+    @first_endpoint.get(model=Foo)
+    async def foo_endpoint():
+        return {"foo_int": 1}
+
+    class FailedNoneDescriptionRouteTest(unittest.TestCase):
+        def test_foo_endpoint(self):
+            with self.assertRaises(Exception):
+                add_endpoint("/foo", router, first_endpoint)
+
+    test_suite = unittest.TestSuite()
+    test_suite.addTest(
+        unittest.TestLoader().loadTestsFromTestCase(FailedNoneDescriptionRouteTest)
+    )
+    failed_result = unittest.TextTestRunner(verbosity=2).run(test_suite)
+    assert failed_result.wasSuccessful()
+
+    @second_endpoint.get(model=Foo)
+    async def bar_endpoint():
+        """ """
+        return {"foo_int": 1}
+
+    class FailedEmptyDescriptionRouteTest(unittest.TestCase):
+        def test_bar_endpoint(self):
+            with self.assertRaises(Exception):
+                add_endpoint("/bar", router, second_endpoint)
+
+    test_suite = unittest.TestSuite()
+    test_suite.addTest(
+        unittest.TestLoader().loadTestsFromTestCase(FailedEmptyDescriptionRouteTest)
+    )
+    failed_result = unittest.TextTestRunner(verbosity=2).run(test_suite)
+    assert failed_result.wasSuccessful()
+
+    @third_endpoint.get(model=Foo)
+    async def foo_bar_endpoint():
+        """
+        Nice description
+        """
+        return {"foo_int": 1}
+
+    add_endpoint("/foobar", router, third_endpoint)
+    app.include_router(router)
+
+    with TestClient(app) as client:
+        resp_bar = client.get("/foobar")
+    assert resp_bar.status_code == status.HTTP_200_OK
