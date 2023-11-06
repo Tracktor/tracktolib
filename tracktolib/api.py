@@ -292,7 +292,7 @@ def generate_list_name_model(model: Type[B], status: int | None = None) -> dict:
     if get_origin(model) and get_origin(model) is list:
         _title = f"Array[{get_args(model)[0].__name__}]"
     else:
-        _title = model.__name__
+        _title = model.__name__ if hasattr(model, "__name__") else None
 
     # Todo verify response content type
     return {
