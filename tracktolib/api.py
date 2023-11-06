@@ -1,4 +1,5 @@
 import json
+import warnings
 from dataclasses import field, dataclass
 from inspect import getdoc
 from typing import (
@@ -234,7 +235,7 @@ def add_endpoint(
         full_path = path if not _path else f"{path}/{_path}"
 
         if not getdoc(_fn):
-            raise ValueError(f"Docstring is missing for {_method} {path}")
+            warnings.warn(f"Docstring is missing for {_method} {path}")
 
         # Todo: add warning name is not None
         router.add_api_route(

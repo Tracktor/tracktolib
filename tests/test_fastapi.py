@@ -209,7 +209,7 @@ def test_update_array_metadata(app):
 
 
 def test_warning_without_docstring(app):
-    import unittest
+    import warnings
     from tracktolib.api import Endpoint, add_endpoint, CamelCaseModel
 
     class Foo(CamelCaseModel):
@@ -224,34 +224,24 @@ def test_warning_without_docstring(app):
     async def foo_endpoint():
         return {"foo_int": 1}
 
-    class FailedNoneDescriptionRouteTest(unittest.TestCase):
-        def test_foo_endpoint(self):
-            with self.assertRaises(Exception):
-                add_endpoint("/foo", router, first_endpoint)
-
-    test_suite = unittest.TestSuite()
-    test_suite.addTest(
-        unittest.TestLoader().loadTestsFromTestCase(FailedNoneDescriptionRouteTest)
-    )
-    failed_result = unittest.TextTestRunner(verbosity=2).run(test_suite)
-    assert failed_result.wasSuccessful()
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        add_endpoint("/foo", router, first_endpoint)
+        assert len(w) == 1
+        assert issubclass(w[-1].category, UserWarning)
+        assert "Docstring is missing for" in str(w[-1].message)
 
     @second_endpoint.get(model=Foo)
     async def bar_endpoint():
         """ """
         return {"foo_int": 1}
 
-    class FailedEmptyDescriptionRouteTest(unittest.TestCase):
-        def test_bar_endpoint(self):
-            with self.assertRaises(Exception):
-                add_endpoint("/bar", router, second_endpoint)
-
-    test_suite = unittest.TestSuite()
-    test_suite.addTest(
-        unittest.TestLoader().loadTestsFromTestCase(FailedEmptyDescriptionRouteTest)
-    )
-    failed_result = unittest.TextTestRunner(verbosity=2).run(test_suite)
-    assert failed_result.wasSuccessful()
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        add_endpoint("/bar", router, second_endpoint)
+        assert len(w) == 1
+        assert issubclass(w[-1].category, UserWarning)
+        assert "Docstring is missing for" in str(w[-1].message)
 
     @third_endpoint.get(model=Foo)
     async def foo_bar_endpoint():
