@@ -7,7 +7,7 @@ cd "$(dirname "$0")/../.." || exit
 git config --global user.email "$CI_EMAIL"
 git config --global user.name "$CI_USER"
 
-poetry run cz bump --yes
+poetry run cz bump --yes || exit 1
 
 if [ $? -eq 0 ]; then
   readonly TAG=$(poetry version -s)
