@@ -38,7 +38,7 @@ jobs:
           formatter: 'ruff'
 
   bump-version:
-    executor: export-poetry
+    executor: test
     steps:
       - gh/setup
       - checkout
