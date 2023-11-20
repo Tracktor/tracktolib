@@ -18,18 +18,17 @@ from typing import (
     ClassVar,
     get_origin,
 )
+
 from .utils import json_serial, to_camel_case
 
 try:
     from fastapi import params, APIRouter
     from fastapi.responses import JSONResponse
     import pydantic
-    from pydantic import BaseModel, create_model
+    from pydantic import BaseModel
     import starlette.status
 except ImportError:
-    raise ImportError(
-        'Please install fastapi, pydantic or tracktolib with "api" to use this module'
-    )
+    raise ImportError('Please install fastapi, pydantic or tracktolib with "api" to use this module')
 
 D = TypeVar("D")
 
@@ -45,9 +44,7 @@ def Depends(
     use_cache: bool = True,
 ) -> D:
     """TODO: add support for __call__ (maybe see https://github.com/python/typing/discussions/1106 ?)"""
-    return params.Depends(
-        dependency, use_cache=use_cache
-    )  # pyright: ignore [reportGeneralTypeIssues]
+    return params.Depends(dependency, use_cache=use_cache)  # pyright: ignore [reportGeneralTypeIssues]
 
 
 B = TypeVar("B", bound=BaseModel | None | Sequence[BaseModel])
@@ -295,8 +292,4 @@ def generate_list_name_model(model: Type[B], status: int | None = None) -> dict:
         _title = model.__name__ if hasattr(model, "__name__") else None
 
     # Todo verify response content type
-    return {
-        "responses": {
-            _status: {"content": {"application/json": {"schema": {"title": _title}}}}
-        }
-    }
+    return {"responses": {_status: {"content": {"application/json": {"schema": {"title": _title}}}}}}

@@ -9,22 +9,19 @@ except ImportError:
     raise ImportError('Please install aiobotocore or tracktolib with "s3" to use this module')
 
 ACL = Literal[
-    'private',
-    'public-read',
-    'public-read-write',
-    'authenticated-read',
-    'aws-exec-read',
-    'bucket-owner-read',
-    'bucket-owner-full-control'
+    "private",
+    "public-read",
+    "public-read-write",
+    "authenticated-read",
+    "aws-exec-read",
+    "bucket-owner-read",
+    "bucket-owner-full-control",
 ]
 
 
-async def upload_file(client: AioBaseClient,
-                      bucket: str,
-                      file: Path,
-                      path: str,
-                      *,
-                      acl: ACL | None = 'private') -> dict[str, str]:
+async def upload_file(
+    client: AioBaseClient, bucket: str, file: Path, path: str, *, acl: ACL | None = "private"
+) -> dict[str, str]:
     """
     Upload a file to s3.
     See:
@@ -34,35 +31,27 @@ async def upload_file(client: AioBaseClient,
     """
     extra_args = {}
     if acl is not None:
-        extra_args['ACL'] = acl
-    resp = await client.put_object(Bucket=bucket,
-                                   Key=path,
-                                   Body=file.read_bytes(),
-                                   **extra_args)  # type: ignore
+        extra_args["ACL"] = acl
+    resp = await client.put_object(Bucket=bucket, Key=path, Body=file.read_bytes(), **extra_args)  # type: ignore
     return resp
 
 
-async def download_file(client: AioBaseClient,
-                        bucket: str,
-                        path: str) -> BytesIO | None:
+async def download_file(client: AioBaseClient, bucket: str, path: str) -> BytesIO | None:
     """
     Loads a file from a s3 bucket
     """
     try:
-        resp = await client.get_object(Bucket=bucket,
-                                       Key=path)  # type: ignore
+        resp = await client.get_object(Bucket=bucket, Key=path)  # type: ignore
     except client.exceptions.NoSuchKey:
         _file = None
     else:
-        async with resp['Body'] as stream:
+        async with resp["Body"] as stream:
             _data = await stream.read()
             _file = BytesIO(_data)
     return _file
 
 
-async def delete_file(client: AioBaseClient,
-                      bucket: str,
-                      path: str) -> bool:
+async def delete_file(client: AioBaseClient, bucket: str, path: str) -> bool:
     """
     Delete a file from a s3 bucket.
     Returns True if the file exists else False
@@ -86,6 +75,7 @@ class S3Item(TypedDict):
         }
     }
     """
+
     Key: str
     LastModified: dt.datetime
     ETag: str
@@ -94,29 +84,27 @@ class S3Item(TypedDict):
     Owner: dict[str, str]
 
 
-async def list_files(client: AioBaseClient,
-                     bucket: str,
-                     path: str,
-                     *,
-                     search_query: str | None = None,
-                     max_items: int | None = None,
-                     page_size: int | None = None
-                     ) -> list[S3Item]:
+async def list_files(
+    client: AioBaseClient,
+    bucket: str,
+    path: str,
+    *,
+    search_query: str | None = None,
+    max_items: int | None = None,
+    page_size: int | None = None,
+) -> list[S3Item]:
     """
     See https://jmespath.org/ for the search query syntax.
     Example of search query: "Contents[?Size > `100`][]" or "Contents[?Size > `100` && LastModified > `2021-01-01`][]
     """
-    paginator = client.get_paginator('list_objects')
+    paginator = client.get_paginator("list_objects")
     config = {}
     if max_items is not None:
-        config['max_items'] = max_items
+        config["max_items"] = max_items
     if page_size is not None:
-        config['page_size'] = page_size
+        config["page_size"] = page_size
 
-    page_iterator = paginator.paginate(Bucket=bucket,
-                                       Prefix=path,
-                                       PaginationConfig=config if config else {}
-                                       )
+    page_iterator = paginator.paginate(Bucket=bucket, Prefix=path, PaginationConfig=config if config else {})
     filtered_iterator = page_iterator.search(search_query) if search_query else page_iterator
 
     files = []
@@ -126,6 +114,6 @@ async def list_files(client: AioBaseClient,
         if search_query:
             files.append(result)
         else:
-            for c in result.get('Contents', []):
+            for c in result.get("Contents", []):
                 files.append(c)
     return files

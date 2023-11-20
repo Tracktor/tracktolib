@@ -3,9 +3,11 @@ repos:
     rev: 'v2.35.0'
     hooks:
       - id: commitizen
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: 'v0.0.226'
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.5
     hooks:
       - id: ruff
+        language_version: python3.11
         args:
           - --fix
+      - id: ruff-format

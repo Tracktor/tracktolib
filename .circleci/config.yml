@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   gh: circleci/github-cli@1.0
-  sre: tracktor/ci-tools@0.1.5
+  sre: tracktor/ci-tools@0.7.0
 
 references:
   pypi_context: &pypi_context
@@ -35,6 +35,7 @@ jobs:
       - checkout
       - sre/run-python-tests:
           extras: '--all-extras'
+          formatter: 'ruff'
 
   bump-version:
     executor: build

@@ -196,12 +196,8 @@ def test_update_array_metadata(app):
 
     openapi_schema = get_openapi(title="title", version="0.1", routes=app.routes)
 
-    schema_foo = openapi_schema["paths"]["/foo"]["get"]["responses"]["200"]["content"][
-        "application/json"
-    ]["schema"]
-    schema_bar = openapi_schema["paths"]["/bar"]["get"]["responses"]["200"]["content"][
-        "application/json"
-    ]["schema"]
+    schema_foo = openapi_schema["paths"]["/foo"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    schema_bar = openapi_schema["paths"]["/bar"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
     title_response_foo = schema_foo.get("title", "No title found")
     title_response_bar = schema_bar.get("title", "No title found")
     assert_equals(title_response_foo, "Foo")
