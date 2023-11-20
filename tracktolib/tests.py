@@ -10,11 +10,9 @@ except ImportError:
 
 def get_uuid(i: int = 0):
     warnings.warn("Please use uuid.UUID(int=i) instead", DeprecationWarning)
-    return f'00000000-0000-0000-0000-000000{i:06}'
+    return f"00000000-0000-0000-0000-000000{i:06}"
 
 
-def assert_equals(d1: dict | Iterable, d2: dict | Iterable,
-                  *,
-                  ignore_order: bool = False):
+def assert_equals(d1: dict | Iterable, d2: dict | Iterable, *, ignore_order: bool = False):
     diff = deepdiff.DeepDiff(d1, d2, ignore_order=ignore_order)
     assert not diff, pprint.pprint(diff)

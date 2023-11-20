@@ -10,40 +10,27 @@ from typing import Iterable, TypeVar, Iterator, Literal, overload, Any
 import importlib.util
 import asyncio
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
+def exec_cmd(cmd: str | list[str], *, encoding: str = "utf-8", env: dict | None = None) -> str:
+    default_shell = os.getenv("SHELL", "/bin/bash")
 
-def exec_cmd(cmd: str | list[str],
-             *,
-             encoding: str = 'utf-8',
-             env: dict | None = None) -> str:
-    default_shell = os.getenv('SHELL', '/bin/bash')
-
-    stdout, stderr = subprocess.Popen(cmd,
-                                      shell=True,
-                                      stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE,
-                                      executable=default_shell,
-                                      env=env).communicate()
+    stdout, stderr = subprocess.Popen(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable=default_shell, env=env
+    ).communicate()
     if stderr:
         raise Exception(stderr.decode(encoding))
     return stdout.decode(encoding)
 
 
-async def aexec_cmd(cmd: str | list[str],
-                    *,
-                    encoding: str = 'utf-8',
-                    env: dict | None = None) -> str:
-    _cmd = cmd if isinstance(cmd, str) else ' '.join(cmd)
-    default_shell = os.getenv('SHELL', '/bin/bash')
+async def aexec_cmd(cmd: str | list[str], *, encoding: str = "utf-8", env: dict | None = None) -> str:
+    _cmd = cmd if isinstance(cmd, str) else " ".join(cmd)
+    default_shell = os.getenv("SHELL", "/bin/bash")
 
-    proc = await asyncio.create_subprocess_shell(_cmd,
-                                                 shell=True,
-                                                 stdout=subprocess.PIPE,
-                                                 stderr=subprocess.PIPE,
-                                                 executable=default_shell,
-                                                 env=env)
+    proc = await asyncio.create_subprocess_shell(
+        _cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable=default_shell, env=env
+    )
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:
         raise Exception(stderr.decode(encoding))
@@ -58,10 +45,10 @@ def import_module(path: Path):
         >>> module = import_module(Path('~/my_module.py'))
         >>> module.my_function()
     """
-    name = path.name.removesuffix('.py')
+    name = path.name.removesuffix(".py")
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None:
-        raise ImportError(f'Could not import {path}')
+        raise ImportError(f"Could not import {path}")
     module = importlib.util.module_from_spec(spec)
     if spec.loader is not None:
         spec.loader.exec_module(module)
@@ -69,24 +56,21 @@ def import_module(path: Path):
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int,
-               *,
-               as_list: Literal[False]) -> Iterator[Iterable[T]]: ...
+def get_chunks(it: Iterable[T], size: int, *, as_list: Literal[False]) -> Iterator[Iterable[T]]:
+    ...
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int,
-               *,
-               as_list: Literal[True]) -> Iterator[list[T]]: ...
+def get_chunks(it: Iterable[T], size: int, *, as_list: Literal[True]) -> Iterator[list[T]]:
+    ...
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int) -> Iterator[list[T]]: ...
+def get_chunks(it: Iterable[T], size: int) -> Iterator[list[T]]:
+    ...
 
 
-def get_chunks(it: Iterable[T], size: int,
-               *,
-               as_list: bool = True) -> Iterator[Iterable[T]]:
+def get_chunks(it: Iterable[T], size: int, *, as_list: bool = True) -> Iterator[Iterable[T]]:
     iterator = iter(it)
     for first in iterator:
         d = itertools.chain([first], itertools.islice(iterator, size - 1))
@@ -94,7 +78,7 @@ def get_chunks(it: Iterable[T], size: int,
 
 
 def json_serial(obj):
-    """ JSON serializer for objects not serializable by default json code """
+    """JSON serializer for objects not serializable by default json code"""
     if isinstance(obj, (dt.datetime, dt.date)):
         return obj.isoformat()
     if isinstance(obj, (IPv4Address, IPv6Address)):
@@ -118,10 +102,7 @@ def get_nb_lines(file: Path) -> int:
     return nb_lines
 
 
-def fill_dict(items: list[dict],
-              *,
-              keys: list | None = None,
-              default: Any | None = None) -> list[dict]:
+def fill_dict(items: list[dict], *, keys: list | None = None, default: Any | None = None) -> list[dict]:
     """Returns a list of items with the same key for all"""
 
     def _fill_dict(x):
@@ -132,19 +113,21 @@ def fill_dict(items: list[dict],
 
 
 def to_snake_case(string: str) -> str:
-    return ''.join(['_' + i.lower() if i.isupper() else i for i in string]).lstrip('_')
+    return "".join(["_" + i.lower() if i.isupper() else i for i in string]).lstrip("_")
 
 
 def to_camel_case(string: str) -> str:
-    return ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(string.split('_')))
+    return "".join(word.capitalize() if i > 0 else word for i, word in enumerate(string.split("_")))
 
 
 @overload
-def dict_to_camel(d: dict) -> dict: ...
+def dict_to_camel(d: dict) -> dict:
+    ...
 
 
 @overload
-def dict_to_camel(d: list[dict]) -> list[dict]: ...
+def dict_to_camel(d: list[dict]) -> list[dict]:
+    ...
 
 
 def dict_to_camel(d: dict | list):
@@ -165,11 +148,13 @@ def dict_to_camel(d: dict | list):
 
 
 @overload
-def rm_keys(data: dict, keys: list[str]) -> dict: ...
+def rm_keys(data: dict, keys: list[str]) -> dict:
+    ...
 
 
 @overload
-def rm_keys(data: list[dict], keys: list[str]) -> list[dict]: ...
+def rm_keys(data: list[dict], keys: list[str]) -> list[dict]:
+    ...
 
 
 def rm_keys(data: dict | list[dict], keys: list[str]):
