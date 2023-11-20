@@ -77,7 +77,7 @@ Utility functions for [aiobotocore](https://github.com/aio-libs/aiobotocore)
 
 Utility functions to initialize the logging formatting and streams
 
-- **http**
+- **download**
 
 Utility functions using [httpx](https://www.python-httpx.org/)
 

@@ -1,13 +1,12 @@
 import typing
+from io import TextIOWrapper, BufferedWriter
 from typing import BinaryIO, Callable, TextIO
 
 try:
     import httpx
     from httpx._types import QueryParamTypes
 except ImportError:
-    raise ImportError(
-        'Please install httpx or tracktolib with "http" to use this module'
-    )
+    raise ImportError('Please install httpx or tracktolib with "http" to use this module')
 
 MB_1 = 1024 * 1024
 
@@ -16,7 +15,7 @@ MB_1 = 1024 * 1024
 async def download_file(
     url: str,
     client: httpx.AsyncClient,
-    output_file: TextIO,
+    output_file: TextIO | TextIOWrapper,
     *,
     chunk_size: int,
     on_chunk_received: Callable[[str], None] | None,
@@ -31,7 +30,7 @@ async def download_file(
 async def download_file(
     url: str,
     client: httpx.AsyncClient,
-    output_file: BinaryIO,
+    output_file: BinaryIO | BufferedWriter,
     *,
     chunk_size: int,
     on_chunk_received: Callable[[bytes], None] | None,
@@ -45,7 +44,7 @@ async def download_file(
 async def download_file(
     url: str,
     client: httpx.AsyncClient,
-    output_file: BinaryIO | TextIO,
+    output_file: BinaryIO | TextIO | BufferedWriter | TextIOWrapper,
     *,
     chunk_size: int = MB_1 * 10,
     on_chunk_received: Callable[[typing.Any], None] | None = None,
@@ -60,10 +59,11 @@ async def download_file(
     async with client.stream("GET", url, params=params, headers=headers) as r:
         if on_response:
             on_response(r)
+
         match output_file:
-            case TextIO():
+            case TextIO() | TextIOWrapper():
                 _iter_fn = r.aiter_text
-            case BinaryIO():
+            case BinaryIO() | BufferedWriter():
                 _iter_fn = r.aiter_bytes
             case _:
                 raise NotImplementedError("output_file must be a TextIO or a BinaryIO")
