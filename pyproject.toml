@@ -36,7 +36,7 @@ pg-sync = ["psycopg"]
 s3-minio = ["minio"]
 s3 = ["aiobotocore"]
 tests = ["deepdiff"]
-download = ["httpx"]
+http = ["httpx"]
 api = ["fastapi", "pydantic"]
 pg = ["asyncpg", "rich"]
 

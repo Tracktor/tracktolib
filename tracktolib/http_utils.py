@@ -17,11 +17,11 @@ async def download_file(
     client: httpx.AsyncClient,
     output_file: TextIO | TextIOWrapper,
     *,
-    chunk_size: int,
-    on_chunk_received: Callable[[str], None] | None,
-    on_response: Callable[[httpx.Response], None] | None,
-    params: QueryParamTypes | None,
-    headers: dict[str, str] | None,
+    chunk_size: int = MB_1 * 10,
+    on_chunk_received: Callable[[str], None] | None = None,
+    on_response: Callable[[httpx.Response], None] | None = None,
+    params: QueryParamTypes | None = None,
+    headers: dict[str, str] | None = None,
 ):
     ...
 
@@ -32,11 +32,11 @@ async def download_file(
     client: httpx.AsyncClient,
     output_file: BinaryIO | BufferedWriter,
     *,
-    chunk_size: int,
-    on_chunk_received: Callable[[bytes], None] | None,
-    on_response: Callable[[httpx.Response], None] | None,
-    params: QueryParamTypes | None,
-    headers: dict[str, str] | None,
+    chunk_size: int = MB_1 * 10,
+    on_chunk_received: Callable[[bytes], None] | None = None,
+    on_response: Callable[[httpx.Response], None] | None = None,
+    params: QueryParamTypes | None = None,
+    headers: dict[str, str] | None = None,
 ):
     ...
 
