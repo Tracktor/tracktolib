@@ -38,21 +38,25 @@ jobs:
           formatter: 'ruff'
 
   bump-version:
-    executor: build
+    executor: export-poetry
     steps:
       - gh/setup
       - checkout
-      - restore_cache:
-          keys:
-            - deps-{{ checksum "poetry.lock" }}
+      - run:
+          name: Install bump deps
+          command: pip install commitizen==3.11.0
+      - add_ssh_keys:
+          fingerprints:
+            - "e0:d6:34:bd:b0:87:84:60:18:7e:e0:c8:e6:1d:be:d2"
       - run:
           name: Adding github.com to known hosts
           command: |
             mkdir -p ~/.ssh
             ssh-keyscan github.com >> ~/.ssh/known_hosts
-      - run:
-          name: Create release
-          command: bash .circleci/scripts/release.sh
+      - sre/bump-version:
+          lang: "python"
+          use_poetry: true
+          branch: "master"
       - store_artifacts:
           path: dist
       - save_cache:
