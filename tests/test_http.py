@@ -35,7 +35,7 @@ def http_server(static_dir):
 
 @pytest.mark.parametrize("file, mode", [("test.csv", "w"), ("test-bytes.bytes", "wb")])
 def test_download_file(http_server, file, tmp_path, mode):
-    from tracktolib.download import download_file
+    from tracktolib.http_utils import download_file
 
     base_url = "http://{}:{}/".format(*http_server.server_address)
     file_uri = base_url + file
