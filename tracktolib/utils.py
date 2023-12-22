@@ -1,4 +1,6 @@
+import asyncio
 import datetime as dt
+import importlib.util
 import itertools
 import mmap
 import os
@@ -7,8 +9,6 @@ from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import Iterable, TypeVar, Iterator, Literal, overload, Any
-import importlib.util
-import asyncio
 
 T = TypeVar("T")
 
@@ -85,6 +85,8 @@ def json_serial(obj):
         return str(obj)
     if isinstance(obj, Decimal):
         return str(obj)
+    if hasattr(obj, "__dict__"):
+        return obj.__dict__
     raise TypeError(f"Type '{type(obj)}' not serializable")
 
 

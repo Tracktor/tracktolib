@@ -76,7 +76,7 @@ jobs:
           extras: '--all-extras'
           formatter: 'ruff'
       - sre/run-python-tests:
-          extras: '--all-extras --with=pydantic-v2'
+          extras: '--all-extras'
           formatter: 'ruff'
 
   bump-version:

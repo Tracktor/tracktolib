@@ -1949,4 +1949,4 @@ tests = ["deepdiff"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "6205bb8a608f5903b96a9d6d162adc54bda516d5ad44f43372db58623abc1e2f"
+content-hash = "9a3eeda61988071060906439a5aa49d381579fc6410585b9143ee056fc107951"

@@ -1,9 +1,10 @@
+from dataclasses import dataclass
+
 import pytest
 from fastapi import FastAPI, APIRouter
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from starlette import status
-from dataclasses import dataclass
 
 
 @pytest.fixture()
@@ -158,15 +159,12 @@ def test_update_array_metadata(app):
 
     class Foo(CamelCaseModel):
         foo_int: int
-
-        class Config:
-            schema_extra = {"example": {"foo_int": 1}}
+        model_config = {"json_schema_extra": {"example": {"foo_int": 1}}}
 
     class Bar(CamelCaseModel):
         bar_int: int
 
-        class Config:
-            schema_extra = {"example": {"bar_int": 2}}
+        model_config = {"json_schema_extra": {"example": {"bar_int": 2}}}
 
     @first_endpoint.get(model=Foo)
     async def foo_endpoint():
