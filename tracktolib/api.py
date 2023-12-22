@@ -274,10 +274,11 @@ if pydantic.__version__ < "2.0.0":
             allow_population_by_field_name = True
 
 else:
+    from pydantic import ConfigDict
+    from pydantic.alias_generators import to_camel
 
     class CamelCaseModel(BaseModel):
-        def __init__(self):
-            raise NotImplementedError("Please use pydantic < 2.0.0")
+        model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 def check_status(resp, status: int = starlette.status.HTTP_200_OK):
