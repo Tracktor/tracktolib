@@ -9,11 +9,39 @@ references:
     - pypi
     - github
 
+  filters_not_tagged: &filters_not_tagged
+    tags:
+      ignore: /.*/
+
+  filters_only_master: &filters_only_master
+    tags:
+      ignore: /.*/
+    branches:
+      only: /^master$/
+
+  filters_only_tags: &filters_only_tags
+    tags:
+      only: /.*/
+    branches:
+      ignore: /.*/
+
 
 executors:
-  test:
+  test-3-10:
     docker:
       - image: cimg/python:3.10.8
+      - image: cimg/postgres:14.4
+        environment:
+          POSTGRES_PASSWORD: postgres
+      - image: minio/minio
+        environment:
+          MINIO_ROOT_USER: foo
+          MINIO_ROOT_PASSWORD: foobarbaz
+        command: server /data
+
+  test-3-12:
+    docker:
+      - image: cimg/python:3.12
       - image: cimg/postgres:14.4
         environment:
           POSTGRES_PASSWORD: postgres
@@ -29,16 +57,30 @@ executors:
 
 jobs:
 
-  run-tests:
-    executor: test
+  run-tests-3-10:
+    executor: test-3-10
     steps:
       - checkout
       - sre/run-python-tests:
           extras: '--all-extras'
           formatter: 'ruff'
+      - sre/run-python-tests:
+          extras: '--all-extras'
+          formatter: 'ruff'
+
+  run-tests-3-12:
+    executor: test-3-12
+    steps:
+      - checkout
+      - sre/run-python-tests:
+          extras: '--all-extras'
+          formatter: 'ruff'
+      - sre/run-python-tests:
+          extras: '--all-extras --with=pydantic-v2'
+          formatter: 'ruff'
 
   bump-version:
-    executor: test
+    executor: build
     steps:
       - gh/setup
       - checkout
@@ -82,25 +124,20 @@ workflows:
 
   run-tests:
     jobs:
-      - run-tests:
-          filters:
-            tags:
-              ignore: /.*/
+      - run-tests-3-10:
+          filters: *filters_not_tagged
+      - run-tests-3-12:
+          filters: *filters_not_tagged
       - bump-version:
           context: *pypi_context
-          requires: [ run-tests ]
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /^master$/
+          requires: [
+            run-tests-3-10,
+            run-tests-3-12
+          ]
+          filters: *filters_only_master
 
   publish:
     jobs:
       - publish:
           context: *pypi_context
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              ignore: /.*/
+          filters: *filters_only_tags
