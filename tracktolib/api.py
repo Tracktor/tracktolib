@@ -19,13 +19,13 @@ from typing import (
     get_origin,
 )
 
-from .utils import json_serial, to_camel_case
+from .utils import json_serial
 
 try:
     from fastapi import params, APIRouter
     from fastapi.responses import JSONResponse
-    import pydantic
-    from pydantic import BaseModel
+    from pydantic.alias_generators import to_camel
+    from pydantic import BaseModel, ConfigDict
     import starlette.status
 except ImportError:
     raise ImportError('Please install fastapi, pydantic or tracktolib with "api" to use this module')
@@ -266,19 +266,8 @@ def model_to_list(string: str) -> str:
     return f"Array[{string}]"
 
 
-if pydantic.__version__ < "2.0.0":
-
-    class CamelCaseModel(BaseModel):  # type: ignore
-        class Config:
-            alias_generator = to_camel_case
-            allow_population_by_field_name = True
-
-else:
-    from pydantic import ConfigDict
-    from pydantic.alias_generators import to_camel
-
-    class CamelCaseModel(BaseModel):
-        model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+class CamelCaseModel(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 def check_status(resp, status: int = starlette.status.HTTP_200_OK):
