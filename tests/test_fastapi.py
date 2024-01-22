@@ -115,7 +115,7 @@ def test_camelcase_model(app):
         foo_bar: int
 
     class OutputModel(CamelCaseModel):
-        foo_bar: int
+        foo_bar: str
 
     @endpoint.post(model=OutputModel)
     async def foo_endpoint(data: InputModel):
@@ -130,7 +130,7 @@ def test_camelcase_model(app):
     with TestClient(app) as client:
         resp = client.post("/foo", json={"foo_bar": 1})
 
-    assert_equals(resp.json(), {"fooBar": 1})
+    assert_equals(resp.json(), {"fooBar": "1"})
 
 
 def check_json_serial_types():

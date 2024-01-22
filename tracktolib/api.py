@@ -267,7 +267,7 @@ def model_to_list(string: str) -> str:
 
 
 class CamelCaseModel(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(alias_generator=to_camel, coerce_numbers_to_str=True, populate_by_name=True)
 
 
 def check_status(resp, status: int = starlette.status.HTTP_200_OK):
