@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 
 import pytest
@@ -5,6 +6,7 @@ from fastapi import FastAPI, APIRouter
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from starlette import status
+import json
 
 
 @pytest.fixture()
@@ -250,3 +252,42 @@ def test_warning_without_docstring(app):
     with TestClient(app) as client:
         resp_bar = client.get("/foobar")
     assert resp_bar.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.parametrize("ignore_default", [True, False])
+def test_ignore_endpoint(app, ignore_default):
+    from tracktolib.api import Endpoint, add_endpoint
+
+    os.environ["IGNORE_CONFIG"] = json.dumps(
+        {"endpoints": {"/foo": {"GET": False, "POST": True}}, "ignore_default": ignore_default}
+    )
+
+    endpoint = Endpoint()
+    router = APIRouter()
+
+    @endpoint.get(model=dict)
+    async def _get_foo_endpoint():
+        return {"foo": 1}
+
+    @endpoint.post(model=dict)
+    async def _post_foo_endpoint():
+        return {"foo": 1}
+
+    @endpoint.patch(model=dict)
+    async def _patch_foo_endpoint():
+        return {"foo": 1}
+
+    add_endpoint("/foo", router, endpoint)
+    app.include_router(router)
+
+    with TestClient(app) as client:
+        assert client.get("/foo").status_code == status.HTTP_405_METHOD_NOT_ALLOWED, "GET should be ignored"
+        assert client.post("/foo").status_code == status.HTTP_200_OK, "POST should not be ignored"
+        if ignore_default:
+            assert (
+                client.patch("/foo").status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+            ), "PATCH should be ignored (default is ignored)"
+        else:
+            assert (
+                client.patch("/foo").status_code == status.HTTP_200_OK
+            ), "PATCH should not be ignored (default is not ignored)"

@@ -1,13 +1,13 @@
 repos:
-  - repo: https://github.com/commitizen-tools/commitizen
-    rev: 'v3.11.0'
-    hooks:
+  - hooks:
       - id: commitizen
+    repo: https://github.com/commitizen-tools/commitizen
+    rev: 'v3.13.0'
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.5
     hooks:
       - id: ruff
-        language_version: python3.11
+        language_version: python3.12
         args:
           - --fix
       - id: ruff-format

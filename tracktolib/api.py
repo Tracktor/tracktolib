@@ -1,4 +1,5 @@
 import json
+import os
 import warnings
 from dataclasses import field, dataclass
 from inspect import getdoc
@@ -202,6 +203,16 @@ def _get_method_wrapper(
 _NoneType = type(None)
 
 
+class IgnoreConfig(BaseModel):
+    endpoints: dict[str, dict[Method, bool]]
+    ignore_default: bool = True
+
+
+def _get_ignore_config() -> IgnoreConfig | None:
+    _config = os.getenv("IGNORE_CONFIG")
+    return IgnoreConfig.model_validate_json(_config) if _config else None
+
+
 def _get_return_type(fn):
     return_type = get_type_hints(fn)["return"]
     _args = get_args(return_type)
@@ -217,7 +228,14 @@ def add_endpoint(
     *,
     dependencies: Dependencies = None,
 ):
+    _ignore_config = _get_ignore_config()
     for _method, _meta in endpoint.methods.items():
+        # Do not add endpoint if it is not in the ignore config
+        if _ignore_config is not None:
+            _has_access = _ignore_config.endpoints.get(path, {}).get(_method, not _ignore_config.ignore_default)
+            if not _has_access:
+                continue
+        #
         _fn = _meta["fn"]
         _status_code = _meta["status_code"]
         _dependencies = _meta["dependencies"]
