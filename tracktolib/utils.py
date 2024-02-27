@@ -41,7 +41,7 @@ def import_module(path: Path):
     """
     Import a module from a path.
     Eg:
-        >>> from tracktolib.utils import import_module
+        # >>> =
         >>> module = import_module(Path('~/my_module.py'))
         >>> module.my_function()
     """
