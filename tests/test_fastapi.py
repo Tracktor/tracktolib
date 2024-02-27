@@ -256,7 +256,7 @@ def test_warning_without_docstring(app):
 
 @pytest.mark.parametrize("ignore_default", [True, False])
 def test_ignore_endpoint(app, ignore_default):
-    from tracktolib.api import Endpoint, add_endpoint
+    from tracktolib.api import Endpoint, add_endpoint, Response
 
     os.environ["IGNORE_CONFIG"] = json.dumps(
         {"endpoints": {"/foo": {"GET": False, "POST": True}}, "ignore_default": ignore_default}
@@ -265,16 +265,19 @@ def test_ignore_endpoint(app, ignore_default):
     endpoint = Endpoint()
     router = APIRouter()
 
-    @endpoint.get(model=dict)
-    async def _get_foo_endpoint():
+    class ReturnValue(BaseModel):
+        foo: int
+
+    @endpoint.get()
+    async def _get_foo_endpoint() -> Response[ReturnValue]:
         return {"foo": 1}
 
-    @endpoint.post(model=dict)
-    async def _post_foo_endpoint():
+    @endpoint.post()
+    async def _post_foo_endpoint() -> Response[ReturnValue]:
         return {"foo": 1}
 
-    @endpoint.patch(model=dict)
-    async def _patch_foo_endpoint():
+    @endpoint.patch()
+    async def _patch_foo_endpoint() -> Response[ReturnValue]:
         return {"foo": 1}
 
     add_endpoint("/foo", router, endpoint)
