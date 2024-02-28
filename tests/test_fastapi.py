@@ -254,13 +254,18 @@ def test_warning_without_docstring(app):
     assert resp_bar.status_code == status.HTTP_200_OK
 
 
-@pytest.mark.parametrize("ignore_default", [True, False])
-def test_ignore_endpoint(app, ignore_default):
-    from tracktolib.api import Endpoint, add_endpoint, Response
+@pytest.mark.parametrize("ignore_missing", [True, False])
+@pytest.mark.parametrize("use_set_ignore_config", [True, False])
+def test_ignore_endpoint(app, ignore_missing, use_set_ignore_config):
+    from tracktolib.api import Endpoint, add_endpoint, Response, set_ignore_config, get_ignore_config
 
-    os.environ["IGNORE_CONFIG"] = json.dumps(
-        {"endpoints": {"/foo": {"GET": False, "POST": True}}, "ignore_default": ignore_default}
-    )
+    _config = {"endpoints": {"/foo": {"GET": False, "POST": True}}, "ignore_missing": ignore_missing}
+    if not use_set_ignore_config:
+        os.environ["IGNORE_CONFIG"] = json.dumps(_config)
+    else:
+        set_ignore_config(json.dumps(_config))
+
+    assert get_ignore_config()
 
     endpoint = Endpoint()
     router = APIRouter()
@@ -286,7 +291,7 @@ def test_ignore_endpoint(app, ignore_default):
     with TestClient(app) as client:
         assert client.get("/foo").status_code == status.HTTP_405_METHOD_NOT_ALLOWED, "GET should be ignored"
         assert client.post("/foo").status_code == status.HTTP_200_OK, "POST should not be ignored"
-        if ignore_default:
+        if ignore_missing:
             assert (
                 client.patch("/foo").status_code == status.HTTP_405_METHOD_NOT_ALLOWED
             ), "PATCH should be ignored (default is ignored)"
