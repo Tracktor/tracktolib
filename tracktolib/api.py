@@ -205,12 +205,18 @@ _NoneType = type(None)
 
 class IgnoreConfig(BaseModel):
     endpoints: dict[str, dict[Method, bool]]
-    ignore_default: bool = True
+    ignore_missing: bool = True
 
 
-def _get_ignore_config() -> IgnoreConfig | None:
+def get_ignore_config() -> IgnoreConfig | None:
     _config = os.getenv("IGNORE_CONFIG")
     return IgnoreConfig.model_validate_json(_config) if _config else None
+
+
+def set_ignore_config(config: str | IgnoreConfig):
+    if isinstance(config, str):
+        config = IgnoreConfig.model_validate_json(config)
+    os.environ["IGNORE_CONFIG"] = config.model_dump_json()
 
 
 def _get_return_type(fn):
@@ -228,11 +234,11 @@ def add_endpoint(
     *,
     dependencies: Dependencies = None,
 ):
-    _ignore_config = _get_ignore_config()
+    _ignore_config = get_ignore_config()
     for _method, _meta in endpoint.methods.items():
         # Do not add endpoint if it is not in the ignore config
         if _ignore_config is not None:
-            _has_access = _ignore_config.endpoints.get(path, {}).get(_method, not _ignore_config.ignore_default)
+            _has_access = _ignore_config.endpoints.get(path, {}).get(_method, not _ignore_config.ignore_missing)
             if not _has_access:
                 continue
         #
