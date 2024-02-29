@@ -289,7 +289,10 @@ def test_ignore_endpoints(app, ignore_missing, use_set_ignore_config, prefix):
     router = APIRouter(prefix=prefix)
     add_endpoint("/foo", router, endpoint)
     app.include_router(router)
-    app.router.routes = filter_routes(app.router.routes, ignore_config=get_ignore_config())
+    _config = get_ignore_config()
+    if _config is None:
+        raise ValueError("Ignore config is None")
+    app.router.routes = filter_routes(app.router.routes, ignore_config=_config)
 
     with TestClient(app) as client:
         _uri = f"{prefix}/foo"
