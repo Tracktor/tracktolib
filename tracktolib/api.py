@@ -246,10 +246,14 @@ def _filter_route(route: APIRoute, ignored_route: dict[Method, bool], ignore_mis
     return route
 
 
-def filter_routes(routes: list[APIRoute], ignore_config: IgnoreConfig) -> list[APIRoute]:
+def filter_routes(routes: list[APIRoute], ignore_config: IgnoreConfig, prefix: str = "") -> list[APIRoute]:
     _routes = []
     for route in routes:
-        _ignored_route = ignore_config.endpoints.get(route.path)
+        if not isinstance(route, APIRoute):
+            _routes.append(route)
+            continue
+
+        _ignored_route = ignore_config.endpoints.get(f"{prefix}{route.path}")
         _route = _filter_route(route, _ignored_route or {}, ignore_missing=ignore_config.ignore_missing)
         if _route is not None:
             _routes.append(_route)

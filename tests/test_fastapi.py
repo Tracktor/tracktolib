@@ -289,10 +289,7 @@ def test_ignore_endpoints(app, ignore_missing, use_set_ignore_config, prefix):
     router = APIRouter(prefix=prefix)
     add_endpoint("/foo", router, endpoint)
     app.include_router(router)
-    _config = get_ignore_config()
-    if _config is None:
-        raise ValueError("Ignore config is None")
-    app.router.routes = filter_routes(app.router.routes, ignore_config=_config)
+    app.router.routes = filter_routes(app.router.routes, ignore_config=get_ignore_config())
 
     with TestClient(app) as client:
         _uri = f"{prefix}/foo"
@@ -306,45 +303,3 @@ def test_ignore_endpoints(app, ignore_missing, use_set_ignore_config, prefix):
             assert (
                 client.patch(_uri).status_code == status.HTTP_200_OK
             ), "PATCH should not be ignored (default is not ignored)"
-
-
-#
-# def test_ignore_endpoints(app):
-#     from tracktolib.api import (
-#         Endpoint, add_endpoint, Response, APIRouter, set_ignore_config,
-#         get_ignore_config,
-#         filter_routes)
-#
-#     _config = {"endpoints": {f"/prefix-1/prefix-2/foo": {"GET": False, "PATCH": True}}, "ignore_missing": True}
-#     set_ignore_config(json.dumps(_config))
-#
-#     class ReturnValue(BaseModel):
-#         foo: int
-#
-#     class ReturnPostValue(BaseModel):
-#         bar: str
-#
-#     endpoint = Endpoint()
-#
-#     @endpoint.get()
-#     async def _get_foo_endpoint() -> Response[ReturnValue]:
-#         return {"foo": 1}
-#
-#     @endpoint.post()
-#     async def _post_foo_endpoint() -> Response[ReturnPostValue]:
-#         return {"bar": "baz"}
-#
-#     @endpoint.patch()
-#     async def _patch_foo_endpoint() -> Response[ReturnPostValue]:
-#         return {"bar": "baz"}
-#
-#     router = APIRouter(prefix='/prefix-2')
-#     add_endpoint("/foo", router, endpoint)
-#     app.include_router(router, prefix='/prefix-1')
-#     app.router.routes = filter_routes(app.router.routes, ignore_config=get_ignore_config())
-#
-#     with TestClient(app) as client:
-#         _uri = f"/prefix-1/prefix-2/foo"
-#         assert client.get(_uri).status_code == status.HTTP_405_METHOD_NOT_ALLOWED, "GET should be ignored"
-#         assert client.post(_uri).status_code == status.HTTP_405_METHOD_NOT_ALLOWED, "POST should be ignored"
-#         assert client.patch(_uri).status_code == status.HTTP_200_OK, "PATCH should not be ignored"
