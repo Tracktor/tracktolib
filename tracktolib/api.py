@@ -1,5 +1,4 @@
 import json
-import os
 import warnings
 from dataclasses import field, dataclass
 from inspect import getdoc
@@ -24,7 +23,6 @@ from .utils import json_serial
 
 try:
     from fastapi import params, APIRouter
-    from fastapi.routing import APIRoute
     from fastapi.responses import JSONResponse
     from pydantic.alias_generators import to_camel
     from pydantic import BaseModel, ConfigDict
@@ -204,62 +202,6 @@ def _get_method_wrapper(
 _NoneType = type(None)
 
 
-class IgnoreConfig(BaseModel):
-    endpoints: dict[str, dict[Method, bool]]
-    ignore_missing: bool = True
-
-
-def get_ignore_config() -> IgnoreConfig | None:
-    _config = os.getenv("IGNORE_CONFIG")
-    return IgnoreConfig.model_validate_json(_config) if _config else None
-
-
-def set_ignore_config(config: str | IgnoreConfig):
-    if isinstance(config, str):
-        config = IgnoreConfig.model_validate_json(config)
-    os.environ["IGNORE_CONFIG"] = config.model_dump_json()
-
-
-def _filter_route(route: APIRoute, ignored_route: dict[Method, bool], ignore_missing: bool) -> APIRoute | None:
-    # If no config is provided and default is to ignore missing, return the route
-    if ignored_route is None and not ignore_missing:
-        return route
-
-    has_methods = False
-    enabled_methods = {method for method, has_access in ignored_route.items() if has_access}
-    for method in list(route.methods):
-        # If the config is not specified, we remove the method if ignore_missing is True
-        if method not in ignored_route:
-            if ignore_missing:
-                route.methods -= {method}
-                continue
-            else:
-                has_methods = True
-                continue
-        elif method not in enabled_methods:
-            route.methods -= {method}
-        else:
-            has_methods = True
-
-    if not has_methods:
-        return None
-    return route
-
-
-def filter_routes(routes: list[APIRoute], ignore_config: IgnoreConfig, prefix: str = "") -> list[APIRoute]:
-    _routes = []
-    for route in routes:
-        if not isinstance(route, APIRoute):
-            _routes.append(route)
-            continue
-
-        _ignored_route = ignore_config.endpoints.get(f"{prefix}{route.path}")
-        _route = _filter_route(route, _ignored_route or {}, ignore_missing=ignore_config.ignore_missing)
-        if _route is not None:
-            _routes.append(_route)
-    return _routes
-
-
 def _get_return_type(fn):
     return_type = get_type_hints(fn)["return"]
     _args = get_args(return_type)
@@ -275,7 +217,6 @@ def add_endpoint(
     *,
     dependencies: Dependencies = None,
 ):
-    _ignore_config = get_ignore_config()
     for _method, _meta in endpoint.methods.items():
         _fn = _meta["fn"]
         _status_code = _meta["status_code"]

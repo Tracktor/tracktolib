@@ -1,4 +1,3 @@
-import os
 from dataclasses import dataclass
 
 import pytest
@@ -6,7 +5,6 @@ from fastapi import FastAPI, APIRouter
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from starlette import status
-import json
 
 
 @pytest.fixture()
@@ -252,57 +250,3 @@ def test_warning_without_docstring(app):
     with TestClient(app) as client:
         resp_bar = client.get("/foobar")
     assert resp_bar.status_code == status.HTTP_200_OK
-
-
-@pytest.mark.parametrize("ignore_missing", [True, False])
-@pytest.mark.parametrize("use_set_ignore_config", [True, False])
-@pytest.mark.parametrize("prefix", ["", "/api"])
-def test_ignore_endpoints(app, ignore_missing, use_set_ignore_config, prefix):
-    from tracktolib.api import Endpoint, add_endpoint, Response, set_ignore_config, get_ignore_config, filter_routes
-
-    _config = {"endpoints": {f"{prefix}/foo": {"GET": False, "POST": True}}, "ignore_missing": ignore_missing}
-    if not use_set_ignore_config:
-        os.environ["IGNORE_CONFIG"] = json.dumps(_config)
-    else:
-        set_ignore_config(json.dumps(_config))
-
-    endpoint = Endpoint()
-
-    class ReturnValue(BaseModel):
-        foo: int
-
-    class ReturnPostValue(BaseModel):
-        bar: str
-
-    @endpoint.get()
-    async def _get_foo_endpoint() -> Response[ReturnValue]:
-        return {"foo": 1}
-
-    @endpoint.post()
-    async def _post_foo_endpoint() -> Response[ReturnPostValue]:
-        return {"bar": "baz"}
-
-    @endpoint.patch()
-    async def _patch_foo_endpoint() -> Response[ReturnValue]:
-        return {"foo": 1}
-
-    router = APIRouter(prefix=prefix)
-    add_endpoint("/foo", router, endpoint)
-    app.include_router(router)
-    _config = get_ignore_config()
-    if _config is None:
-        raise ValueError("Config is None")
-    app.router.routes = filter_routes(app.router.routes, ignore_config=_config)
-
-    with TestClient(app) as client:
-        _uri = f"{prefix}/foo"
-        assert client.get(_uri).status_code == status.HTTP_405_METHOD_NOT_ALLOWED, "GET should be ignored"
-        assert client.post(_uri).status_code == status.HTTP_200_OK, "POST should not be ignored"
-        if ignore_missing:
-            assert (
-                client.patch(_uri).status_code == status.HTTP_405_METHOD_NOT_ALLOWED
-            ), "PATCH should be ignored (default is ignored)"
-        else:
-            assert (
-                client.patch(_uri).status_code == status.HTTP_200_OK
-            ), "PATCH should not be ignored (default is not ignored)"
