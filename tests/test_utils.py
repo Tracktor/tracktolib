@@ -116,3 +116,10 @@ def test_num_not_null(data, expected):
     from tracktolib.utils import num_not_none
 
     assert num_not_none(*data) == expected
+
+
+def test_deep_reload():
+    from tracktolib.utils import deep_reload
+    from tracktolib import pg_sync
+
+    deep_reload(pg_sync)

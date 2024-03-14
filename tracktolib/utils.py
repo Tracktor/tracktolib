@@ -1,3 +1,5 @@
+import sys
+from types import ModuleType
 import asyncio
 import datetime as dt
 import importlib.util
@@ -173,3 +175,12 @@ def num_not_none(*args) -> int:
     Count the number of non None arguments
     """
     return sum(1 for x in args if x is not None)
+
+
+def deep_reload(m: ModuleType):
+    """
+    Reload a module and all its submodules
+    """
+    sub_mods = [_mod for _mod in sys.modules if _mod == m.__name__ or _mod.startswith(f"{m.__name__}.")]
+    for pkg in sorted(sub_mods, key=lambda item: item.count("."), reverse=True):
+        importlib.reload(sys.modules[pkg])
