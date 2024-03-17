@@ -13,7 +13,7 @@ try:
     import asyncpg
     from rich.progress import Progress
 except ImportError:
-    raise ImportError('Please install tracktolib with "pg" to use this module')
+    raise ImportError('Please install asyncpg, rich or tracktolib with "pg" to use this module')
 
 from asyncpg.exceptions import (
     CheckViolationError,

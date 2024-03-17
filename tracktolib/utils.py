@@ -184,3 +184,8 @@ def deep_reload(m: ModuleType):
     sub_mods = [_mod for _mod in sys.modules if _mod == m.__name__ or _mod.startswith(f"{m.__name__}.")]
     for pkg in sorted(sub_mods, key=lambda item: item.count("."), reverse=True):
         importlib.reload(sys.modules[pkg])
+
+
+def get_first_line(lines: str) -> str:
+    _lines = lines.split("\n")
+    return _lines[0] if _lines else lines
