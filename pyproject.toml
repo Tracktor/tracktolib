@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tracktolib"
-version = "0.47.0"
+version = "0.47.1"
 description = "Utility library for python"
 authors = ["Julien Brayere <julien.brayere@tracktor.fr>"]
 license = "MIT"
@@ -70,7 +70,7 @@ pythonPlatform = "Linux"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.47.0"
+version = "0.47.1"
 tag_format = "$version"
 version_files = [
     "pyproject.toml:version"
