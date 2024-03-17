@@ -19,7 +19,7 @@ from typing import (
     get_origin,
 )
 
-from .utils import json_serial
+from .utils import json_serial, get_first_line
 
 try:
     from fastapi import params, APIRouter
@@ -66,6 +66,9 @@ class MethodMeta(TypedDict):
     path: str | None
     response_model: Type[BaseModel | None | Sequence[BaseModel]] | None
     openapi_extra: dict[str, Any] | None
+    name: str | None
+    summary: str | None
+    description: str | None
 
 
 @dataclass
@@ -83,6 +86,9 @@ class Endpoint:
         path: str | None = None,
         model: Type[B] | None = None,
         openapi_extra: dict[str, Any] | None = None,
+        name: str | None = None,
+        summary: str | None = None,
+        description: str | None = None,
     ):
         return _get_method_wrapper(
             cls=self,
@@ -92,6 +98,9 @@ class Endpoint:
             path=path,
             model=model,
             openapi_extra=openapi_extra,
+            name=name,
+            summary=summary,
+            description=description,
         )
 
     def post(
@@ -102,6 +111,9 @@ class Endpoint:
         path: str | None = None,
         model: Type[B] | None = None,
         openapi_extra: dict[str, Any] | None = None,
+        name: str | None = None,
+        summary: str | None = None,
+        description: str | None = None,
     ):
         return _get_method_wrapper(
             cls=self,
@@ -111,6 +123,9 @@ class Endpoint:
             path=path,
             model=model,
             openapi_extra=openapi_extra,
+            name=name,
+            summary=summary,
+            description=description,
         )
 
     def put(
@@ -120,6 +135,9 @@ class Endpoint:
         path: str | None = None,
         model: Type[B] | None = None,
         openapi_extra: dict[str, Any] | None = None,
+        name: str | None = None,
+        summary: str | None = None,
+        description: str | None = None,
     ):
         return _get_method_wrapper(
             cls=self,
@@ -129,6 +147,9 @@ class Endpoint:
             path=path,
             model=model,
             openapi_extra=openapi_extra,
+            name=name,
+            summary=summary,
+            description=description,
         )
 
     def delete(
@@ -138,6 +159,9 @@ class Endpoint:
         path: str | None = None,
         model: Type[B] | None = None,
         openapi_extra: dict[str, Any] | None = None,
+        name: str | None = None,
+        summary: str | None = None,
+        description: str | None = None,
     ):
         return _get_method_wrapper(
             cls=self,
@@ -147,6 +171,9 @@ class Endpoint:
             path=path,
             model=model,
             openapi_extra=openapi_extra,
+            name=name,
+            summary=summary,
+            description=description,
         )
 
     def patch(
@@ -156,6 +183,9 @@ class Endpoint:
         path: str | None = None,
         model: Type[B] | None = None,
         openapi_extra: dict[str, Any] | None = None,
+        name: str | None = None,
+        summary: str | None = None,
+        description: str | None = None,
     ):
         return _get_method_wrapper(
             cls=self,
@@ -165,6 +195,9 @@ class Endpoint:
             path=path,
             model=model,
             openapi_extra=openapi_extra,
+            name=name,
+            summary=summary,
+            description=description,
         )
 
 
@@ -177,6 +210,9 @@ def _get_method_wrapper(
     path: str | None = None,
     model: Type[B] | None = None,
     openapi_extra: dict[str, Any] | None = None,
+    name: str | None = None,
+    summary: str | None = None,
+    description: str | None = None,
 ):
     def _set_method_wrapper(func: EnpointFn):
         if model is not None:
@@ -193,6 +229,9 @@ def _get_method_wrapper(
             "path": path,
             "response_model": model,
             "openapi_extra": _openapi_extra,
+            "name": name,
+            "summary": summary,
+            "description": description,
         }
         cls._methods[method] = _meta
 
@@ -223,6 +262,9 @@ def add_endpoint(
         _dependencies = _meta["dependencies"]
         _path = _meta["path"]
         _response_model = _meta["response_model"]
+        _name = _meta.get("name")
+        _summary = _meta.get("summary")
+        _description = _meta.get("description")
         if not _response_model:
             try:
                 _response_model = _get_return_type(_fn)
@@ -231,15 +273,21 @@ def add_endpoint(
 
         full_path = path if not _path else f"{path}/{_path}"
 
-        if not getdoc(_fn):
+        description = getdoc(_fn)
+        if not description:
             warnings.warn(f"Docstring is missing for {_method} {path}")
+        else:
+            _name = _name if _name else get_first_line(description)
+            _summary = _summary if _summary else get_first_line(description)
 
         # Todo: add warning name is not None
         router.add_api_route(
             full_path,
             _fn,
             methods=[_method],
-            name=getdoc(_fn),
+            name=_name,
+            summary=_summary,
+            description=description,
             response_model=_response_model,
             status_code=_status_code,
             dependencies=[*(_dependencies or []), *(dependencies or [])],
