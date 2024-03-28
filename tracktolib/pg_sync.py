@@ -128,7 +128,7 @@ def insert_csv(
     block_size: int = 1000,
 ):
     _columns = csv_path.open().readline()
-    _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table, columns=_columns)
+    _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table, columns=_columns.split(","))
     _query: Query = query or cast(
         LiteralString,
         f"""

@@ -6,7 +6,7 @@ from typing import cast
 def get_tmp_table_query(
     schema: LiteralString,
     table: LiteralString,
-    columns: Iterable[LiteralString] | str | None = None,
+    columns: Iterable[LiteralString] | None = None,
     on_conflict: LiteralString = "ON CONFLICT DO NOTHING",
 ):
     tmp_table_name = f"{schema}_{table}_tmp"
@@ -17,7 +17,7 @@ def get_tmp_table_query(
     """
 
     if columns:
-        _columns = columns if isinstance(columns, str) else ",".join(columns)
+        _columns = ",".join(columns)
         insert_query = f"""
             INSERT INTO {schema}.{table} as t({_columns})
             SELECT {_columns}
