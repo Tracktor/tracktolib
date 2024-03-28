@@ -17,7 +17,7 @@ def get_tmp_table_query(
     """
 
     if columns:
-        _columns = columns if isinstance(columns, str ) else  ",".join(columns)
+        _columns = columns if isinstance(columns, str) else ",".join(columns)
         insert_query = f"""
             INSERT INTO {schema}.{table} as t({_columns})
             SELECT {_columns}
