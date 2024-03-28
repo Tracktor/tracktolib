@@ -126,9 +126,12 @@ def insert_csv(
     exclude_columns: Iterable[str] | None = None,
     delimiter: LiteralString = ",",
     block_size: int = 1000,
+    on_conflict: LiteralString = "ON CONFLICT DO NOTHING",
 ):
-    _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(schema, table)
-    _columns = csv_path.open().readline()
+    _columns = cast(LiteralString, csv_path.open().readline())
+    _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(
+        schema, table, columns=_columns.split(","), on_conflict=on_conflict
+    )
     _query: Query = query or cast(
         LiteralString,
         f"""
