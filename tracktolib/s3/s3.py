@@ -1,7 +1,7 @@
 from io import BytesIO
 from pathlib import Path
 import datetime as dt
-from typing import TypedDict, Literal, List
+from typing import TypedDict, Literal
 
 try:
     from aiobotocore.client import AioBaseClient
@@ -59,7 +59,7 @@ async def delete_file(client: AioBaseClient, bucket: str, path: str) -> bool:
     return await client.delete_object(Bucket=bucket, Key=path)  # type: ignore
 
 
-async def delete_files(client: AioBaseClient, bucket: str, paths: List[str], quiet: bool = True) -> bool:
+async def delete_files(client: AioBaseClient, bucket: str, paths: list[str], quiet: bool = True) -> bool:
     """
     Delete multiple files from an S3 bucket.
     Returns True if the operation is successful, else False.
