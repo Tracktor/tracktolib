@@ -64,10 +64,7 @@ async def delete_files(client: AioBaseClient, bucket: str, paths: List[str], qui
     Delete multiple files from an S3 bucket.
     Returns True if the operation is successful, else False.
     """
-    delete_request = {
-        'Objects': [{'Key': path} for path in paths],
-        'Quiet': quiet
-    }
+    delete_request = {"Objects": [{"Key": path} for path in paths], "Quiet": quiet}
     return await client.delete_objects(Bucket=bucket, Delete=delete_request)
 
 

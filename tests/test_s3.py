@@ -67,5 +67,4 @@ def test_upload_list_file(s3_bucket, loop, static_dir, minio_client):
             bucket_data = await list_files(client, s3_bucket, "foo")
             assert sorted([x["Key"] for x in bucket_data]) == []
 
-
     loop.run_until_complete(_test())
