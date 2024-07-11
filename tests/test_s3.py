@@ -40,7 +40,7 @@ def setup_bucket(minio_client, s3_bucket):
 
 @pytest.mark.usefixtures("setup_bucket")
 def test_upload_list_file(s3_bucket, loop, static_dir, minio_client):
-    from tracktolib.s3.s3 import upload_file, list_files, delete_file
+    from tracktolib.s3.s3 import upload_file, list_files, delete_file, delete_files
 
     async def _test():
         async with get_s3_client() as client:
@@ -61,5 +61,11 @@ def test_upload_list_file(s3_bucket, loop, static_dir, minio_client):
             await delete_file(client, s3_bucket, "foo/test.tsv")
             bucket_data = await list_files(client, s3_bucket, "foo")
             assert sorted([x["Key"] for x in bucket_data]) == ["foo/test.csv"]
+
+            await upload_file(client, s3_bucket, static_dir / "test.csv", "foo/test.tsv", acl="public-read")
+            await delete_files(client, s3_bucket, ["foo/test.tsv", "foo/test.csv"])
+            bucket_data = await list_files(client, s3_bucket, "foo")
+            assert sorted([x["Key"] for x in bucket_data]) == []
+
 
     loop.run_until_complete(_test())
