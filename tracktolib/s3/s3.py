@@ -67,7 +67,7 @@ async def delete_files(client: AioBaseClient, bucket: str, paths: list[str], qui
     delete_request = {"Objects": [{"Key": path} for path in paths], "Quiet": quiet}
     response = await client.delete_objects(Bucket=bucket, Delete=delete_request)  # type: ignore
     # Check for errors in the response
-    if 'Errors' in response and response['Errors']:
+    if "Errors" in response and response["Errors"]:
         return False
     return True
 
