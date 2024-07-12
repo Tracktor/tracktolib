@@ -60,7 +60,7 @@ async def delete_file(client: AioBaseClient, bucket: str, path: str) -> dict:
         bucket (str): The name of the S3 bucket.
         path (str): The path to the file within the S3 bucket.
 
-    Returns:
+    Return:
         dict: The response from the S3 service after attempting to delete the file.
               This typically includes metadata about the operation, such as HTTP status code,
               any errors encountered, and information about the deleted object.
@@ -78,8 +78,8 @@ async def delete_files(client: AioBaseClient, bucket: str, paths: list[str], qui
         paths (str): The paths to the files to delete within the S3 bucket.
         quiet (bool): Whether to suppress printing messages to stdout (default: True).
 
-    Returns:
-        dict: The response from the S3 service after attempting to delete the file.
+    Return:
+        dict: The response from the S3 service after attempting to delete the files.
               This typically includes metadata about the operation, such as HTTP status code,
               any errors encountered, and information about the deleted object.
     """
