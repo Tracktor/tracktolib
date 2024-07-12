@@ -53,8 +53,17 @@ async def download_file(client: AioBaseClient, bucket: str, path: str) -> BytesI
 
 async def delete_file(client: AioBaseClient, bucket: str, path: str) -> dict:
     """
-    Delete a file from a s3 bucket.
-    Returns True if the file exists else False
+    Delete a file from an S3 bucket.
+
+    Args:
+        client (AioBaseClient): The client to interact with the S3 service.
+        bucket (str): The name of the S3 bucket.
+        path (str): The path to the file within the S3 bucket.
+
+    Returns:
+        dict: The response from the S3 service after attempting to delete the file.
+              This typically includes metadata about the operation, such as HTTP status code,
+              any errors encountered, and information about the deleted object.
     """
     return await client.delete_object(Bucket=bucket, Key=path)  # type:ignore
 
@@ -62,7 +71,17 @@ async def delete_file(client: AioBaseClient, bucket: str, path: str) -> dict:
 async def delete_files(client: AioBaseClient, bucket: str, paths: list[str], quiet: bool = True) -> dict:
     """
     Delete multiple files from an S3 bucket.
-    Returns True if the operation is successful, else False.
+
+    Args:
+        client (AioBaseClient): The client to interact with the S3 service.
+        bucket (str): The name of the S3 bucket.
+        paths (str): The paths to the files to delete within the S3 bucket.
+        quiet (bool): Whether to suppress printing messages to stdout (default: True).
+
+    Returns:
+        dict: The response from the S3 service after attempting to delete the file.
+              This typically includes metadata about the operation, such as HTTP status code,
+              any errors encountered, and information about the deleted object.
     """
     delete_request = {"Objects": [{"Key": path} for path in paths], "Quiet": quiet}
     return await client.delete_objects(Bucket=bucket, Delete=delete_request)  # type:ignore
