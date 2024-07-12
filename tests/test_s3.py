@@ -57,14 +57,15 @@ def test_upload_list_file(s3_bucket, loop, static_dir, minio_client):
             # Delete
 
             # Does not raise error
-            await delete_file(client, s3_bucket, "file-that-does-not-exists")
+            response_delete_file = await delete_file(client, s3_bucket, "file-that-does-not-exists")
+            assert isinstance(response_delete_file, dict)
             await delete_file(client, s3_bucket, "foo/test.tsv")
             bucket_data = await list_files(client, s3_bucket, "foo")
             assert sorted([x["Key"] for x in bucket_data]) == ["foo/test.csv"]
 
             await upload_file(client, s3_bucket, static_dir / "test.csv", "foo/test.tsv", acl="public-read")
-            response = await delete_files(client, s3_bucket, ["foo/test.tsv", "foo/test.csv"])
-            assert response is True
+            response_delete_files = await delete_files(client, s3_bucket, ["foo/test.tsv", "foo/test.csv"])
+            assert isinstance(response_delete_files, dict)
             bucket_data = await list_files(client, s3_bucket, "foo")
             assert sorted([x["Key"] for x in bucket_data]) == []
 

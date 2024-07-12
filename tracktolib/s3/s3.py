@@ -1,7 +1,7 @@
 from io import BytesIO
 from pathlib import Path
 import datetime as dt
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, cast
 
 try:
     from aiobotocore.client import AioBaseClient
@@ -51,25 +51,21 @@ async def download_file(client: AioBaseClient, bucket: str, path: str) -> BytesI
     return _file
 
 
-async def delete_file(client: AioBaseClient, bucket: str, path: str) -> bool:
+async def delete_file(client: AioBaseClient, bucket: str, path: str) -> dict:
     """
     Delete a file from a s3 bucket.
     Returns True if the file exists else False
     """
-    return await client.delete_object(Bucket=bucket, Key=path)  # type: ignore
+    return await client.delete_object(Bucket=bucket, Key=path)  # type:ignore
 
 
-async def delete_files(client: AioBaseClient, bucket: str, paths: list[str], quiet: bool = True) -> bool:
+async def delete_files(client: AioBaseClient, bucket: str, paths: list[str], quiet: bool = True) -> dict:
     """
     Delete multiple files from an S3 bucket.
     Returns True if the operation is successful, else False.
     """
     delete_request = {"Objects": [{"Key": path} for path in paths], "Quiet": quiet}
-    response = await client.delete_objects(Bucket=bucket, Delete=delete_request)  # type: ignore
-    # Check for errors in the response
-    if "Errors" in response and response["Errors"]:
-        return False
-    return True
+    return await client.delete_objects(Bucket=bucket, Delete=delete_request)  # type:ignore
 
 
 class S3Item(TypedDict):
