@@ -1,7 +1,7 @@
 from io import BytesIO
 from pathlib import Path
 import datetime as dt
-from typing import TypedDict, Literal, cast
+from typing import TypedDict, Literal
 
 try:
     from aiobotocore.client import AioBaseClient
