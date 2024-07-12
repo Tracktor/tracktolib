@@ -63,7 +63,8 @@ def test_upload_list_file(s3_bucket, loop, static_dir, minio_client):
             assert sorted([x["Key"] for x in bucket_data]) == ["foo/test.csv"]
 
             await upload_file(client, s3_bucket, static_dir / "test.csv", "foo/test.tsv", acl="public-read")
-            await delete_files(client, s3_bucket, ["foo/test.tsv", "foo/test.csv"])
+            response = await delete_files(client, s3_bucket, ["foo/test.tsv", "foo/test.csv"])
+            assert response is True
             bucket_data = await list_files(client, s3_bucket, "foo")
             assert sorted([x["Key"] for x in bucket_data]) == []
 
