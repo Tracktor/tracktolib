@@ -44,7 +44,7 @@ def Depends(
     use_cache: bool = True,
 ) -> D:
     """TODO: add support for __call__ (maybe see https://github.com/python/typing/discussions/1106 ?)"""
-    return params.Depends(dependency, use_cache=use_cache)  # pyright: ignore [reportGeneralTypeIssues]
+    return params.Depends(dependency, use_cache=use_cache)  # pyright: ignore [reportReturnType]
 
 
 B = TypeVar("B", bound=BaseModel | None | Sequence[BaseModel])
