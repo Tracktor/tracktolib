@@ -16,7 +16,7 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4.0"
+python = ">=3.11,<4.0"
 
 python-json-logger = { version = ">=2.0.4", optional = true }
 psycopg = { version = ">=3.1.12", optional = true }
@@ -67,7 +67,7 @@ filterwarnings = ["ignore:::.*minio.api*",
 include = ["tracktolib", "tests"]
 exclude = []
 
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 pythonPlatform = "Linux"
 
 [tool.commitizen]
@@ -82,7 +82,7 @@ bump_message = "release $current_version → $new_version [skip ci]"
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 # Waiting for fix: https://github.com/charliermarsh/ruff/issues/282
 ignore = ["E999"]
 

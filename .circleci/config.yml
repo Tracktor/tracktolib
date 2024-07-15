@@ -27,9 +27,9 @@ references:
 
 
 executors:
-  test-3-10:
+  test-3-11:
     docker:
-      - image: cimg/python:3.10.8
+      - image: cimg/python:3.11.9
       - image: cimg/postgres:14.4
         environment:
           POSTGRES_PASSWORD: postgres
@@ -53,12 +53,12 @@ executors:
 
   build:
     docker:
-      - image: cimg/python:3.10.8
+      - image: cimg/python:3.12
 
 jobs:
 
-  run-tests-3-10:
-    executor: test-3-10
+  run-tests-3-11:
+    executor: test-3-11
     steps:
       - checkout
       - sre/run-python-tests:
@@ -124,14 +124,14 @@ workflows:
 
   run-tests:
     jobs:
-      - run-tests-3-10:
+      - run-tests-3-11:
           filters: *filters_not_tagged
       - run-tests-3-12:
           filters: *filters_not_tagged
       - bump-version:
           context: *pypi_context
           requires: [
-            run-tests-3-10,
+            run-tests-3-11,
             run-tests-3-12
           ]
           filters: *filters_only_master
