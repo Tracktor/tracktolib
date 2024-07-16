@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable, Any, overload, Literal, cast
+from typing import Iterable, Any, overload, Literal, cast, Optional
 
 from typing_extensions import LiteralString
 
@@ -116,15 +116,12 @@ def get_tables(engine: Connection, schemas: list[str], ignored_tables: Iterable[
     return [x["table"] for x in resp if x["table"] not in _ignored_tables]
 
 
-# from typing import Optional
-
-
 def insert_csv(
     cur: Cursor,
     schema: LiteralString,
     table: LiteralString,
     csv_path: Path,
-    query: Query | None = None,
+    query: Optional[Query] = None,
     *,
     exclude_columns: Iterable[str] | None = None,
     delimiter: LiteralString = ",",
