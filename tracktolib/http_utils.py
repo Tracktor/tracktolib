@@ -22,8 +22,7 @@ async def download_file(
     on_response: Callable[[httpx.Response], None] | None = None,
     params: QueryParamTypes | None = None,
     headers: dict[str, str] | None = None,
-):
-    ...
+): ...
 
 
 @typing.overload
@@ -37,8 +36,7 @@ async def download_file(
     on_response: Callable[[httpx.Response], None] | None = None,
     params: QueryParamTypes | None = None,
     headers: dict[str, str] | None = None,
-):
-    ...
+): ...
 
 
 async def download_file(

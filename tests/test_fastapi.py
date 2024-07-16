@@ -23,8 +23,7 @@ def test_get_return_type():
     class ReturnBar(BaseModel):
         foo: int
 
-    async def bar_endpoint() -> Response[ReturnBar | None]:
-        ...
+    async def bar_endpoint() -> Response[ReturnBar | None]: ...
 
     assert _get_return_type(bar_endpoint) == ReturnBar | None
 

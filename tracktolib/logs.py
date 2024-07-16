@@ -33,8 +33,7 @@ def init_logging(
     version: str,
     *,
     stream_handler: logging.StreamHandler | None = None,
-) -> tuple[CustomJsonFormatter, logging.StreamHandler]:
-    ...
+) -> tuple[CustomJsonFormatter, logging.StreamHandler]: ...
 
 
 @overload
@@ -44,8 +43,7 @@ def init_logging(
     version: str,
     *,
     stream_handler: logging.StreamHandler | None = None,
-) -> tuple[logging.Formatter, logging.StreamHandler]:
-    ...
+) -> tuple[logging.Formatter, logging.StreamHandler]: ...
 
 
 def init_logging(
