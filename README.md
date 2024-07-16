@@ -44,7 +44,7 @@ To use the functions, create a `Connection` using psycopg: `conn = psycopg2.conn
 *fetch_one*
 
 ```python
-from pg.pg_sync import (
+from tracktolib.pg.pg_sync import (
     insert_many, fetch_one, fetch_count, fetch_all
 )
 
