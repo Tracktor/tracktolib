@@ -116,6 +116,9 @@ def get_tables(engine: Connection, schemas: list[str], ignored_tables: Iterable[
     return [x["table"] for x in resp if x["table"] not in _ignored_tables]
 
 
+# from typing import Optional
+
+
 def insert_csv(
     cur: Cursor,
     schema: LiteralString,
