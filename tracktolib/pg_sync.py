@@ -18,6 +18,7 @@ from .pg_utils import get_tmp_table_query
 def fetch_all(engine: Connection, query: LiteralString, *data) -> list[dict]:
     with engine.cursor(row_factory=dict_row) as cur:
         resp = (cur.execute(query) if not data else cur.execute(query, data)).fetchall()
+    engine.commit()
     return resp
 
 
@@ -27,7 +28,7 @@ def fetch_count(engine: Connection, table: str, *args, where: str | None = None)
         query = f"{query} WHERE {where}"
     with engine.cursor() as cur:
         count = cur.execute(cast(LiteralString, query), params=args).fetchone()
-
+    engine.commit()
     return count[0] if count else None
 
 
@@ -46,6 +47,7 @@ def fetch_one(engine: Connection, query: Query, *args) -> dict | None: ...
 def fetch_one(engine: Connection, query: Query, *args, required: bool = False) -> dict | None:
     with engine.cursor(row_factory=dict_row) as cur:
         _data = cur.execute(query, args).fetchone()
+    engine.commit()
     if required and not _data:
         raise ValueError("No value found for query")
     return _data
