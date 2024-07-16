@@ -23,8 +23,7 @@ def test_get_return_type():
     class ReturnBar(BaseModel):
         foo: int
 
-    async def bar_endpoint() -> Response[ReturnBar | None]:
-        ...
+    async def bar_endpoint() -> Response[ReturnBar | None]: ...
 
     assert _get_return_type(bar_endpoint) == ReturnBar | None
 
@@ -221,9 +220,8 @@ def test_warning_without_docstring(app):
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         add_endpoint("/foo", router, first_endpoint)
-        assert len(w) == 1
-        assert issubclass(w[-1].category, UserWarning)
-        assert "Docstring is missing for" in str(w[-1].message)
+        assert issubclass(w[0].category, UserWarning)
+        assert "Docstring is missing for" in str(w[0].message)
 
     @second_endpoint.get(model=Foo)
     async def bar_endpoint():

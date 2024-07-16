@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable, Any, overload, Literal, cast
+from typing import Iterable, Any, overload, Literal, cast, Optional
 
 from typing_extensions import LiteralString
 
@@ -32,18 +32,15 @@ def fetch_count(engine: Connection, table: str, *args, where: str | None = None)
 
 
 @overload
-def fetch_one(engine: Connection, query: Query, *args, required: Literal[False]) -> dict | None:
-    ...
+def fetch_one(engine: Connection, query: Query, *args, required: Literal[False]) -> dict | None: ...
 
 
 @overload
-def fetch_one(engine: Connection, query: Query, *args, required: Literal[True]) -> dict:
-    ...
+def fetch_one(engine: Connection, query: Query, *args, required: Literal[True]) -> dict: ...
 
 
 @overload
-def fetch_one(engine: Connection, query: Query, *args) -> dict | None:
-    ...
+def fetch_one(engine: Connection, query: Query, *args) -> dict | None: ...
 
 
 def fetch_one(engine: Connection, query: Query, *args, required: bool = False) -> dict | None:
@@ -121,7 +118,7 @@ def insert_csv(
     schema: LiteralString,
     table: LiteralString,
     csv_path: Path,
-    query: Query | None = None,
+    query: Optional[Query] = None,
     *,
     exclude_columns: Iterable[str] | None = None,
     delimiter: LiteralString = ",",

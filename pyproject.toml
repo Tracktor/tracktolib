@@ -16,11 +16,13 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4.0"
+python = ">=3.12,<4.0"
 
 python-json-logger = { version = ">=2.0.4", optional = true }
 psycopg = { version = ">=3.1.12", optional = true }
 minio = { version = ">=7.2.0", optional = true }
+# Needed for minio, otherwise it raises ModuleNotFoundError: No module named 'Crypto.Cipher'
+pycryptodome =  { version = ">=3.20.0", optional = true }
 aiobotocore = { version = ">=2.9.0", optional = true }
 deepdiff = { version = ">=6.6.0", optional = true }
 httpx = { version = ">=0.25.0", optional = true }
@@ -29,11 +31,10 @@ pydantic = { version = ">=2", optional = true }
 asyncpg = ">=0.27.0"
 rich = { version = ">=13.6.0", optional = true }
 
-
 [tool.poetry.extras]
 logs = ["python-json-logger"]
 pg-sync = ["psycopg"]
-s3-minio = ["minio"]
+s3-minio = ["minio", "pycryptodome"]
 s3 = ["aiobotocore"]
 tests = ["deepdiff"]
 http = ["httpx"]
@@ -41,14 +42,20 @@ api = ["fastapi", "pydantic"]
 pg = ["asyncpg", "rich"]
 
 [tool.poetry.group.dev.dependencies]
-pyright = "^1.1.284"
 commitizen = "^3.11.0"
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
-pydantic = ">=2,<3"
-ruff = "^0.1.6"
+pytest-cov = "^5.0.0"
+pytest = "^8.2.2"
+pyright = "^1.1.371"
+ruff = "^0.5.2"
+pydantic = "^2.8.2"
 # Issue for mac with trackit version of multidict
-multidict = ">=6.0.5"
+multidict = "^6.0.5"
+fastapi ="^0.111.1"
+httpx =  "^0.27.0"
+psycopg = "^3.2.1"
+minio = "^7.2.7"
+pycryptodome = "^3.20.0"
+aiobotocore = "^2.13.1"
 
 [build-system]
 requires = ["poetry-core"]
@@ -60,14 +67,16 @@ testpaths = [
     "tests"
 ]
 python_files = "*.py"
-filterwarnings = ["ignore:::.*minio.api*",
-    "ignore:.*urllib3.contrib.pyopenssl.*:DeprecationWarning"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning"
+]
 
 [tool.pyright]
 include = ["tracktolib", "tests"]
 exclude = []
 
-pythonVersion = "3.10"
+pythonVersion = "3.12"
 pythonPlatform = "Linux"
 
 [tool.commitizen]
@@ -82,11 +91,11 @@ bump_message = "release $current_version → $new_version [skip ci]"
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py312"
 # Waiting for fix: https://github.com/charliermarsh/ruff/issues/282
-ignore = ["E999"]
+#ignore = ["E999"]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = [
     # imported but unused
     "F401",
@@ -96,10 +105,10 @@ ignore = ["E999"]
     "F405"
 ]
 
-[tool.ruff.flake8-quotes]
+[tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
 inline-quotes = "single"
 
-[tool.ruff.flake8-tidy-imports]
+[tool.ruff.lint.flake8-tidy-imports]
 # Disallow all relative imports.
 ban-relative-imports = "all"

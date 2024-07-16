@@ -58,18 +58,15 @@ def import_module(path: Path):
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int, *, as_list: Literal[False]) -> Iterator[Iterable[T]]:
-    ...
+def get_chunks(it: Iterable[T], size: int, *, as_list: Literal[False]) -> Iterator[Iterable[T]]: ...
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int, *, as_list: Literal[True]) -> Iterator[list[T]]:
-    ...
+def get_chunks(it: Iterable[T], size: int, *, as_list: Literal[True]) -> Iterator[list[T]]: ...
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int) -> Iterator[list[T]]:
-    ...
+def get_chunks(it: Iterable[T], size: int) -> Iterator[list[T]]: ...
 
 
 def get_chunks(it: Iterable[T], size: int, *, as_list: bool = True) -> Iterator[Iterable[T]]:
@@ -125,13 +122,11 @@ def to_camel_case(string: str) -> str:
 
 
 @overload
-def dict_to_camel(d: dict) -> dict:
-    ...
+def dict_to_camel(d: dict) -> dict: ...
 
 
 @overload
-def dict_to_camel(d: list[dict]) -> list[dict]:
-    ...
+def dict_to_camel(d: list[dict]) -> list[dict]: ...
 
 
 def dict_to_camel(d: dict | list):
@@ -152,13 +147,11 @@ def dict_to_camel(d: dict | list):
 
 
 @overload
-def rm_keys(data: dict, keys: list[str]) -> dict:
-    ...
+def rm_keys(data: dict, keys: list[str]) -> dict: ...
 
 
 @overload
-def rm_keys(data: list[dict], keys: list[str]) -> list[dict]:
-    ...
+def rm_keys(data: list[dict], keys: list[str]) -> list[dict]: ...
 
 
 def rm_keys(data: dict | list[dict], keys: list[str]):

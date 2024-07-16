@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   gh: circleci/github-cli@1.0
-  sre: tracktor/ci-tools@0.7.0
+  sre: tracktor/ci-tools@0.7.1
 
 references:
   pypi_context: &pypi_context
@@ -27,21 +27,9 @@ references:
 
 
 executors:
-  test-3-10:
-    docker:
-      - image: cimg/python:3.10.8
-      - image: cimg/postgres:14.4
-        environment:
-          POSTGRES_PASSWORD: postgres
-      - image: minio/minio
-        environment:
-          MINIO_ROOT_USER: foo
-          MINIO_ROOT_PASSWORD: foobarbaz
-        command: server /data
-
   test-3-12:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/python:3.12.1-node
       - image: cimg/postgres:14.4
         environment:
           POSTGRES_PASSWORD: postgres
@@ -53,20 +41,9 @@ executors:
 
   build:
     docker:
-      - image: cimg/python:3.10.8
+      - image: cimg/python:3.12
 
 jobs:
-
-  run-tests-3-10:
-    executor: test-3-10
-    steps:
-      - checkout
-      - sre/run-python-tests:
-          extras: '--all-extras'
-          formatter: 'ruff'
-      - sre/run-python-tests:
-          extras: '--all-extras'
-          formatter: 'ruff'
 
   run-tests-3-12:
     executor: test-3-12
@@ -124,14 +101,11 @@ workflows:
 
   run-tests:
     jobs:
-      - run-tests-3-10:
-          filters: *filters_not_tagged
       - run-tests-3-12:
           filters: *filters_not_tagged
       - bump-version:
           context: *pypi_context
           requires: [
-            run-tests-3-10,
             run-tests-3-12
           ]
           filters: *filters_only_master

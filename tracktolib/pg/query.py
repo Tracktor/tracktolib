@@ -321,8 +321,7 @@ async def insert_many(
 @overload
 async def insert_returning(
     conn: _Connection, table: str, item: dict, returning: str, on_conflict: OnConflict | None = None, fill: bool = False
-) -> Any | None:
-    ...
+) -> Any | None: ...
 
 
 @overload
@@ -333,8 +332,7 @@ async def insert_returning(
     returning: list[str],
     on_conflict: OnConflict | None = None,
     fill: bool = False,
-) -> asyncpg.Record | None:
-    ...
+) -> asyncpg.Record | None: ...
 
 
 async def insert_returning(
@@ -388,8 +386,7 @@ async def update_returning(
     where: str | None = None,
     keys: list[str] | None = None,
     start_from: int | None = None,
-) -> Any | None:
-    ...
+) -> Any | None: ...
 
 
 @overload
@@ -403,8 +400,7 @@ async def update_returning(
     where: str | None = None,
     keys: list[str] | None = None,
     start_from: int | None = None,
-) -> asyncpg.Record | None:
-    ...
+) -> asyncpg.Record | None: ...
 
 
 @overload
@@ -418,8 +414,7 @@ async def update_returning(
     where: str | None = None,
     keys: list[str] | None = None,
     start_from: int | None = None,
-) -> asyncpg.Record | None:
-    ...
+) -> asyncpg.Record | None: ...
 
 
 async def update_returning(

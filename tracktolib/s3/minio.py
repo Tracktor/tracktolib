@@ -10,6 +10,8 @@ except ImportError:
 def download_bucket(minio: Minio, bucket_name: str, output_dir: Path) -> list[Path]:
     files = []
     for obj in minio.list_objects(bucket_name, recursive=True):
+        if obj.object_name is None:
+            raise ValueError("object_name is empty")
         data = minio.get_object(bucket_name, obj.object_name)
         _file = output_dir / obj.object_name
         _file.parent.mkdir(exist_ok=True, parents=True)
@@ -22,7 +24,11 @@ def download_bucket(minio: Minio, bucket_name: str, output_dir: Path) -> list[Pa
 
 
 def bucket_rm(minio: Minio, bucket_name: str):
-    names = [DeleteObject(x.object_name) for x in minio.list_objects(bucket_name, recursive=True)]
+    names = [
+        DeleteObject(x.object_name)
+        for x in minio.list_objects(bucket_name, recursive=True)
+        if x.object_name is not None
+    ]
     errors = minio.remove_objects(bucket_name, names)
     errors = list(errors)
     if errors:
@@ -31,4 +37,4 @@ def bucket_rm(minio: Minio, bucket_name: str):
 
 
 def upload_object(minio: Minio, bucket_name: str, object_name: str, path: Path):
-    minio.fput_object(bucket_name, object_name, path.absolute())
+    minio.fput_object(bucket_name, object_name, str(path.absolute()))
