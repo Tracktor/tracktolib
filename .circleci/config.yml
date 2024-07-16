@@ -29,7 +29,7 @@ references:
 executors:
   test-3-12:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/python:3.12.1-node
       - image: cimg/postgres:14.4
         environment:
           POSTGRES_PASSWORD: postgres

@@ -67,8 +67,10 @@ testpaths = [
     "tests"
 ]
 python_files = "*.py"
-filterwarnings = ["ignore:::.*minio.api*",
-    "ignore:.*urllib3.contrib.pyopenssl.*:DeprecationWarning"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning"
+]
 
 [tool.pyright]
 include = ["tracktolib", "tests"]
