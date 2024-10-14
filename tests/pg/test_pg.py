@@ -90,12 +90,12 @@ def compare_strings(str1: str, str2: str):
             {"constraint": "my_constraint"},
             None,
             """
-                    INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) 
-                    ON CONFLICT ON CONSTRAINT my_constraint 
-                    DO UPDATE SET 
-                        bar = COALESCE(EXCLUDED.bar, t.bar), 
-                        foo = COALESCE(EXCLUDED.foo, t.foo)
-                    """,
+                        INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) 
+                        ON CONFLICT ON CONSTRAINT my_constraint 
+                        DO UPDATE SET 
+                            bar = COALESCE(EXCLUDED.bar, t.bar), 
+                            foo = COALESCE(EXCLUDED.foo, t.foo)
+                        """,
             False,
         ),
         (
@@ -103,12 +103,12 @@ def compare_strings(str1: str, str2: str):
             {"constraint": "my_constraint"},
             None,
             """
-                    INSERT INTO schema.table AS t ("bar", "foo") VALUES ( $1, $2 ) 
-                    ON CONFLICT ON CONSTRAINT my_constraint 
-                    DO UPDATE SET 
-                        "bar" = COALESCE(EXCLUDED."bar", t."bar"), 
-                        "foo" = COALESCE(EXCLUDED."foo", t."foo")
-                    """,
+                        INSERT INTO schema.table AS t ("bar", "foo") VALUES ( $1, $2 ) 
+                        ON CONFLICT ON CONSTRAINT my_constraint 
+                        DO UPDATE SET 
+                            "bar" = COALESCE(EXCLUDED."bar", t."bar"), 
+                            "foo" = COALESCE(EXCLUDED."foo", t."foo")
+                        """,
             True,
         ),
         (
@@ -116,11 +116,11 @@ def compare_strings(str1: str, str2: str):
             {"merge_keys": ["foo"], "keys": ["bar"]},
             None,
             """
-                    INSERT INTO schema.table AS t (bar, foo) 
-                    VALUES ( $1, $2 ) ON CONFLICT (bar) 
-                    DO UPDATE SET 
-                        foo = COALESCE(t.foo, jsonb_build_object()) || EXCLUDED.foo
-                    """,
+                        INSERT INTO schema.table AS t (bar, foo) 
+                        VALUES ( $1, $2 ) ON CONFLICT (bar) 
+                        DO UPDATE SET 
+                            foo = COALESCE(t.foo, jsonb_build_object()) || EXCLUDED.foo
+                        """,
             False,
         ),
     ],
@@ -421,7 +421,14 @@ def test_pg_update_query(data, params, expected):
             {"table": "foo.baz", "item": {"baz": {"hello": "world"}, "id": 0}, "keys": ["id"], "merge_keys": ["baz"]},
             "SELECT * from foo.baz where id = 0",
             [{"bar": None, "baz": {"foo": 1, "hello": "world"}, "id": 0}],
-            id="default",
+            id="merge keys",
+        ),
+        pytest.param(
+            lambda engine: insert_one(engine, "foo.baz", {"id": 0, "baz": {"foo": 1}}),
+            {"table": "foo.baz", "item": {"bar": {"foo": 2}, "id": 0}, "keys": ["id"], "merge_keys": ["baz"]},
+            "SELECT * from foo.baz where id = 0",
+            [{"bar": {"foo": 2}, "baz": {"foo": 1}, "id": 0}],
+            id="merge keys missing key",
         ),
     ],
 )
@@ -432,7 +439,7 @@ def test_update_one(aengine, loop, engine, setup_fn, params, expected_query, exp
     if setup_fn:
         setup_fn(engine)
 
-    loop.run_until_complete(update_one(aengine, table=params.pop("table"), item=params.pop("item"), **params))
+    loop.run_until_complete(update_one(aengine, **params))
     db_data = fetch_all(engine, expected_query)
     assert db_data == expected
 
