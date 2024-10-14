@@ -206,10 +206,6 @@ def get_update_fields(
     _merge_keys = set(merge_keys or [])
     _ignore_keys = ignore_keys or []
 
-    _invalid_merge_keys = _merge_keys - set(keys)
-    if _invalid_merge_keys:
-        raise ValueError(f"Merge keys not in keys found: {_invalid_merge_keys}")
-
     for k in keys:
         v = item[k]
         if k in _ignore_keys:
@@ -397,8 +393,6 @@ async def update_one(
     query = PGUpdateQuery(
         table=table, items=[item], start_from=start_from, where_keys=keys, where=where, merge_keys=merge_keys
     )
-    print(query.query)
-    print(query.values)
     await conn.execute(query.query, *args, *query.values)
 
 
