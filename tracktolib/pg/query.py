@@ -1,6 +1,7 @@
 import typing
 from dataclasses import dataclass, field
 from typing import TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias, overload, Any, Literal
+
 from ..pg_utils import get_conflict_query
 
 try:
@@ -32,6 +33,7 @@ def _get_on_conflict_query(
     constraint: K | None,
     on_conflict: K | None,
     where: K | None,
+    merge_columns: Iterable[K] | None,
 ) -> str:
     _on_conflict = get_conflict_query(
         columns=columns,
@@ -40,6 +42,7 @@ def _get_on_conflict_query(
         constraint=constraint,
         on_conflict=on_conflict,
         where=where,
+        merge_columns=merge_columns,
     )
     return f"{query} {_on_conflict}"
 
@@ -72,6 +75,7 @@ class PGConflictQuery(Generic[K]):
     query: str | None = None
     constraint: str | None = None
     where: str | None = None
+    merge_keys: Iterable[K] | None = None
 
     def __post_init__(self):
         _has_keys = 1 if (self.keys or self.ignore_keys) else 0
@@ -172,6 +176,7 @@ class PGInsertQuery(PGQuery):
                 self.on_conflict.constraint,
                 self.on_conflict.query,
                 self.on_conflict.where,
+                self.on_conflict.merge_keys,
             )
 
         # Returning

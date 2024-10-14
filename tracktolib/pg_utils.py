@@ -1,6 +1,7 @@
-from typing_extensions import LiteralString
 from typing import Iterable
 from typing import cast
+
+from typing_extensions import LiteralString
 
 
 def get_tmp_table_query(
@@ -41,6 +42,7 @@ def get_conflict_query(
     constraint: str | None = None,
     on_conflict: str | None = None,
     where: str | None = None,
+    merge_columns: Iterable[str] | None = None,
 ) -> LiteralString:
     if on_conflict:
         return cast(LiteralString, on_conflict)
@@ -55,8 +57,19 @@ def get_conflict_query(
     else:
         raise NotImplementedError("update_keys or constraint must be set")
 
-    _ignore_columns = [*(update_columns or []), *(ignore_columns or [])]
+    _update_columns = update_columns or []
+    _ignore_columns = ignore_columns or []
+    _merge_columns = merge_columns or []
+
+    if set(_merge_columns) & set(_update_columns):
+        raise ValueError("Duplicate keys found between merge and update")
+    if set(_merge_columns) & set(_ignore_columns):
+        raise ValueError("Merge column cannot be ignored")
+
+    _ignore_columns = [*_update_columns, *_ignore_columns, *_merge_columns]
     fields = ", ".join(f"{x} = COALESCE(EXCLUDED.{x}, t.{x})" for x in columns if x not in _ignore_columns)
+    if merge_columns:
+        fields += ", ".join(f"{x} = COALESCE(t.{x}, jsonb_build_object()) || EXCLUDED.{x}" for x in merge_columns)
     if not fields:
         raise ValueError("No fields set")
 
