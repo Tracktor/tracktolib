@@ -1,7 +1,8 @@
 import asyncpg
 import pytest
 
-from tracktolib.pg_sync import fetch_all
+from tracktolib.pg import Conflict, PGConflictQuery
+from tracktolib.pg_sync import fetch_all, insert_one
 from tracktolib.tests import assert_equals
 
 
@@ -22,6 +23,7 @@ def test_insert_many_query():
 def compare_strings(str1: str, str2: str):
     str1 = " ".join(x.strip() for x in str1.split("\n"))
     str2 = " ".join(x.strip() for x in str2.split("\n"))
+
     assert str1.strip() == str2.strip()
 
 
@@ -88,12 +90,12 @@ def compare_strings(str1: str, str2: str):
             {"constraint": "my_constraint"},
             None,
             """
-            INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) 
-            ON CONFLICT ON CONSTRAINT my_constraint 
-            DO UPDATE SET 
-                bar = COALESCE(EXCLUDED.bar, t.bar), 
-                foo = COALESCE(EXCLUDED.foo, t.foo)
-            """,
+                INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) 
+                ON CONFLICT ON CONSTRAINT my_constraint 
+                DO UPDATE SET 
+                    bar = COALESCE(EXCLUDED.bar, t.bar), 
+                    foo = COALESCE(EXCLUDED.foo, t.foo)
+                """,
             False,
         ),
         (
@@ -101,13 +103,25 @@ def compare_strings(str1: str, str2: str):
             {"constraint": "my_constraint"},
             None,
             """
-            INSERT INTO schema.table AS t ("bar", "foo") VALUES ( $1, $2 ) 
-            ON CONFLICT ON CONSTRAINT my_constraint 
-            DO UPDATE SET 
-                "bar" = COALESCE(EXCLUDED."bar", t."bar"), 
-                "foo" = COALESCE(EXCLUDED."foo", t."foo")
-            """,
+                INSERT INTO schema.table AS t ("bar", "foo") VALUES ( $1, $2 ) 
+                ON CONFLICT ON CONSTRAINT my_constraint 
+                DO UPDATE SET 
+                    "bar" = COALESCE(EXCLUDED."bar", t."bar"), 
+                    "foo" = COALESCE(EXCLUDED."foo", t."foo")
+                """,
             True,
+        ),
+        (
+            {"foo": 1, "bar": 2},
+            {"merge_keys": ["foo"], "keys": ["bar"]},
+            None,
+            """
+                INSERT INTO schema.table AS t (bar, foo) 
+                VALUES ( $1, $2 ) ON CONFLICT (bar) 
+                DO UPDATE SET 
+                    foo = COALESCE(t.foo, jsonb_build_object()) || EXCLUDED.foo
+                """,
+            False,
         ),
     ],
 )
@@ -163,14 +177,40 @@ def insert_data(engine):
     insert_many(engine, "foo.foo", data)
 
 
+@pytest.mark.parametrize(
+    "setup_fn, insert_params, expected_query, expected",
+    [
+        pytest.param(
+            None,
+            {"table": "foo.foo", "item": {"id": 1, "foo": 1}, "on_conflict": Conflict(keys=["id"])},
+            "SELECT bar, foo FROM foo.foo WHERE id = 1",
+            [{"bar": "baz", "foo": 1}],
+            id="on_conflict",
+        ),
+        pytest.param(
+            lambda engine: (insert_one(engine, "foo.baz", {"id": 0, "baz": {"foo": 1}})),
+            {
+                "table": "foo.baz",
+                "item": {"id": 0, "baz": {"bar": "hello"}},
+                "on_conflict": PGConflictQuery(keys=["id"], merge_keys=["baz"]),
+            },
+            "SELECT bar, baz FROM foo.baz WHERE id = 0",
+            [{"bar": None, "baz": {"foo": 1, "bar": "hello"}}],
+            id="on conflict merge",
+        ),
+    ],
+)
 @pytest.mark.usefixtures("setup_tables", "insert_data")
-def test_insert_conflict_one(loop, aengine, engine):
+def test_insert_conflict_one(loop, aengine, engine, setup_fn, insert_params, expected_query, expected):
     from tracktolib.pg_sync import fetch_all
-    from tracktolib.pg import insert_one, Conflict
+    from tracktolib.pg import insert_one
 
-    loop.run_until_complete(insert_one(aengine, "foo.foo", {"id": 1, "foo": 1}, on_conflict=Conflict(keys=["id"])))
-    db_data = fetch_all(engine, "SELECT bar, foo FROM foo.foo WHERE id = 1")
-    assert db_data == [{"bar": "baz", "foo": 1}]
+    if setup_fn is not None:
+        setup_fn(engine)
+
+    loop.run_until_complete(insert_one(aengine, **insert_params))
+    db_data = fetch_all(engine, expected_query)
+    assert db_data == expected
 
 
 @pytest.mark.usefixtures("setup_tables", "insert_data")
