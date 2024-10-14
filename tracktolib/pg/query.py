@@ -75,6 +75,7 @@ class PGConflictQuery(Generic[K]):
     query: str | None = None
     constraint: str | None = None
     where: str | None = None
+    """JSONB keys to merge (like jsonb1 || newjsonb2)"""
     merge_keys: Iterable[K] | None = None
 
     def __post_init__(self):
@@ -198,17 +199,30 @@ def get_update_fields(
     start_from: int = 0,
     ignore_keys: list[str] | None = None,
     quote_columns: bool = False,
+    merge_keys: list[str] | None = None,
 ) -> tuple[str, list]:
     values, fields, where_values = [], [], []
     counter = 0
+    _merge_keys = set(merge_keys or [])
+    _ignore_keys = ignore_keys or []
+
+    _invalid_merge_keys = _merge_keys - set(keys)
+    if _invalid_merge_keys:
+        raise ValueError(f"Merge keys not in keys found: {_invalid_merge_keys}")
+
     for k in keys:
         v = item[k]
-        if ignore_keys and k in ignore_keys:
+        if k in _ignore_keys:
             where_values.append(v)
             continue
         values.append(v)
         _col = f'"{k}"' if quote_columns else k
-        fields.append(f"{_col} = ${counter + start_from + 1}")
+        _counter = counter + start_from + 1
+        fields.append(
+            f"{_col} = ${_counter}"
+            if k not in _merge_keys
+            else f"{_col} = COALESCE(t.{_col}, jsonb_build_object()) || " f"${_counter}"
+        )
         counter += 1
     return ",\n".join(fields), values + where_values
 
@@ -227,6 +241,8 @@ class PGUpdateQuery(PGQuery):
     returning: str | list[str] | None = None
     """If True, the query will return all the updated fields"""
     return_keys: bool = False
+    """Values to update using merge (like {}::jsonb || {}::jsonb)"""
+    merge_keys: list[str] | None = None
 
     _update_fields: str | None = field(init=False, default=None)
     _values: list | None = field(init=False, default=None)
@@ -243,6 +259,7 @@ class PGUpdateQuery(PGQuery):
             start_from=self.start_from or 0,
             ignore_keys=self.where_keys,
             quote_columns=self.quote_columns,
+            merge_keys=self.merge_keys,
         )
         if self.returning and self.return_keys:
             raise ValueError("Please choose either returning or return_keys")
@@ -268,7 +285,7 @@ class PGUpdateQuery(PGQuery):
             raise ValueError("No update fields found")
 
         query = f"""
-        UPDATE {self.table}
+        UPDATE {self.table} t
             SET {self._update_fields}
         {self._get_where_query()}
         """
@@ -375,8 +392,13 @@ async def update_one(
     keys: list[str] | None = None,
     start_from: int | None = None,
     where: str | None = None,
+    merge_keys: list[str] | None = None,
 ):
-    query = PGUpdateQuery(table=table, items=[item], start_from=start_from, where_keys=keys, where=where)
+    query = PGUpdateQuery(
+        table=table, items=[item], start_from=start_from, where_keys=keys, where=where, merge_keys=merge_keys
+    )
+    print(query.query)
+    print(query.values)
     await conn.execute(query.query, *args, *query.values)
 
 
@@ -391,6 +413,7 @@ async def update_returning(
     where: str | None = None,
     keys: list[str] | None = None,
     start_from: int | None = None,
+    merge_keys: list[str] | None = None,
 ) -> Any | None: ...
 
 
@@ -405,6 +428,7 @@ async def update_returning(
     where: str | None = None,
     keys: list[str] | None = None,
     start_from: int | None = None,
+    merge_keys: list[str] | None = None,
 ) -> asyncpg.Record | None: ...
 
 
@@ -419,6 +443,7 @@ async def update_returning(
     where: str | None = None,
     keys: list[str] | None = None,
     start_from: int | None = None,
+    merge_keys: list[str] | None = None,
 ) -> asyncpg.Record | None: ...
 
 
@@ -432,6 +457,7 @@ async def update_returning(
     where: str | None = None,
     keys: list[str] | None = None,
     start_from: int | None = None,
+    merge_keys: list[str] | None = None,
 ) -> Any | asyncpg.Record | None:
     if returning is not None:
         returning_values = [returning] if isinstance(returning, str) else returning
@@ -445,6 +471,7 @@ async def update_returning(
         where_keys=keys,
         return_keys=return_keys,
         returning=returning_values,
+        merge_keys=merge_keys,
     )
     fn = conn.fetchval if len(returning_values or []) == 1 else conn.fetchrow
     return await fn(query.query, *args, *query.values)

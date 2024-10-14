@@ -90,12 +90,12 @@ def compare_strings(str1: str, str2: str):
             {"constraint": "my_constraint"},
             None,
             """
-                INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) 
-                ON CONFLICT ON CONSTRAINT my_constraint 
-                DO UPDATE SET 
-                    bar = COALESCE(EXCLUDED.bar, t.bar), 
-                    foo = COALESCE(EXCLUDED.foo, t.foo)
-                """,
+                    INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) 
+                    ON CONFLICT ON CONSTRAINT my_constraint 
+                    DO UPDATE SET 
+                        bar = COALESCE(EXCLUDED.bar, t.bar), 
+                        foo = COALESCE(EXCLUDED.foo, t.foo)
+                    """,
             False,
         ),
         (
@@ -103,12 +103,12 @@ def compare_strings(str1: str, str2: str):
             {"constraint": "my_constraint"},
             None,
             """
-                INSERT INTO schema.table AS t ("bar", "foo") VALUES ( $1, $2 ) 
-                ON CONFLICT ON CONSTRAINT my_constraint 
-                DO UPDATE SET 
-                    "bar" = COALESCE(EXCLUDED."bar", t."bar"), 
-                    "foo" = COALESCE(EXCLUDED."foo", t."foo")
-                """,
+                    INSERT INTO schema.table AS t ("bar", "foo") VALUES ( $1, $2 ) 
+                    ON CONFLICT ON CONSTRAINT my_constraint 
+                    DO UPDATE SET 
+                        "bar" = COALESCE(EXCLUDED."bar", t."bar"), 
+                        "foo" = COALESCE(EXCLUDED."foo", t."foo")
+                    """,
             True,
         ),
         (
@@ -116,11 +116,11 @@ def compare_strings(str1: str, str2: str):
             {"merge_keys": ["foo"], "keys": ["bar"]},
             None,
             """
-                INSERT INTO schema.table AS t (bar, foo) 
-                VALUES ( $1, $2 ) ON CONFLICT (bar) 
-                DO UPDATE SET 
-                    foo = COALESCE(t.foo, jsonb_build_object()) || EXCLUDED.foo
-                """,
+                    INSERT INTO schema.table AS t (bar, foo) 
+                    VALUES ( $1, $2 ) ON CONFLICT (bar) 
+                    DO UPDATE SET 
+                        foo = COALESCE(t.foo, jsonb_build_object()) || EXCLUDED.foo
+                    """,
             False,
         ),
     ],
@@ -197,6 +197,28 @@ def insert_data(engine):
             "SELECT bar, baz FROM foo.baz WHERE id = 0",
             [{"bar": None, "baz": {"foo": 1, "bar": "hello"}}],
             id="on conflict merge",
+        ),
+        pytest.param(
+            lambda engine: (insert_one(engine, "foo.baz", {"id": 0, "bar": {"foo": 1}})),
+            {
+                "table": "foo.baz",
+                "item": {"id": 0, "bar": {"foo": 2}},
+                "on_conflict": PGConflictQuery(keys=["id"], merge_keys=["baz"]),
+            },
+            "SELECT bar, baz FROM foo.baz WHERE id = 0",
+            [{"bar": {"foo": 2}, "baz": None}],
+            id="on conflict merge no left",
+        ),
+        pytest.param(
+            lambda engine: (insert_one(engine, "foo.baz", {"id": 0, "baz": {"foo": 2}})),
+            {
+                "table": "foo.baz",
+                "item": {"id": 0, "baz": None},
+                "on_conflict": PGConflictQuery(keys=["id"], merge_keys=["baz"]),
+            },
+            "SELECT bar, baz FROM foo.baz WHERE id = 0",
+            [{"bar": None, "baz": None}],
+            id="on conflict merge set None",
         ),
     ],
 )
@@ -328,37 +350,51 @@ def test_fetch_count(aengine, loop):
         (
             {"foo": 1},
             {"start_from": 0, "where": None, "returning": None},
-            {"query": "UPDATE schema.table SET foo = $1", "values": [1]},
+            {"query": "UPDATE schema.table t SET foo = $1", "values": [1]},
         ),
         (
             {"foo": 1},
             {"start_from": 1, "where": "WHERE bar = $1", "returning": None},
-            {"query": "UPDATE schema.table SET foo = $2 WHERE bar = $1", "values": [1]},
+            {"query": "UPDATE schema.table t SET foo = $2 WHERE bar = $1", "values": [1]},
         ),
         (
             {"foo": 1},
             {"returning": ["foo"]},
-            {"query": "UPDATE schema.table SET foo = $1 RETURNING foo", "values": [1]},
+            {"query": "UPDATE schema.table t SET foo = $1 RETURNING foo", "values": [1]},
         ),
         (
             {"foo": 1, "id": 1},
             {"where_keys": ["id"]},
-            {"query": "UPDATE schema.table SET foo = $1 WHERE id = $2", "values": [1, 1]},
+            {"query": "UPDATE schema.table t SET foo = $1 WHERE id = $2", "values": [1, 1]},
         ),
         (
             {"foo": 1, "id": 1},
             {"where_keys": ["id"], "return_keys": True},
-            {"query": "UPDATE schema.table SET foo = $1 WHERE id = $2 RETURNING foo", "values": [1, 1]},
+            {"query": "UPDATE schema.table t SET foo = $1 WHERE id = $2 RETURNING foo", "values": [1, 1]},
         ),
         (
             {"foo": 2, "id": 1, "bar": 3},
             {"where_keys": ["id", "bar"], "return_keys": True},
-            {"query": "UPDATE schema.table SET foo = $1 WHERE bar = $2 AND id = $3 RETURNING foo", "values": [2, 3, 1]},
+            {
+                "query": "UPDATE schema.table t SET foo = $1 WHERE bar = $2 AND id = $3 RETURNING foo",
+                "values": [2, 3, 1],
+            },
         ),
         (
             {"foo": 2, "id": 1, "bar": 3},
             {"where_keys": ["bar", "id"], "return_keys": True},
-            {"query": "UPDATE schema.table SET foo = $1 WHERE bar = $2 AND id = $3 RETURNING foo", "values": [2, 3, 1]},
+            {
+                "query": "UPDATE schema.table t SET foo = $1 WHERE bar = $2 AND id = $3 RETURNING foo",
+                "values": [2, 3, 1],
+            },
+        ),
+        (
+            {"bar": {"foo": 1}},
+            {"merge_keys": ["bar"]},
+            {
+                "query": "UPDATE schema.table t SET bar = COALESCE(t.bar, jsonb_build_object()) || $1",
+                "values": [{"foo": 1}],
+            },
         ),
     ],
 )
@@ -370,11 +406,35 @@ def test_pg_update_query(data, params, expected):
     assert query.values == expected["values"]
 
 
+@pytest.mark.parametrize(
+    "setup_fn,params,expected_query,expected",
+    [
+        pytest.param(
+            None,
+            {"table": "foo.foo", "item": {"foo": 1, "id": 1}, "keys": ["id"]},
+            "SELECT * from foo.foo where id = 1",
+            [{"bar": "baz", "foo": 1, "id": 1}],
+            id="default",
+        ),
+        pytest.param(
+            lambda engine: insert_one(engine, "foo.baz", {"id": 0, "baz": {"foo": 1}}),
+            {"table": "foo.baz", "item": {"baz": {"hello": "world"}, "id": 0}, "keys": ["id"], "merge_keys": ["baz"]},
+            "SELECT * from foo.baz where id = 0",
+            [{"bar": None, "baz": {"foo": 1, "hello": "world"}, "id": 0}],
+            id="default",
+        ),
+    ],
+)
 @pytest.mark.usefixtures("setup_tables", "insert_data")
-def test_update_one(aengine, loop, engine):
+def test_update_one(aengine, loop, engine, setup_fn, params, expected_query, expected):
     from tracktolib.pg import update_one
 
-    loop.run_until_complete(update_one(aengine, "foo.foo", {"foo": 1}, 1, start_from=1, where="WHERE id = $1"))
+    if setup_fn:
+        setup_fn(engine)
+
+    loop.run_until_complete(update_one(aengine, table=params.pop("table"), item=params.pop("item"), **params))
+    db_data = fetch_all(engine, expected_query)
+    assert db_data == expected
 
 
 @pytest.mark.usefixtures("setup_tables", "insert_data")

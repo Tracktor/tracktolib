@@ -69,6 +69,7 @@ def get_conflict_query(
     _ignore_columns = [*_update_columns, *_ignore_columns, *_merge_columns]
     fields = ", ".join(f"{x} = COALESCE(EXCLUDED.{x}, t.{x})" for x in columns if x not in _ignore_columns)
     if merge_columns:
+        fields = fields + ", " if fields else fields
         fields += ", ".join(f"{x} = COALESCE(t.{x}, jsonb_build_object()) || EXCLUDED.{x}" for x in merge_columns)
     if not fields:
         raise ValueError("No fields set")
