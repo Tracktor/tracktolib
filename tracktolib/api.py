@@ -317,6 +317,22 @@ def model_to_list(string: str) -> str:
 class CamelCaseModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, coerce_numbers_to_str=True, populate_by_name=True)
 
+    def model_post_init(self, __context: Any) -> None:
+        model_dump = self.model_dump()
+        json_schema_extra = self.model_config.get("json_schema_extra", {})
+        if isinstance(json_schema_extra, dict):
+            example = json_schema_extra.get("example", None)
+            examples = json_schema_extra.get("examples", [])
+            if example:
+                examples.append(example)
+            if examples:
+                all_examples_valid = all(
+                    _example.keys() == model_dump.keys()
+                    for _example in examples
+                )
+                if not all_examples_valid:
+                    raise ValueError("All should have identical keys with the model")
+
 
 def check_status(resp, status: int = starlette.status.HTTP_200_OK):
     if resp.status_code != status:
