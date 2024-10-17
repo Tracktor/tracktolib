@@ -326,10 +326,7 @@ class CamelCaseModel(BaseModel):
             if example:
                 examples.append(example)
             if examples:
-                all_examples_valid = all(
-                    _example.keys() == model_dump.keys()
-                    for _example in examples
-                )
+                all_examples_valid = all(_example.keys() == model_dump.keys() for _example in examples)
                 if not all_examples_valid:
                     raise ValueError("All should have identical keys with the model")
 
