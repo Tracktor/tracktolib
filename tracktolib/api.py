@@ -314,7 +314,7 @@ def model_to_list(string: str) -> str:
     return f"Array[{string}]"
 
 
-class TestCamelCaseModel(BaseModel):
+class CamelCaseModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, coerce_numbers_to_str=True, populate_by_name=True)
 
     def model_post_init(self, __context: Any) -> None:
