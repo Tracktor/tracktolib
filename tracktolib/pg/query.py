@@ -1,6 +1,7 @@
 import typing
 from dataclasses import dataclass, field
-from typing import TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias, overload, Any, Literal
+from typing import TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias, overload, Any, Literal, Sequence
+from warnings import deprecated
 
 from ..pg_utils import get_conflict_query
 
@@ -55,11 +56,16 @@ _Connection = asyncpg.Connection | asyncpg.pool.Pool
 
 @dataclass
 class PGReturningQuery(Generic[K]):
-    returning_ids: Iterable[K] | None = None
+    returning_ids: Sequence[K] | None = None
     query: str | None = None
 
+    @property
+    def is_returning_single(self) -> bool:
+        """Does the query return a single value or not"""
+        return len(self.returning_ids) == 1 and "*" not in self.returning_ids
+
     @classmethod
-    def load(cls, *, keys: Iterable[K] | None = None, key: K | None = None, query: str | None = None):
+    def load(cls, *, keys: Sequence[K] | None = None, key: K | None = None, query: str | None = None):
         if not query and not keys and not key:
             raise ValueError("Please specify either key or keys")
 
@@ -129,9 +135,9 @@ class PGQuery(Generic[K, V]):
 
     async def run(self, conn: _Connection, timeout: float | None = None):
         if len(self.items) == 1:
-            await conn.execute(self.query, *self.values, timeout=timeout)  # type: ignore
+            await conn.execute(self.query, *self.values, timeout=timeout)
         else:
-            await conn.executemany(self.query, self.values, timeout=timeout)  # type: ignore
+            await conn.executemany(self.query, self.values, timeout=timeout)
 
     async def fetch(self, conn: _Connection, timeout: float | None = None) -> list[asyncpg.Record]:
         return await conn.fetch(self.query, self._get_values(), timeout=timeout)
@@ -151,14 +157,6 @@ class PGQuery(Generic[K, V]):
 class PGInsertQuery(PGQuery):
     returning: PGReturningQuery | None = None
     on_conflict: PGConflictQuery | None = None
-
-    @property
-    def has_conflict(self):
-        return self.on_conflict is not None
-
-    @property
-    def is_returning(self):
-        return self.returning is not None
 
     @property
     def query(self) -> str:
@@ -184,12 +182,22 @@ class PGInsertQuery(PGQuery):
         if self.returning is not None:
             if self.returning.returning_ids is None:
                 raise ValueError("No returning ids found")
-            if len(self.items) == 1:
-                query = _get_returning_query(query, self.returning.returning_ids)
-            else:
-                raise NotImplementedError("Cannot return value when inserting many.")
-
+            query = _get_returning_query(query, self.returning.returning_ids)
         return query
+
+    async def run(self, conn: _Connection, timeout: float | None = None):
+        is_returning = self.returning is not None
+        if not is_returning:
+            return await super().run(conn, timeout=timeout)
+
+        _has_many_items = len(self.items) > 1
+        if self.returning.is_returning_single:
+            _fn = conn.fetchmany if _has_many_items else conn.fetchval
+        else:
+            _fn = conn.fetch if _has_many_items else conn.fetchrow
+            if _has_many_items:
+                return await conn.fetch(self.query, *self.values, timeout=timeout)
+        return await _fn(self.query, *self.values, timeout=timeout)
 
 
 def get_update_fields(
@@ -217,7 +225,7 @@ def get_update_fields(
         fields.append(
             f"{_col} = ${_counter}"
             if k not in _merge_keys
-            else f"{_col} = COALESCE(t.{_col}, jsonb_build_object()) || " f"${_counter}"
+            else f"{_col} = COALESCE(t.{_col}, jsonb_build_object()) || ${_counter}"
         )
         counter += 1
     return ",\n".join(fields), values + where_values
@@ -310,30 +318,101 @@ def insert_pg(
     )
 
 
+@overload
 async def insert_one(
     conn: _Connection,
     table: str,
     item: dict,
+    returning: str,
     *,
     on_conflict: OnConflict | None = None,
     fill: bool = False,
     quote_columns: bool = False,
-):
-    query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill, quote_columns=quote_columns)
-    await query.run(conn)
+) -> Any | None: ...
+
+
+@overload
+async def insert_one(
+    conn: _Connection,
+    table: str,
+    item: dict,
+    returning: list[str],
+    *,
+    on_conflict: OnConflict | None = None,
+    fill: bool = False,
+    quote_columns: bool = False,
+) -> asyncpg.Record | None: ...
+
+
+@overload
+async def insert_one(
+    conn: _Connection,
+    table: str,
+    item: dict,
+    returning: None,
+    *,
+    on_conflict: OnConflict | None = None,
+    fill: bool = False,
+    quote_columns: bool = False,
+) -> None: ...
+
+
+async def insert_one(
+    conn: _Connection,
+    table: str,
+    item: dict,
+    returning: str | list[str] | None = None,
+    *,
+    on_conflict: OnConflict | None = None,
+    fill: bool = False,
+    quote_columns: bool = False,
+) -> Any | asyncpg.Record | None:
+    query = insert_pg(
+        table=table, items=[item], on_conflict=on_conflict, fill=fill, quote_columns=quote_columns, returning=returning
+    )
+    return await query.run(conn)
+
+
+@overload
+async def insert_many(
+    conn: _Connection,
+    table: str,
+    items: list[dict],
+    returning: list[str],
+    *,
+    on_conflict: OnConflict | None = None,
+    fill: bool = False,
+    quote_columns: bool = False,
+): ...
+
+
+@overload
+async def insert_many(
+    conn: _Connection,
+    table: str,
+    items: list[dict],
+    returning: None,
+    *,
+    on_conflict: OnConflict | None = None,
+    fill: bool = False,
+    quote_columns: bool = False,
+) -> None: ...
 
 
 async def insert_many(
     conn: _Connection,
     table: str,
     items: list[dict],
+    returning: list[str] | None = None,
     *,
     on_conflict: OnConflict | None = None,
     fill: bool = False,
     quote_columns: bool = False,
-):
-    query = insert_pg(table=table, items=items, on_conflict=on_conflict, fill=fill, quote_columns=quote_columns)
-    await query.run(conn)
+) -> list[asyncpg.Record]:
+    query = insert_pg(
+        table=table, items=items, on_conflict=on_conflict, fill=fill, quote_columns=quote_columns, returning=returning
+    )
+    return await query.run(conn)
 
 
 @overload
@@ -353,6 +432,7 @@ async def insert_returning(
 ) -> asyncpg.Record | None: ...
 
 
+@deprecated("Use insert_one or insert_many instead")
 async def insert_returning(
     conn: _Connection,
     table: str,
@@ -364,7 +444,6 @@ async def insert_returning(
     returning_values = [returning] if isinstance(returning, str) else returning
     query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill, returning=returning_values)
     fn = conn.fetchval if len(returning_values) == 1 and returning != "*" else conn.fetchrow
-
     return await fn(query.query, *query.values)
 
 
