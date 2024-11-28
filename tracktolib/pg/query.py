@@ -239,6 +239,8 @@ class PGUpdateQuery(PGQuery):
     return_keys: bool = False
     """Values to update using merge (like {}::jsonb || {}::jsonb)"""
     merge_keys: list[str] | None = None
+    """Coalesce keys in where clause"""
+    coalesce_keys: dict | None = None
 
     _update_fields: str | None = field(init=False, default=None)
     _values: list | None = field(init=False, default=None)
@@ -393,6 +395,8 @@ async def update_one(
     query = PGUpdateQuery(
         table=table, items=[item], start_from=start_from, where_keys=keys, where=where, merge_keys=merge_keys
     )
+    print(query.query)
+    print(query.values)
     await conn.execute(query.query, *args, *query.values)
 
 

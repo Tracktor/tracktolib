@@ -430,6 +430,13 @@ def test_pg_update_query(data, params, expected):
             [{"bar": {"foo": 2}, "baz": {"foo": 1}, "id": 0}],
             id="merge keys missing key",
         ),
+        pytest.param(
+            lambda engine: insert_one(engine, "foo.foo", {"id": 0, "foo": 1, "bar": None}),
+            {"table": "foo.foo", "item": {"id": 0, "bar": None, "foo": 2}, "keys": ["id", "bar"]},
+            "SELECT * from foo.foo where id = 0",
+            [{"id": 0, "foo": 2, "bar": None}],
+            id="null key",
+        ),
     ],
 )
 @pytest.mark.usefixtures("setup_tables", "insert_data")
