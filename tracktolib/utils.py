@@ -25,12 +25,20 @@ def exec_cmd(
     env: dict | None = None,
     on_update: OnCmdUpdate | None = None,
     on_done: OnCmdDone | None = None,
+    **kwargs,
 ) -> str:
     default_shell = os.getenv("SHELL", "/bin/bash")
 
     process = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable=default_shell, env=env, text=True
-    ).communicate()
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        executable=default_shell,
+        env=env,
+        text=True,
+        **kwargs,
+    )
 
     if on_update is not None:
         for line in process.stderr or []:
