@@ -15,11 +15,6 @@ K = TypeVar("K", bound=str)
 V = TypeVar("V")
 
 
-@dataclass
-class Default:
-    value: str
-
-
 def _get_insert_query(table: str, columns: Iterable[K], values: str) -> str:
     _columns = ", ".join(columns)
     return f"INSERT INTO {table} AS t ({_columns}) VALUES ( {values} )"

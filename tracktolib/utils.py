@@ -31,6 +31,7 @@ def exec_cmd(
     process = subprocess.Popen(
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable=default_shell, env=env, text=True
     ).communicate()
+
     if on_update is not None:
         for line in process.stderr or []:
             on_update(line)

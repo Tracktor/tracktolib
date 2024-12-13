@@ -66,18 +66,18 @@ async def download_file(
     if on_start is not None:
         on_start(resp["ContentLength"])
 
-    chunks = []
     async with resp["Body"] as stream:
         if chunk_size == -1:
             _data = await stream.read()
             _file = BytesIO(_data)
         else:
+            chunks = []
             while chunk := await stream.content.read(chunk_size):
                 chunks.append(chunk)
                 if on_update is not None:
                     on_update(len(chunk))
+            _file = BytesIO(b"".join(chunks)) if chunks else None
 
-            _file = BytesIO(b"".join(chunks))
     return _file
 
 
