@@ -203,6 +203,8 @@ def test_update_array_metadata(app):
 
 def test_warning_without_docstring(app):
     import warnings
+
+    warnings.resetwarnings()
     from tracktolib.api import Endpoint, add_endpoint, CamelCaseModel
 
     class Foo(CamelCaseModel):
@@ -231,9 +233,9 @@ def test_warning_without_docstring(app):
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         add_endpoint("/bar", router, second_endpoint)
-        assert len(w) == 1
-        assert issubclass(w[-1].category, UserWarning)
-        assert "Docstring is missing for" in str(w[-1].message)
+
+        assert issubclass(w[0].category, UserWarning)
+        assert "Docstring is missing for" in str(w[0].message)
 
     @third_endpoint.get(model=Foo)
     async def foo_bar_endpoint():

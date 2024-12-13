@@ -1,7 +1,7 @@
+import datetime as dt
 from io import BytesIO
 from pathlib import Path
-import datetime as dt
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, Callable
 
 try:
     from aiobotocore.client import AioBaseClient
@@ -36,18 +36,48 @@ async def upload_file(
     return resp
 
 
-async def download_file(client: AioBaseClient, bucket: str, path: str) -> BytesIO | None:
+type ContentLength = int
+type ChunkSize = int
+type OnUpdateDownload = Callable[[ChunkSize], None]
+type OnStartDownload = Callable[[ContentLength], None]
+
+
+async def download_file(
+    client: AioBaseClient,
+    bucket: str,
+    path: str,
+    *,
+    chunk_size: int = -1,
+    on_start: OnStartDownload | None = None,
+    on_update: OnUpdateDownload | None = None,
+) -> BytesIO | None:
     """
-    Loads a file from a s3 bucket
+    Loads a file from a s3 bucket.
+    If chunk_size is -1, the file will be loaded in one go
+    otherwise, the file will be loaded in chunks of size `chunk_size`.
+    When downloading in chunked, you can specify an `on_start` and `on_update`
+    callback to get the total size of the file and the size of each chunk downloaded respectively.
     """
     try:
         resp = await client.get_object(Bucket=bucket, Key=path)  # type: ignore
     except client.exceptions.NoSuchKey:
-        _file = None
-    else:
-        async with resp["Body"] as stream:
+        return None
+
+    if on_start is not None:
+        on_start(resp["ContentLength"])
+
+    async with resp["Body"] as stream:
+        if chunk_size == -1:
             _data = await stream.read()
             _file = BytesIO(_data)
+        else:
+            chunks = []
+            while chunk := await stream.content.read(chunk_size):
+                chunks.append(chunk)
+                if on_update is not None:
+                    on_update(len(chunk))
+            _file = BytesIO(b"".join(chunks)) if chunks else None
+
     return _file
 
 
