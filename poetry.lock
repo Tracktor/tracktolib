@@ -703,7 +703,7 @@ files = [
 name = "deepdiff"
 version = "8.0.1"
 description = "Deep Difference and Search of any Python object/data. Recreate objects by adding adding deltas to each other."
-optional = true
+optional = false
 python-versions = ">=3.8"
 files = [
     {file = "deepdiff-8.0.1-py3-none-any.whl", hash = "sha256:42e99004ce603f9a53934c634a57b04ad5900e0d8ed0abb15e635767489cbc05"},
@@ -1301,7 +1301,7 @@ files = [
 name = "orderly-set"
 version = "5.2.2"
 description = "Orderly set"
-optional = true
+optional = false
 python-versions = ">=3.8"
 files = [
     {file = "orderly_set-5.2.2-py3-none-any.whl", hash = "sha256:f7a37c95a38c01cdfe41c3ffb62925a318a2286ea0a41790c057fc802aec54da"},
@@ -1750,7 +1750,7 @@ cli = ["click (>=5.0)"]
 name = "python-json-logger"
 version = "3.2.0"
 description = "JSON Log Formatter for the Python Logging Package"
-optional = true
+optional = false
 python-versions = ">=3.8"
 files = [
     {file = "python_json_logger-3.2.0-py3-none-any.whl", hash = "sha256:d73522ddcfc6d0461394120feaddea9025dc64bf804d96357dd42fa878cc5fe8"},
@@ -2470,4 +2470,4 @@ tests = ["deepdiff"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.12,<4.0"
-content-hash = "a7732ca9a43a02a2cd4f2074a414d05e457cdb0ef69305e6edd96dc12529bf2f"
+content-hash = "a246e00ea319c1f031bf4675e2c12410aefb7c9d138aff9e4d057702afd01781"
