@@ -2,7 +2,7 @@ import pprint
 from typing import Iterable
 
 try:
-    import deepdiff
+    import deepdiff.diff as deepdiff
 except ImportError:
     raise ImportError('Please install deepdiff or tracktolib with "tests" to use this module')
 

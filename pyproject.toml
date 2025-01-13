@@ -18,7 +18,7 @@ include = [
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 
-python-json-logger = { version = ">=2.0.4", optional = true }
+python-json-logger = { version = ">=3.2.1", optional = true }
 psycopg = { version = ">=3.1.12", optional = true }
 minio = { version = ">=7.2.0", optional = true }
 # Needed for minio, otherwise it raises ModuleNotFoundError: No module named 'Crypto.Cipher'
