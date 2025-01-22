@@ -150,6 +150,7 @@ async def list_files(
     search_query: str | None = None,
     max_items: int | None = None,
     page_size: int | None = None,
+    starting_token: str | None = None,
 ) -> list[S3Item]:
     """
     See https://jmespath.org/ for the search query syntax.
@@ -158,9 +159,11 @@ async def list_files(
     paginator = client.get_paginator("list_objects")
     config = {}
     if max_items is not None:
-        config["max_items"] = max_items
+        config["MaxItems"] = max_items
     if page_size is not None:
-        config["page_size"] = page_size
+        config["PageSize"] = page_size
+    if starting_token is not None:
+        config["StartingToken"] = starting_token
 
     page_iterator = paginator.paginate(Bucket=bucket, Prefix=path, PaginationConfig=config if config else {})
     filtered_iterator = page_iterator.search(search_query) if search_query else page_iterator
