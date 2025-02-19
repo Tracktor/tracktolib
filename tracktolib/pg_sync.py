@@ -15,6 +15,21 @@ except ImportError:
 from .pg_utils import get_tmp_table_query
 
 
+__all__ = (
+    "clean_tables",
+    "drop_db",
+    "fetch_all",
+    "fetch_count",
+    "fetch_one",
+    "get_insert_data",
+    "get_tables",
+    "insert_many",
+    "insert_one",
+    "insert_csv",
+    "set_seq_max",
+)
+
+
 def fetch_all(engine: Connection, query: LiteralString, *data) -> list[dict]:
     with engine.cursor(row_factory=dict_row) as cur:
         resp = (cur.execute(query) if not data else cur.execute(query, data)).fetchall()
@@ -59,7 +74,7 @@ def _parse_value(v):
     return v
 
 
-def _get_insert_data(table: LiteralString, data: list[dict]) -> tuple[LiteralString, list[tuple[Any, ...]]]:
+def get_insert_data(table: LiteralString, data: list[dict]) -> tuple[LiteralString, list[tuple[Any, ...]]]:
     keys = data[0].keys()
     _values = ",".join("%s" for _ in range(0, len(keys)))
     query = f"INSERT INTO {table} as t ({','.join(keys)}) VALUES ({_values})"
@@ -67,17 +82,37 @@ def _get_insert_data(table: LiteralString, data: list[dict]) -> tuple[LiteralStr
 
 
 def insert_many(engine: Connection, table: LiteralString, data: list[dict]):
-    query, _data = _get_insert_data(table, data)
+    query, _data = get_insert_data(table, data)
     with engine.cursor() as cur:
         _ = cur.executemany(query, _data)
     engine.commit()
 
 
-def insert_one(engine: Connection, table: LiteralString, data: dict):
-    query, _data = _get_insert_data(table, [data])
-    with engine.cursor() as cur:
+@overload
+def insert_one(engine: Connection, table: LiteralString, data: dict, returning: None = None) -> None: ...
+
+
+@overload
+def insert_one(engine: Connection, table: LiteralString, data: dict, returning: list[LiteralString]) -> dict: ...
+
+
+def insert_one(
+    engine: Connection, table: LiteralString, data: dict, returning: list[LiteralString] | None = None
+) -> dict | None:
+    query, _data = get_insert_data(table, [data])
+    _is_returning = False
+    if returning:
+        query = f"{query} RETURNING {','.join(returning)}"
+        _is_returning = True
+
+    with engine.cursor(row_factory=dict_row) as cur:
         _ = cur.execute(query, _data[0])
+        if _is_returning:
+            resp = cur.fetchone()
+        else:
+            resp = None
     engine.commit()
+    return resp
 
 
 def drop_db(conn: Connection, db_name: LiteralString):
