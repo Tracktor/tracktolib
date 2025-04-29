@@ -10,20 +10,49 @@ import subprocess
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
-from typing import Iterable, TypeVar, Iterator, Literal, overload, Any
+from typing import Iterable, TypeVar, Iterator, Literal, overload, Any, Callable
+
 
 T = TypeVar("T")
 
+type OnCmdUpdate = Callable[[str], None]
+type OnCmdDone = Callable[[str, str, int], None]
 
-def exec_cmd(cmd: str | list[str], *, encoding: str = "utf-8", env: dict | None = None) -> str:
+
+def exec_cmd(
+    cmd: str | list[str],
+    *,
+    env: dict | None = None,
+    on_update: OnCmdUpdate | None = None,
+    on_done: OnCmdDone | None = None,
+    **kwargs,
+) -> str:
     default_shell = os.getenv("SHELL", "/bin/bash")
 
-    stdout, stderr = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable=default_shell, env=env
-    ).communicate()
-    if stderr:
-        raise Exception(stderr.decode(encoding))
-    return stdout.decode(encoding)
+    process = subprocess.Popen(
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        executable=default_shell,
+        env=env,
+        text=True,
+        **kwargs,
+    )
+
+    if on_update is not None:
+        for line in process.stderr or []:
+            on_update(line)
+
+    stdout, stderr = process.communicate()
+    exit_code = process.wait()
+
+    if on_done is not None:
+        on_done(stdout, stderr, exit_code)
+
+    if exit_code != 0:
+        raise Exception(stderr)
+    return stdout
 
 
 async def aexec_cmd(cmd: str | list[str], *, encoding: str = "utf-8", env: dict | None = None) -> str:

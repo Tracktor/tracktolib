@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tracktolib"
-version = "0.51.1"
+version = "0.53.1"
 description = "Utility library for python"
 authors = ["Julien Brayere <julien.brayere@tracktor.fr>"]
 license = "MIT"
@@ -18,13 +18,13 @@ include = [
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 
-python-json-logger = { version = ">=2.0.4", optional = true }
+python-json-logger = { version = ">=3.2.1", optional = true }
 psycopg = { version = ">=3.1.12", optional = true }
 minio = { version = ">=7.2.0", optional = true }
 # Needed for minio, otherwise it raises ModuleNotFoundError: No module named 'Crypto.Cipher'
 pycryptodome = { version = ">=3.20.0", optional = true }
 aiobotocore = { version = ">=2.9.0", optional = true }
-deepdiff = { version = ">=6.6.0", optional = true }
+deepdiff = { version = ">=8.1.0", optional = true }
 httpx = { version = ">=0.25.0", optional = true }
 fastapi = { version = ">=0.103.2", optional = true }
 pydantic = { version = ">=2", optional = true }
@@ -55,7 +55,9 @@ httpx = "^0.27.0"
 psycopg = "^3.2.1"
 minio = "^7.2.7"
 pycryptodome = "^3.20.0"
-aiobotocore = "^2.13.1"
+aiobotocore = "2.15.2"
+python-json-logger = "^3.2.0"
+
 
 [build-system]
 requires = ["poetry-core"]
@@ -81,7 +83,7 @@ pythonPlatform = "Linux"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.51.1"
+version = "0.53.1"
 tag_format = "$version"
 version_files = [
     "pyproject.toml:version"

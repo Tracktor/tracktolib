@@ -3,7 +3,7 @@ from typing import Literal, overload, Any, TypeGuard
 from dataclasses import dataclass
 
 try:
-    from pythonjsonlogger import jsonlogger
+    from pythonjsonlogger.json import JsonFormatter
 except ImportError:
     raise ImportError('Please install pythonjsonlogger or tracktolib with "log" to use this module')
 
@@ -11,7 +11,7 @@ LogFormat = Literal["json", "console"]
 
 
 @dataclass
-class CustomJsonFormatter(jsonlogger.JsonFormatter):
+class CustomJsonFormatter(JsonFormatter):
     version: str
 
     def __init__(self, version: str, *args, **kwargs):

@@ -62,6 +62,8 @@ class PGReturningQuery(Generic[K]):
     @property
     def is_returning_single(self) -> bool:
         """Does the query return a single value or not"""
+        if self.returning_ids is None:
+            return False
         return len(self.returning_ids) == 1 and "*" not in self.returning_ids
 
     @classmethod
@@ -135,9 +137,11 @@ class PGQuery(Generic[K, V]):
 
     async def run(self, conn: _Connection, timeout: float | None = None):
         if len(self.items) == 1:
-            await conn.execute(self.query, *self.values, timeout=timeout)
+            # Typing issue with asyncpg, timeout is marked as float=None
+            await conn.execute(self.query, *self.values, timeout=timeout)  # pyright: ignore [reportArgumentType]
         else:
-            await conn.executemany(self.query, self.values, timeout=timeout)
+            # Typing issue with asyncpg, timeout is marked as float=None
+            await conn.executemany(self.query, self.values, timeout=timeout)  # pyright: ignore [reportArgumentType]
 
     async def fetch(self, conn: _Connection, timeout: float | None = None) -> list[asyncpg.Record]:
         return await conn.fetch(self.query, self._get_values(), timeout=timeout)
@@ -186,8 +190,7 @@ class PGInsertQuery(PGQuery):
         return query
 
     async def run(self, conn: _Connection, timeout: float | None = None):
-        is_returning = self.returning is not None
-        if not is_returning:
+        if self.returning is None:
             return await super().run(conn, timeout=timeout)
 
         _has_many_items = len(self.items) > 1
@@ -197,7 +200,8 @@ class PGInsertQuery(PGQuery):
             _fn = conn.fetch if _has_many_items else conn.fetchrow
             if _has_many_items:
                 return await conn.fetch(self.query, *self.values, timeout=timeout)
-        return await _fn(self.query, *self.values, timeout=timeout)
+        # Typing issue with asyncpg, timeout is marked as float=None
+        return await _fn(self.query, *self.values, timeout=timeout)  # pyright: ignore [reportArgumentType]
 
 
 def get_update_fields(
@@ -349,7 +353,7 @@ async def insert_one(
     conn: _Connection,
     table: str,
     item: dict,
-    returning: None,
+    returning: None = None,
     *,
     on_conflict: OnConflict | None = None,
     fill: bool = False,
@@ -391,7 +395,7 @@ async def insert_many(
     conn: _Connection,
     table: str,
     items: list[dict],
-    returning: None,
+    returning: None = None,
     *,
     on_conflict: OnConflict | None = None,
     fill: bool = False,
