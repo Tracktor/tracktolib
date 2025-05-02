@@ -81,7 +81,7 @@ def get_insert_data(table: LiteralString, data: list[dict]) -> tuple[LiteralStri
     return query, [tuple(_parse_value(_x) for _x in x.values()) for x in data]
 
 
-def insert_many(engine: Connection, table: LiteralString, data: list[dict]):
+def insert_many(engine: Connection | Cursor, table: LiteralString, data: list[dict]):
     query, _data = get_insert_data(table, data)
     with engine.cursor() as cur:
         _ = cur.executemany(query, _data)
