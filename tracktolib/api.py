@@ -69,6 +69,7 @@ class MethodMeta(TypedDict):
     name: str | None
     summary: str | None
     description: str | None
+    deprecated: bool | None
 
 
 @dataclass
@@ -89,6 +90,7 @@ class Endpoint:
         name: str | None = None,
         summary: str | None = None,
         description: str | None = None,
+        deprecated: bool | None = None,
     ):
         return _get_method_wrapper(
             cls=self,
@@ -101,6 +103,7 @@ class Endpoint:
             name=name,
             summary=summary,
             description=description,
+            deprecated=deprecated,
         )
 
     def post(
@@ -114,6 +117,7 @@ class Endpoint:
         name: str | None = None,
         summary: str | None = None,
         description: str | None = None,
+        deprecated: bool | None = None,
     ):
         return _get_method_wrapper(
             cls=self,
@@ -126,6 +130,7 @@ class Endpoint:
             name=name,
             summary=summary,
             description=description,
+            deprecated=deprecated,
         )
 
     def put(
@@ -138,6 +143,7 @@ class Endpoint:
         name: str | None = None,
         summary: str | None = None,
         description: str | None = None,
+        deprecated: bool | None = None,
     ):
         return _get_method_wrapper(
             cls=self,
@@ -150,6 +156,7 @@ class Endpoint:
             name=name,
             summary=summary,
             description=description,
+            deprecated=deprecated,
         )
 
     def delete(
@@ -162,6 +169,7 @@ class Endpoint:
         name: str | None = None,
         summary: str | None = None,
         description: str | None = None,
+        deprecated: bool | None = None,
     ):
         return _get_method_wrapper(
             cls=self,
@@ -174,6 +182,7 @@ class Endpoint:
             name=name,
             summary=summary,
             description=description,
+            deprecated=deprecated,
         )
 
     def patch(
@@ -186,6 +195,7 @@ class Endpoint:
         name: str | None = None,
         summary: str | None = None,
         description: str | None = None,
+        deprecated: bool | None = None,
     ):
         return _get_method_wrapper(
             cls=self,
@@ -198,6 +208,7 @@ class Endpoint:
             name=name,
             summary=summary,
             description=description,
+            deprecated=deprecated,
         )
 
 
@@ -213,6 +224,7 @@ def _get_method_wrapper(
     name: str | None = None,
     summary: str | None = None,
     description: str | None = None,
+    deprecated: bool | None = None,
 ):
     def _set_method_wrapper(func: EnpointFn):
         if model is not None:
@@ -232,6 +244,7 @@ def _get_method_wrapper(
             "name": name,
             "summary": summary,
             "description": description,
+            "deprecated": deprecated,
         }
         cls._methods[method] = _meta
 
@@ -265,6 +278,7 @@ def add_endpoint(
         _name = _meta.get("name")
         _summary = _meta.get("summary")
         _description = _meta.get("description")
+        _deprecated = _meta.get("deprecated")
         if not _response_model:
             try:
                 _response_model = _get_return_type(_fn)
@@ -292,6 +306,7 @@ def add_endpoint(
             status_code=_status_code,
             dependencies=[*(_dependencies or []), *(dependencies or [])],
             openapi_extra=_meta.get("openapi_extra"),
+            deprecated=_deprecated,
         )
 
 
