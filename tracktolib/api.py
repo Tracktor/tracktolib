@@ -224,7 +224,7 @@ def _get_method_wrapper(
     name: str | None = None,
     summary: str | None = None,
     description: str | None = None,
-    deprecated: bool = None,
+    deprecated: bool | None = None,
 ):
     def _set_method_wrapper(func: EnpointFn):
         if model is not None:
