@@ -14,7 +14,6 @@ except ImportError:
 
 from .pg_utils import get_tmp_table_query
 
-
 __all__ = (
     "clean_tables",
     "drop_db",
@@ -81,11 +80,15 @@ def get_insert_data(table: LiteralString, data: list[dict]) -> tuple[LiteralStri
     return query, [tuple(_parse_value(_x) for _x in x.values()) for x in data]
 
 
-def insert_many(engine: Connection, table: LiteralString, data: list[dict]):
+def insert_many(engine: Connection | Cursor, table: LiteralString, data: list[dict]):
     query, _data = get_insert_data(table, data)
-    with engine.cursor() as cur:
-        _ = cur.executemany(query, _data)
-    engine.commit()
+    if isinstance(engine, Connection):
+        with engine.cursor() as cur:
+            _ = cur.executemany(query, _data)
+        engine.commit()
+    else:
+        # If we are using a cursor, we can use executemany directly
+        _ = engine.executemany(query, _data)
 
 
 @overload
@@ -138,11 +141,11 @@ def clean_tables(engine: Connection, tables: Iterable[LiteralString], reset_seq:
 
 def get_tables(engine: Connection, schemas: list[str], ignored_tables: Iterable[str] | None = None):
     table_query = """
-    SELECT CONCAT_WS('.', schemaname, tablename) AS table
-    FROM pg_catalog.pg_tables
-    WHERE schemaname = ANY(%s)
-    ORDER BY schemaname, tablename
-    """
+                  SELECT CONCAT_WS('.', schemaname, tablename) AS table
+                  FROM pg_catalog.pg_tables
+                  WHERE schemaname = ANY (%s)
+                  ORDER BY schemaname, tablename \
+                  """
     resp = fetch_all(engine, table_query, schemas)
 
     # Foreign keys

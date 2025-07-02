@@ -61,9 +61,22 @@ def test_insert_many(engine):
     from tracktolib.pg_sync import insert_many, fetch_all
     from tracktolib.tests import assert_equals
 
-    data = [{"bar": {"foo": 1}, "baz": {"foo": 2}}]
+    data = [{"bar": {"foo": 1}, "baz": {"foo": 2}}, {"bar": {"foo": 3}, "baz": {"foo": 4}}]
     insert_many(engine, "foo.baz", data)
-    db_data = fetch_all(engine, "SELECT bar, baz FROM foo.baz")
+    db_data = fetch_all(engine, "SELECT bar, baz FROM foo.baz ORDER BY bar->>'foo'")
+    assert_equals(data, db_data)
+
+
+def test_insert_many_cursor(engine):
+    from tracktolib.pg_sync import insert_many, fetch_all
+    from tracktolib.tests import assert_equals
+
+    data = [{"bar": {"foo": 1}, "baz": {"foo": 2}}, {"bar": {"foo": 3}, "baz": {"foo": 4}}]
+    with engine.cursor() as cursor:
+        insert_many(cursor, "foo.baz", [data[0]])
+        insert_many(cursor, "foo.baz", [data[1]])
+    engine.commit()
+    db_data = fetch_all(engine, "SELECT bar, baz FROM foo.baz ORDER BY bar->>'foo'")
     assert_equals(data, db_data)
 
 
