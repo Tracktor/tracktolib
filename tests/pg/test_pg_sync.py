@@ -67,6 +67,19 @@ def test_insert_many(engine):
     assert_equals(data, db_data)
 
 
+def test_insert_many_cursor(engine):
+    from tracktolib.pg_sync import insert_many, fetch_all
+    from tracktolib.tests import assert_equals
+
+    data = [{"bar": {"foo": 1}, "baz": {"foo": 2}}]
+    with engine.cursor() as cursor:
+        insert_many(cursor, "foo.baz", [data[0]])
+        insert_many(cursor, "foo.baz", [data[1]])
+    engine.commit()
+    db_data = fetch_all(engine, "SELECT bar, baz FROM foo.baz")
+    assert_equals(data, db_data)
+
+
 @pytest.mark.usefixtures("setup_tables")
 def test_insert_csv(engine, static_dir):
     from tracktolib.pg_sync import insert_csv, fetch_all
