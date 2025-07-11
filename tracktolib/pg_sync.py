@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable, Any, overload, Literal, cast, Optional
+from typing import Iterable, Any, overload, Literal, cast, Optional, Mapping, Sequence
 
 from typing_extensions import LiteralString
 
@@ -67,20 +67,22 @@ def fetch_one(engine: Connection, query: Query, *args, required: bool = False) -
     return _data
 
 
-def _parse_value(v):
+def _parse_value(v: Any) -> Any:
     if isinstance(v, dict):
         return Json(v)
     return v
 
 
-def get_insert_data(table: LiteralString, data: list[dict]) -> tuple[LiteralString, list[tuple[Any, ...]]]:
+def get_insert_data(
+    table: LiteralString, data: Sequence[Mapping[str, Any]]
+) -> tuple[LiteralString, list[tuple[Any, ...]]]:
     keys = data[0].keys()
     _values = ",".join("%s" for _ in range(0, len(keys)))
-    query = f"INSERT INTO {table} as t ({','.join(keys)}) VALUES ({_values})"
+    query = cast(LiteralString, f"INSERT INTO {table} as t ({','.join(keys)}) VALUES ({_values})")
     return query, [tuple(_parse_value(_x) for _x in x.values()) for x in data]
 
 
-def insert_many(engine: Connection | Cursor, table: LiteralString, data: list[dict]):
+def insert_many(engine: Connection | Cursor, table: LiteralString, data: Sequence[Mapping[str, Any]]):
     query, _data = get_insert_data(table, data)
     if isinstance(engine, Connection):
         with engine.cursor() as cur:
@@ -92,15 +94,17 @@ def insert_many(engine: Connection | Cursor, table: LiteralString, data: list[di
 
 
 @overload
-def insert_one(engine: Connection, table: LiteralString, data: dict, returning: None = None) -> None: ...
+def insert_one(engine: Connection, table: LiteralString, data: Mapping[str, Any], returning: None = None) -> None: ...
 
 
 @overload
-def insert_one(engine: Connection, table: LiteralString, data: dict, returning: list[LiteralString]) -> dict: ...
+def insert_one(
+    engine: Connection, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString]
+) -> dict: ...
 
 
 def insert_one(
-    engine: Connection, table: LiteralString, data: dict, returning: list[LiteralString] | None = None
+    engine: Connection, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString] | None = None
 ) -> dict | None:
     query, _data = get_insert_data(table, [data])
     _is_returning = False

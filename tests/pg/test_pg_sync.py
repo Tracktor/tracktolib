@@ -1,12 +1,19 @@
 import pytest
 from tracktolib.tests import assert_equals
+from typing import TypedDict
 
 
 @pytest.mark.usefixtures("setup_tables")
 def test_insert_fetch_many(engine):
     from tracktolib.pg_sync import insert_many, fetch_all
 
-    data = [{"foo": 1, "bar": "baz"}, {"foo": 2, "bar": "bazz"}]
+    class Foo(TypedDict):
+        foo: int
+        bar: str
+
+    foo2: Foo = {"foo": 2, "bar": "bazz"}
+
+    data = [{"foo": 1, "bar": "baz"}, foo2]
     insert_many(engine, "foo.bar", data)
     db_data = fetch_all(engine, "SELECT foo, bar FROM foo.bar ORDER BY foo")
     assert_equals(data, db_data)
