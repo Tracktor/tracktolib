@@ -75,7 +75,7 @@ def test_insert_one_returning_cursor(engine):
     engine.commit()
     db_data = fetch_all(engine, "SELECT foo, bar FROM foo.bar ORDER BY foo")
     assert_equals(db_data, [{"foo": 1, "bar": "baz"}])
-    assert_equals(data, (1, "baz"))
+    assert_equals(data, {"foo": 1, "bar": "baz"})
 
 
 @pytest.mark.usefixtures("setup_tables", "insert_data")
