@@ -115,6 +115,7 @@ def insert_one(
         query = f"{query} RETURNING {','.join(returning)}"
         _is_returning = True
 
+    resp = None
     if isinstance(engine, Connection):
         with engine.cursor(row_factory=dict_row) as cur:
             _ = cur.execute(query, _data[0])
@@ -129,10 +130,6 @@ def insert_one(
                     raise RuntimeError("engine.description is None — cannot build dict from row.")
                 column_names = [col.name for col in engine.description]
                 resp = dict(zip(column_names, row))
-            else:
-                resp = None
-        else:
-            resp = None
 
     return resp
 
