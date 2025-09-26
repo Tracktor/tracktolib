@@ -104,7 +104,10 @@ def insert_one(
 
 
 def insert_one(
-    engine: Connection | Cursor, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString] | None = None
+    engine: Connection | Cursor,
+    table: LiteralString,
+    data: Mapping[str, Any],
+    returning: list[LiteralString] | None = None,
 ) -> dict | None:
     query, _data = get_insert_data(table, [data])
     _is_returning = False
