@@ -104,7 +104,7 @@ def insert_one(
 
 
 def insert_one(
-    engine: Connection, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString] | None = None
+    engine: Connection | Cursor, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString] | None = None
 ) -> dict | None:
     query, _data = get_insert_data(table, [data])
     _is_returning = False
@@ -112,13 +112,14 @@ def insert_one(
         query = f"{query} RETURNING {','.join(returning)}"
         _is_returning = True
 
-    with engine.cursor(row_factory=dict_row) as cur:
-        _ = cur.execute(query, _data[0])
-        if _is_returning:
-            resp = cur.fetchone()
-        else:
-            resp = None
-    engine.commit()
+    if isinstance(engine, Connection):
+        with engine.cursor(row_factory=dict_row) as cur:
+            _ = cur.execute(query, _data[0])
+            resp = cur.fetchone() if _is_returning else None
+        engine.commit()
+    else:
+        _ = engine.execute(query, _data[0])
+        resp = engine.fetchone() if _is_returning else None
     return resp
 
 
