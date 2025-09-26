@@ -114,15 +114,19 @@ def insert_one(
     if returning:
         query = f"{query} RETURNING {','.join(returning)}"
         _is_returning = True
-
+    resp = None
     if isinstance(engine, Connection):
         with engine.cursor(row_factory=dict_row) as cur:
             _ = cur.execute(query, _data[0])
-            resp = cur.fetchone() if _is_returning else None
+            if _is_returning:
+                row = cur.fetchone()
+                resp = dict(row) if row is not None else None
         engine.commit()
     else:
         _ = engine.execute(query, _data[0])
-        resp = engine.fetchone() if _is_returning else None
+        if _is_returning:
+            row = engine.fetchone()
+            resp = dict(row) if row is not None else None
     return resp
 
 
