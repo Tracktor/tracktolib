@@ -50,9 +50,34 @@ def test_insert_one_returning(engine):
     from tracktolib.pg_sync import insert_one, fetch_all
 
     data = insert_one(engine, "foo.bar", {"foo": 1, "bar": "baz"}, returning=["foo", "bar"])
+    assert data is not None
     db_data = fetch_all(engine, "SELECT foo, bar FROM foo.bar ORDER BY foo")
     assert_equals(db_data, [{"foo": 1, "bar": "baz"}])
     assert_equals(data, {"foo": 1, "bar": "baz"})
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_one_cursor(engine):
+    from tracktolib.pg_sync import insert_one, fetch_all
+
+    with engine.cursor() as cursor:
+        insert_one(cursor, "foo.bar", {"foo": 1, "bar": "baz"})
+    engine.commit()
+    db_data = fetch_all(engine, "SELECT foo, bar FROM foo.bar ORDER BY foo")
+    assert_equals(db_data, [{"foo": 1, "bar": "baz"}])
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_one_returning_cursor(engine):
+    from tracktolib.pg_sync import insert_one, fetch_all
+
+    with engine.cursor() as cursor:
+        data = insert_one(cursor, "foo.bar", {"foo": 1, "bar": "baz"}, returning=["foo", "bar"])
+    engine.commit()
+    assert data is not None
+    db_data = fetch_all(engine, "SELECT foo, bar FROM foo.bar ORDER BY foo")
+    assert_equals(db_data, [{"foo": 1, "bar": "baz"}])
+    assert_equals(data, (1, "baz"))
 
 
 @pytest.mark.usefixtures("setup_tables", "insert_data")
