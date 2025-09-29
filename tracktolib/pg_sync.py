@@ -105,15 +105,15 @@ def insert_one(
 
 @overload
 def insert_one(
-        engine: Cursor, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString]
+    engine: Cursor, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString]
 ) -> DictRow | TupleRow | None: ...
 
 
 def insert_one(
-        engine: Connection | Cursor,
-        table: LiteralString,
-        data: Mapping[str, Any],
-        returning: list[LiteralString] | None = None
+    engine: Connection | Cursor,
+    table: LiteralString,
+    data: Mapping[str, Any],
+    returning: list[LiteralString] | None = None,
 ) -> dict | DictRow | TupleRow | None:
     query, _data = get_insert_data(table, [data])
     _is_returning = False
