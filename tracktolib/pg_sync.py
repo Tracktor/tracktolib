@@ -100,13 +100,13 @@ def insert_one(engine: Connection | Cursor, table: LiteralString, data: Mapping[
 
 @overload
 def insert_one(
-        engine: Connection, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString]
+    engine: Connection, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString]
 ) -> dict: ...
 
 
 @overload
 def insert_one(
-        engine: Cursor, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString]
+    engine: Cursor, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString]
 ) -> DictRow | TupleRow | None: ...
 
 
