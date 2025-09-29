@@ -7,7 +7,7 @@ try:
     from psycopg import Connection, Cursor
     from psycopg.abc import Query
     from psycopg.errors import InvalidCatalogName
-    from psycopg.rows import dict_row
+    from psycopg.rows import dict_row, DictRow, TupleRow
     from psycopg.types.json import Json
 except ImportError:
     raise ImportError('Please install psycopg or tracktolib with "pg-sync" to use this module')
@@ -103,19 +103,24 @@ def insert_one(
 ) -> dict: ...
 
 
+@overload
 def insert_one(
-    engine: Connection | Cursor,
-    table: LiteralString,
-    data: Mapping[str, Any],
-    returning: list[LiteralString] | None = None,
-) -> dict | None:
+        engine: Cursor, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString]
+) -> DictRow | TupleRow | None: ...
+
+
+def insert_one(
+        engine: Connection | Cursor,
+        table: LiteralString,
+        data: Mapping[str, Any],
+        returning: list[LiteralString] | None = None
+) -> dict | DictRow | TupleRow | None:
     query, _data = get_insert_data(table, [data])
     _is_returning = False
     if returning:
         query = f"{query} RETURNING {','.join(returning)}"
         _is_returning = True
 
-    resp = None
     if isinstance(engine, Connection):
         with engine.cursor(row_factory=dict_row) as cur:
             _ = cur.execute(query, _data[0])
@@ -123,14 +128,7 @@ def insert_one(
         engine.commit()
     else:
         _ = engine.execute(query, _data[0])
-        if _is_returning:
-            row = engine.fetchone()
-            if row is not None:
-                if engine.description is None:
-                    raise RuntimeError("engine.description is None — cannot build dict from row.")
-                column_names = [col.name for col in engine.description]
-                resp = dict(zip(column_names, row))
-
+        resp = engine.fetchone() if _is_returning else None
     return resp
 
 
