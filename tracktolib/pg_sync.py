@@ -94,8 +94,9 @@ def insert_many(engine: Connection | Cursor, table: LiteralString, data: Sequenc
 
 
 @overload
-def insert_one(engine: Connection | Cursor, table: LiteralString, data: Mapping[str, Any],
-               returning: None = None) -> None: ...
+def insert_one(
+    engine: Connection | Cursor, table: LiteralString, data: Mapping[str, Any], returning: None = None
+) -> None: ...
 
 
 @overload
