@@ -1,5 +1,6 @@
 import json
 import warnings
+from collections.abc import Mapping
 from dataclasses import field, dataclass
 from inspect import getdoc
 from typing import (
@@ -49,7 +50,7 @@ def Depends(
 
 B = TypeVar("B", bound=BaseModel | None | Sequence[BaseModel])
 
-Response = dict | list[dict] | B
+Response = Mapping | Sequence[Mapping] | B
 
 Method = Literal["GET", "POST", "DELETE", "PATCH", "PUT"]
 
