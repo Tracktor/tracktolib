@@ -108,6 +108,7 @@ class PGQuery(Generic[K, V]):
     def iter_values(self) -> Iterator[tuple]:
         _keys = self.keys
         for _item in self.items:
+            print(" => ", _item)
             yield tuple(_item[k] for k in _keys)
 
     @property
@@ -264,7 +265,7 @@ class PGUpdateQuery(PGQuery):
     def values(self):
         if not self._values:
             raise ValueError("No values found")
-        return self._values
+        return self._values if len(self.items) == 1 else super().values
 
     def _get_where_query(self) -> str:
         if self.where:
@@ -469,3 +470,18 @@ async def update_returning(
     )
     fn = conn.fetchval if len(returning_values or []) == 1 else conn.fetchrow
     return await fn(query.query, *args, *query.values)
+
+
+async def update_many(
+    conn: _Connection,
+    table: str,
+    items: list[dict],
+    keys: list[str] | None = None,
+    start_from: int | None = None,
+    where: str | None = None,
+    merge_keys: list[str] | None = None,
+):
+    query = PGUpdateQuery(
+        table=table, items=items, start_from=start_from, where_keys=keys, where=where, merge_keys=merge_keys
+    )
+    await conn.executemany(query.query, query.values)
