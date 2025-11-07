@@ -10,14 +10,14 @@ def test_insert_one_query():
     from tracktolib.pg import PGInsertQuery
 
     query = PGInsertQuery("schema.table", [{"foo": 1}]).query
-    assert query == "INSERT INTO schema.table AS t (foo) VALUES ( $1 )"
+    assert query == "INSERT INTO schema.table AS t (foo) VALUES ($1)"
 
 
 def test_insert_many_query():
     from tracktolib.pg import PGInsertQuery
 
     query = PGInsertQuery("schema.table", [{"foo": 1}, {"foo": 2}]).query
-    assert query == "INSERT INTO schema.table AS t (foo) VALUES ( $1 )"
+    assert query == "INSERT INTO schema.table AS t (foo) VALUES ($1)"
 
 
 def compare_strings(str1: str, str2: str):
@@ -34,7 +34,7 @@ def compare_strings(str1: str, str2: str):
             {"foo": 1},
             {"keys": ["id"]},
             None,
-            "INSERT INTO schema.table AS t (foo) VALUES ( $1 ) "
+            "INSERT INTO schema.table AS t (foo) VALUES ($1) "
             "ON CONFLICT (id) DO UPDATE SET foo = COALESCE(EXCLUDED.foo, t.foo)",
             False,
         ),
@@ -42,7 +42,7 @@ def compare_strings(str1: str, str2: str):
             {"foo": 1, "bar": 2},
             {"keys": ["id"]},
             None,
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) "
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) "
             "ON CONFLICT (id) DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar), "
             "foo = COALESCE(EXCLUDED.foo, t.foo)",
             False,
@@ -51,7 +51,7 @@ def compare_strings(str1: str, str2: str):
             {"foo": 1, "bar": 2},
             {"keys": ["id"], "where": "id = 2"},
             None,
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) "
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) "
             "ON CONFLICT (id) WHERE id = 2 DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar), "
             "foo = COALESCE(EXCLUDED.foo, t.foo)",
             False,
@@ -60,7 +60,7 @@ def compare_strings(str1: str, str2: str):
             {"foo": 1, "bar": 2},
             {"keys": ["id"], "ignore_keys": ["foo"]},
             None,
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) "
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) "
             "ON CONFLICT (id) DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar)",
             False,
         ),
@@ -68,21 +68,21 @@ def compare_strings(str1: str, str2: str):
             {"foo": 1, "bar": 2},
             {"query": "ON CONFLICT DO NOTHING"},
             None,
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) " "ON CONFLICT DO NOTHING",
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) ON CONFLICT DO NOTHING",
             False,
         ),
         (
             {"foo": 1, "bar": 2},
             {"query": "ON CONFLICT DO NOTHING"},
             None,
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) " "ON CONFLICT DO NOTHING",
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) ON CONFLICT DO NOTHING",
             False,
         ),
         (
             {"foo": 1, "bar": 2},
             {"query": "ON CONFLICT DO NOTHING"},
             {"key": "bar"},
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) " "ON CONFLICT DO NOTHING RETURNING bar",
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING bar",
             False,
         ),
         (
@@ -91,12 +91,10 @@ def compare_strings(str1: str, str2: str):
             None,
             """
                 INSERT INTO schema.table AS t (bar, foo)
-                VALUES ( $1, $2 )
+                VALUES ($1, $2)
                 ON CONFLICT ON CONSTRAINT my_constraint
-                    DO
-                UPDATE SET
-                    bar = COALESCE (EXCLUDED.bar, t.bar),
-                    foo = COALESCE (EXCLUDED.foo, t.foo)
+                    DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar),
+                                  foo = COALESCE(EXCLUDED.foo, t.foo)
                 """,
             False,
         ),
@@ -106,12 +104,10 @@ def compare_strings(str1: str, str2: str):
             None,
             """
                 INSERT INTO schema.table AS t ("bar", "foo")
-                VALUES ( $1, $2 )
+                VALUES ($1, $2)
                 ON CONFLICT ON CONSTRAINT my_constraint
-                    DO
-                UPDATE SET
-                    "bar" = COALESCE (EXCLUDED."bar", t."bar"),
-                    "foo" = COALESCE (EXCLUDED."foo", t."foo")
+                    DO UPDATE SET "bar" = COALESCE(EXCLUDED."bar", t."bar"),
+                                  "foo" = COALESCE(EXCLUDED."foo", t."foo")
                 """,
             True,
         ),
@@ -121,11 +117,9 @@ def compare_strings(str1: str, str2: str):
             None,
             """
                 INSERT INTO schema.table AS t (bar, foo)
-                VALUES ( $1, $2 )
+                VALUES ($1, $2)
                 ON CONFLICT (bar)
-                    DO
-                UPDATE SET
-                    foo = COALESCE (t.foo, jsonb_build_object()) || EXCLUDED.foo
+                    DO UPDATE SET foo = COALESCE(t.foo, JSONB_BUILD_OBJECT()) || EXCLUDED.foo
                 """,
             False,
         ),
@@ -398,7 +392,7 @@ def test_fetch_count(aengine, loop):
             {"bar": {"foo": 1}},
             {"merge_keys": ["bar"]},
             {
-                "query": "UPDATE schema.table t SET bar = COALESCE(t.bar, jsonb_build_object()) || $1",
+                "query": "UPDATE schema.table t SET bar = COALESCE(t.bar, JSONB_BUILD_OBJECT()) || $1",
                 "values": [{"foo": 1}],
             },
         ),
@@ -418,21 +412,21 @@ def test_pg_update_query(data, params, expected):
         pytest.param(
             None,
             {"table": "foo.foo", "item": {"foo": 1, "id": 1}, "keys": ["id"]},
-            "SELECT * from foo.foo where id = 1",
+            "SELECT * FROM foo.foo WHERE id = 1",
             [{"bar": "baz", "foo": 1, "id": 1}],
             id="default",
         ),
         pytest.param(
             lambda engine: insert_one(engine, "foo.baz", {"id": 0, "baz": {"foo": 1}}),
             {"table": "foo.baz", "item": {"baz": {"hello": "world"}, "id": 0}, "keys": ["id"], "merge_keys": ["baz"]},
-            "SELECT * from foo.baz where id = 0",
+            "SELECT * FROM foo.baz WHERE id = 0",
             [{"bar": None, "baz": {"foo": 1, "hello": "world"}, "id": 0}],
             id="merge keys",
         ),
         pytest.param(
             lambda engine: insert_one(engine, "foo.baz", {"id": 0, "baz": {"foo": 1}}),
             {"table": "foo.baz", "item": {"bar": {"foo": 2}, "id": 0}, "keys": ["id"], "merge_keys": ["baz"]},
-            "SELECT * from foo.baz where id = 0",
+            "SELECT * FROM foo.baz WHERE id = 0",
             [{"bar": {"foo": 2}, "baz": {"foo": 1}, "id": 0}],
             id="merge keys missing key",
         ),
@@ -504,7 +498,7 @@ def test_safe_pg(aengine, loop):
         pytest.param(
             None,
             {"table": "foo.foo", "items": [{"id": 1, "foo": 1}, {"id": 2, "foo": 22}], "keys": ["id"]},
-            "SELECT bar, foo, id from foo.foo where id in (1, 2) order by id",
+            "SELECT bar, foo, id FROM foo.foo WHERE id IN (1, 2) ORDER BY id",
             [{"bar": "baz", "foo": 1, "id": 1}, {"bar": None, "foo": 22, "id": 2}],
             id="default",
         ),

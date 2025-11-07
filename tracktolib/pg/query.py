@@ -17,7 +17,7 @@ V = TypeVar("V")
 
 def _get_insert_query(table: str, columns: Iterable[K], values: str) -> str:
     _columns = ", ".join(columns)
-    return f"INSERT INTO {table} AS t ({_columns}) VALUES ( {values} )"
+    return f"INSERT INTO {table} AS t ({_columns}) VALUES ({values})"
 
 
 def _get_returning_query(query: str, returning: Iterable[K]) -> str:
@@ -108,7 +108,6 @@ class PGQuery(Generic[K, V]):
     def iter_values(self) -> Iterator[tuple]:
         _keys = self.keys
         for _item in self.items:
-            print(" => ", _item)
             yield tuple(_item[k] for k in _keys)
 
     @property
@@ -218,7 +217,7 @@ def get_update_fields(
         fields.append(
             f"{_col} = ${_counter}"
             if k not in _merge_keys
-            else f"{_col} = COALESCE(t.{_col}, jsonb_build_object()) || " f"${_counter}"
+            else f"{_col} = COALESCE(t.{_col}, JSONB_BUILD_OBJECT()) || " f"${_counter}"
         )
         counter += 1
     return ",\n".join(fields), values + where_values
