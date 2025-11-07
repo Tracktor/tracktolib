@@ -17,7 +17,7 @@ V = TypeVar("V")
 
 def _get_insert_query(table: str, columns: Iterable[K], values: str) -> str:
     _columns = ", ".join(columns)
-    return f"INSERT INTO {table} AS t ({_columns}) VALUES ( {values} )"
+    return f"INSERT INTO {table} AS t ({_columns}) VALUES ({values})"
 
 
 def _get_returning_query(query: str, returning: Iterable[K]) -> str:
@@ -217,7 +217,7 @@ def get_update_fields(
         fields.append(
             f"{_col} = ${_counter}"
             if k not in _merge_keys
-            else f"{_col} = COALESCE(t.{_col}, jsonb_build_object()) || " f"${_counter}"
+            else f"{_col} = COALESCE(t.{_col}, JSONB_BUILD_OBJECT()) || " f"${_counter}"
         )
         counter += 1
     return ",\n".join(fields), values + where_values
@@ -264,7 +264,7 @@ class PGUpdateQuery(PGQuery):
     def values(self):
         if not self._values:
             raise ValueError("No values found")
-        return self._values
+        return self._values if len(self.items) == 1 else super().values
 
     def _get_where_query(self) -> str:
         if self.where:
@@ -469,3 +469,18 @@ async def update_returning(
     )
     fn = conn.fetchval if len(returning_values or []) == 1 else conn.fetchrow
     return await fn(query.query, *args, *query.values)
+
+
+async def update_many(
+    conn: _Connection,
+    table: str,
+    items: list[dict],
+    keys: list[str] | None = None,
+    start_from: int | None = None,
+    where: str | None = None,
+    merge_keys: list[str] | None = None,
+):
+    query = PGUpdateQuery(
+        table=table, items=items, start_from=start_from, where_keys=keys, where=where, merge_keys=merge_keys
+    )
+    await conn.executemany(query.query, query.values)
