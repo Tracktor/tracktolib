@@ -303,6 +303,20 @@ def insert_pg(
     fill: bool = False,
     quote_columns: bool = False,
 ) -> PGInsertQuery:
+    """
+    Create a PGInsertQuery for inserting the given items into a table with optional conflict and returning behavior.
+    
+    Parameters:
+        table (str): Target table name.
+        items (list[dict]): List of row dictionaries to insert; each dict maps column names to values.
+        on_conflict (OnConflict | None): Conflict resolution configuration. May be a PGConflictQuery or a constraint name string.
+        returning (Iterable[K] | None): Keys (column name or iterable of column names) to include in a RETURNING clause.
+        fill (bool): If True, fill missing keys in each item with None before building the query.
+        quote_columns (bool): If True, quote column names in the generated SQL.
+    
+    Returns:
+        PGInsertQuery: A configured insert query object ready for execution.
+    """
     _on_conflict = PGConflictQuery(query=on_conflict) if isinstance(on_conflict, str) else on_conflict
     _returning = PGReturningQuery.load(keys=returning) if returning else None
     return PGInsertQuery(
@@ -324,6 +338,20 @@ async def insert_one(
     quote_columns: bool = False,
     query_callback: QueryCallback[PGInsertQuery] | None = None,
 ):
+    """
+    Insert a single row into the specified PostgreSQL table.
+    
+    Builds an INSERT query for the given item, optionally applying conflict-handling and column quoting, invokes an optional callback with the constructed query, and executes the query on the provided connection.
+    
+    Parameters:
+        conn (_Connection): asyncpg connection or pool used to execute the query.
+        table (str): Target table name.
+        item (dict): Mapping of column names to values for the row to insert.
+        on_conflict (OnConflict | None): Conflict specification or constraint to apply (e.g., keys or PGConflictQuery). If None, no ON CONFLICT clause is added.
+        fill (bool): If True, fill missing keys in the item with None before building the query.
+        quote_columns (bool): If True, quote column names in the generated SQL.
+        query_callback (QueryCallback[PGInsertQuery] | None): Optional callable invoked with the constructed PGInsertQuery before execution.
+    """
     query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill, quote_columns=quote_columns)
     if query_callback is not None:
         query_callback(query)
@@ -340,6 +368,18 @@ async def insert_many(
     quote_columns: bool = False,
     query_callback: QueryCallback[PGInsertQuery] | None = None,
 ):
+    """
+    Execute an INSERT for multiple rows into a PostgreSQL table.
+    
+    Parameters:
+        table (str): Target table name.
+        items (list[dict]): List of row dictionaries to insert; keys are column names.
+        on_conflict (OnConflict | None): Conflict handling specification (columns, constraint, or PGConflictQuery) or None to omit `ON CONFLICT`.
+        fill (bool): If True, fill missing keys in each item with None before building the query.
+        quote_columns (bool): If True, quote column names in the generated SQL.
+        query_callback (QueryCallback[PGInsertQuery] | None): Optional callback invoked with the constructed PGInsertQuery before execution.
+    
+    """
     query = insert_pg(table=table, items=items, on_conflict=on_conflict, fill=fill, quote_columns=quote_columns)
     if query_callback is not None:
         query_callback(query)
@@ -355,7 +395,21 @@ async def insert_returning(
     on_conflict: OnConflict | None = None,
     fill: bool = False,
     query_callback: QueryCallback[PGInsertQuery] | None = None,
-) -> Any | None: ...
+) -> Any | None: """
+    Insert a single row into the specified table and return the value of a given column.
+    
+    Parameters:
+        table (str): Target table name.
+        item (dict): Column-value mapping for the row to insert.
+        returning (str): Column name to return from the inserted row.
+        on_conflict (OnConflict | None): Conflict handling rule or constraint name to apply.
+        fill (bool): If True, populate missing keys in `item` with None before insertion.
+        query_callback (QueryCallback[PGInsertQuery] | None): Optional callback invoked with the constructed insert query before execution.
+    
+    Returns:
+        Any | None: The value of the requested `returning` column from the inserted row, or `None` if no row is returned.
+    """
+    ...
 
 
 @overload
@@ -367,7 +421,21 @@ async def insert_returning(
     on_conflict: OnConflict | None = None,
     fill: bool = False,
     query_callback: QueryCallback[PGInsertQuery] | None = None,
-) -> asyncpg.Record | None: ...
+) -> asyncpg.Record | None: """
+    Insert a single row into the given table and return the requested columns from the inserted (or upserted) row.
+    
+    Parameters:
+        table (str): Target table name.
+        item (dict): Column-value mapping for the row to insert.
+        returning (list[str]): Column names to include in the returned record.
+        on_conflict (OnConflict | None): Conflict resolution specification (columns, constraint, or PGConflictQuery); if provided, used to form an ON CONFLICT clause.
+        fill (bool): If true, missing keys in `item` are filled with None before constructing the query.
+        query_callback (QueryCallback[PGInsertQuery] | None): Optional callback invoked with the constructed PGInsertQuery before execution.
+    
+    Returns:
+        asyncpg.Record | None: A record containing the requested `returning` columns if the statement produced a row, `None` otherwise.
+    """
+    ...
 
 
 async def insert_returning(
@@ -379,6 +447,20 @@ async def insert_returning(
     fill: bool = False,
     query_callback: QueryCallback[PGInsertQuery] | None = None,
 ) -> asyncpg.Record | Any | None:
+    """
+    Insert a single row into the given table and return the requested column(s).
+    
+    Parameters:
+        table (str): Target table name.
+        item (dict): Mapping of column names to values for the row to insert.
+        returning (list[str] | str): Column name or list of column names to return, or "*" to return all columns.
+        on_conflict (OnConflict | None): Conflict resolution configuration or constraint name; if provided, used to build an ON CONFLICT clause.
+        fill (bool): If True, fill missing keys in `item` with None before inserting.
+        query_callback (QueryCallback[PGInsertQuery] | None): Optional callback invoked with the constructed PGInsertQuery before execution.
+    
+    Returns:
+        asyncpg.Record | Any | None: If `returning` is a single column name (and not "*"), returns that column's value or `None` if no row was returned; otherwise returns an `asyncpg.Record` with the requested columns or `None` if no row was returned.
+    """
     returning_values = [returning] if isinstance(returning, str) else returning
     query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill, returning=returning_values)
     if query_callback is not None:
@@ -411,6 +493,20 @@ async def update_one(
     merge_keys: list[str] | None = None,
     query_callback: QueryCallback[PGUpdateQuery] | None = None,
 ):
+    """
+    Execute an UPDATE statement for a single item in the specified table.
+    
+    Parameters:
+        conn: Database connection or pool used to execute the query.
+        table (str): Target table name.
+        item (dict): Mapping of column names to values for the single row to update.
+        *args: Positional arguments to pass to conn.execute before the query's parameter values.
+        keys (list[str] | None): Column names used to build the WHERE clause; if omitted, no generated WHERE is applied unless `where` is provided.
+        start_from (int | None): Starting index for positional parameter placeholders (1-based); adjusts numbering of generated parameters.
+        where (str | None): Explicit WHERE clause string; if provided, it overrides generated WHERE from `keys`.
+        merge_keys (list[str] | None): Column names whose values should be merged as JSONB rather than replaced.
+        query_callback (Callable[[PGUpdateQuery], None] | None): Optional callback invoked with the constructed PGUpdateQuery before execution.
+    """
     query = PGUpdateQuery(
         table=table, items=[item], start_from=start_from, where_keys=keys, where=where, merge_keys=merge_keys
     )
@@ -432,7 +528,25 @@ async def update_returning(
     start_from: int | None = None,
     merge_keys: list[str] | None = None,
     query_callback: QueryCallback[PGUpdateQuery] | None = None,
-) -> Any | None: ...
+) -> Any | None: """
+    Update a row in the given table and return requested column value(s).
+    
+    Parameters:
+        table (str): Target table name.
+        item (dict): Column values to update for the row(s) identified by `where` or `keys`.
+        *args: Positional arguments passed to the underlying query execution (e.g., additional values for WHERE).
+        returning (str): Column name to return from the updated row.
+        return_keys (Literal[False] | True): If `True`, return a record mapping of returned columns; if `False`, return the single column's value. Defaults to `False`.
+        where (str | None): Optional SQL WHERE clause to select rows to update. If omitted, `keys` must be provided.
+        keys (list[str] | None): Column names to use for generating a WHERE clause from `item` when `where` is not provided.
+        start_from (int | None): Starting index for parameter placeholders in the generated query.
+        merge_keys (list[str] | None): Keys that should be merged (e.g., JSONB merge) instead of overwritten.
+        query_callback (QueryCallback[PGUpdateQuery] | None): Optional callback invoked with the constructed PGUpdateQuery before execution.
+    
+    Returns:
+        The value of the requested `returning` column when `return_keys` is `False`, a record/dict of returned columns when `return_keys` is `True`, or `None` if no row was updated.
+    """
+    ...
 
 
 @overload
@@ -448,7 +562,25 @@ async def update_returning(
     start_from: int | None = None,
     merge_keys: list[str] | None = None,
     query_callback: QueryCallback[PGUpdateQuery] | None = None,
-) -> asyncpg.Record | None: ...
+) -> asyncpg.Record | None: """
+    Execute an UPDATE on `table` using values from `item` and return the requested columns.
+    
+    Performs an UPDATE that sets columns from `item`, applies a WHERE clause either from `where` or from `keys`, and returns the columns listed in `returning` for the matched row; returns `None` if no row matched. If `query_callback` is provided it will be called with the constructed PGUpdateQuery before execution.
+    
+    Parameters:
+        item (dict): Column-value mapping to set on the target row.
+        returning (list[str]): Column names to include in the `RETURNING` clause.
+        return_keys (Literal[False]): Must be `False` for this overload; controls return-shape in other overloads.
+        where (str | None): Explicit SQL WHERE clause to apply; if provided it overrides `keys`.
+        keys (list[str] | None): Column names to use for an implicit WHERE clause matching values from `item` when `where` is not provided.
+        start_from (int | None): Start index for SQL parameter placeholders (e.g., 1-based offset).
+        merge_keys (list[str] | None): Column names whose values should be merged (JSONB merge semantics) instead of replaced.
+        query_callback (QueryCallback[PGUpdateQuery] | None): Optional callback invoked with the constructed PGUpdateQuery before execution.
+    
+    Returns:
+        asyncpg.Record | None: The returned row containing the requested `returning` columns, or `None` if no row matched.
+    """
+    ...
 
 
 @overload
@@ -464,7 +596,26 @@ async def update_returning(
     start_from: int | None = None,
     merge_keys: list[str] | None = None,
     query_callback: QueryCallback[PGUpdateQuery] | None = None,
-) -> asyncpg.Record | None: ...
+) -> asyncpg.Record | None: """
+    Builds and executes an UPDATE for a single item and returns the requested returning values.
+    
+    Parameters:
+        conn: Database connection or pool used to execute the query.
+        table: Name of the table to update.
+        item: Mapping of column names to new values for the update.
+        *args: Positional values appended to the query parameters (e.g., values for a custom WHERE).
+        returning: Column name or list of column names to include in the RETURNING clause; if omitted, no specific columns are requested.
+        return_keys: When True, request the updated columns corresponding to the keys present in `item` (useful instead of specifying `returning`).
+        where: Explicit WHERE clause to filter which row is updated; if omitted, `keys` is used to build the WHERE clause.
+        keys: List of column names to use for the generated WHERE clause when `where` is not provided.
+        start_from: Starting index for positional parameter placeholders (useful when composing queries with existing parameters).
+        merge_keys: List of keys whose values should be merged using JSONB merge semantics instead of replaced.
+        query_callback: Optional callback invoked with the constructed PGUpdateQuery before execution (can inspect or modify the query).
+    
+    Returns:
+        An asyncpg.Record containing the requested returning columns, or `None` if no row matched the update.
+    """
+    ...
 
 
 async def update_returning(
@@ -480,6 +631,25 @@ async def update_returning(
     merge_keys: list[str] | None = None,
     query_callback: QueryCallback[PGUpdateQuery] | None = None,
 ) -> Any | asyncpg.Record | None:
+    """
+    Update a single row in the given table and return specified columns from the updated row.
+    
+    Parameters:
+        conn (_Connection): Database connection or pool used to execute the query.
+        table (str): Table name to update.
+        item (dict): Mapping of column names to values to set on the row.
+        *args: Positional parameters to bind to the query placeholders (e.g., values used in WHERE).
+        returning (list[str] | str | None): Column name or list of column names to return from the updated row. If None, no columns are requested.
+        return_keys (bool): If True and `returning` is None, return the input `item` keys as part of a RETURNING clause.
+        where (str | None): Explicit WHERE clause to restrict which row is updated. If omitted, `keys` may be used to build the WHERE clause.
+        keys (list[str] | None): Column names from `item` to use as the WHERE clause (instead of updating them).
+        start_from (int | None): Starting index for parameter placeholders (e.g., 1 for $1); adjusts positional parameter numbering.
+        merge_keys (list[str] | None): Column names whose JSONB values should be merged instead of replaced.
+        query_callback (QueryCallback[PGUpdateQuery] | None): Optional callback invoked with the constructed PGUpdateQuery before execution.
+    
+    Returns:
+        Any | asyncpg.Record | None: If a single column name was requested via `returning`, returns that column's value; if multiple columns were requested, returns an asyncpg.Record containing those columns; returns `None` if no returning columns were requested or the update affected no rows.
+    """
     if returning is not None:
         returning_values = [returning] if isinstance(returning, str) else returning
     else:
@@ -510,6 +680,21 @@ async def update_many(
     merge_keys: list[str] | None = None,
     query_callback: QueryCallback[PGUpdateQuery] | None = None,
 ):
+    """
+    Update multiple rows in a table using the provided item mappings.
+    
+    Executes a batched UPDATE for each mapping in `items`, using `where` or `keys` to form the WHERE clause and applying JSONB merge for any `merge_keys`.
+    
+    Parameters:
+        conn (_Connection): asyncpg Connection or Pool used to execute the query.
+        table (str): Target table name.
+        items (list[dict]): List of dictionaries where each dict maps column names to new values for a single row.
+        keys (list[str] | None): Column names to use for the WHERE clause; if omitted, WHERE clause is generated from overlap between items and other configuration.
+        start_from (int | None): Starting index for SQL parameter placeholders (1-based); used when combining with other parameterized fragments.
+        where (str | None): Explicit WHERE clause string that overrides generated WHERE conditions when provided.
+        merge_keys (list[str] | None): Columns to merge using JSONB concatenation instead of simple assignment.
+        query_callback (QueryCallback[PGUpdateQuery] | None): Optional callback invoked with the constructed PGUpdateQuery before execution.
+    """
     query = PGUpdateQuery(
         table=table, items=items, start_from=start_from, where_keys=keys, where=where, merge_keys=merge_keys
     )
