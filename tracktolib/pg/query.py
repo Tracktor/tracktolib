@@ -310,6 +310,10 @@ def insert_pg(
     )
 
 
+Q = TypeVar("Q", bound=PGInsertQuery | PGUpdateQuery)
+QueryCallback = Callable[[Q], None]
+
+
 async def insert_one(
     conn: _Connection,
     table: str,
@@ -318,8 +322,11 @@ async def insert_one(
     on_conflict: OnConflict | None = None,
     fill: bool = False,
     quote_columns: bool = False,
+    query_callback: QueryCallback[PGInsertQuery] | None = None,
 ):
     query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill, quote_columns=quote_columns)
+    if query_callback:
+        query_callback(query)
     await query.run(conn)
 
 
@@ -331,14 +338,23 @@ async def insert_many(
     on_conflict: OnConflict | None = None,
     fill: bool = False,
     quote_columns: bool = False,
+    query_callback: QueryCallback[PGInsertQuery] | None = None,
 ):
     query = insert_pg(table=table, items=items, on_conflict=on_conflict, fill=fill, quote_columns=quote_columns)
+    if query_callback:
+        query_callback(query)
     await query.run(conn)
 
 
 @overload
 async def insert_returning(
-    conn: _Connection, table: str, item: dict, returning: str, on_conflict: OnConflict | None = None, fill: bool = False
+    conn: _Connection,
+    table: str,
+    item: dict,
+    returning: str,
+    on_conflict: OnConflict | None = None,
+    fill: bool = False,
+    query_callback: QueryCallback[PGInsertQuery] | None = None,
 ) -> Any | None: ...
 
 
@@ -350,6 +366,7 @@ async def insert_returning(
     returning: list[str],
     on_conflict: OnConflict | None = None,
     fill: bool = False,
+    query_callback: QueryCallback[PGInsertQuery] | None = None,
 ) -> asyncpg.Record | None: ...
 
 
@@ -360,9 +377,12 @@ async def insert_returning(
     returning: list[str] | str,
     on_conflict: OnConflict | None = None,
     fill: bool = False,
+    query_callback: QueryCallback[PGInsertQuery] | None = None,
 ) -> asyncpg.Record | Any | None:
     returning_values = [returning] if isinstance(returning, str) else returning
     query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill, returning=returning_values)
+    if query_callback:
+        query_callback(query)
     fn = conn.fetchval if len(returning_values) == 1 and returning != "*" else conn.fetchrow
 
     return await fn(query.query, *query.values)
@@ -389,10 +409,13 @@ async def update_one(
     start_from: int | None = None,
     where: str | None = None,
     merge_keys: list[str] | None = None,
+    query_callback: QueryCallback[PGUpdateQuery] | None = None,
 ):
     query = PGUpdateQuery(
         table=table, items=[item], start_from=start_from, where_keys=keys, where=where, merge_keys=merge_keys
     )
+    if query_callback:
+        query_callback(query)
     await conn.execute(query.query, *args, *query.values)
 
 
@@ -408,6 +431,7 @@ async def update_returning(
     keys: list[str] | None = None,
     start_from: int | None = None,
     merge_keys: list[str] | None = None,
+    query_callback: QueryCallback[PGUpdateQuery] | None = None,
 ) -> Any | None: ...
 
 
@@ -423,6 +447,7 @@ async def update_returning(
     keys: list[str] | None = None,
     start_from: int | None = None,
     merge_keys: list[str] | None = None,
+    query_callback: QueryCallback[PGUpdateQuery] | None = None,
 ) -> asyncpg.Record | None: ...
 
 
@@ -438,6 +463,7 @@ async def update_returning(
     keys: list[str] | None = None,
     start_from: int | None = None,
     merge_keys: list[str] | None = None,
+    query_callback: QueryCallback[PGUpdateQuery] | None = None,
 ) -> asyncpg.Record | None: ...
 
 
@@ -452,6 +478,7 @@ async def update_returning(
     keys: list[str] | None = None,
     start_from: int | None = None,
     merge_keys: list[str] | None = None,
+    query_callback: QueryCallback[PGUpdateQuery] | None = None,
 ) -> Any | asyncpg.Record | None:
     if returning is not None:
         returning_values = [returning] if isinstance(returning, str) else returning
@@ -467,6 +494,8 @@ async def update_returning(
         returning=returning_values,
         merge_keys=merge_keys,
     )
+    if query_callback:
+        query_callback(query)
     fn = conn.fetchval if len(returning_values or []) == 1 else conn.fetchrow
     return await fn(query.query, *args, *query.values)
 
@@ -479,8 +508,11 @@ async def update_many(
     start_from: int | None = None,
     where: str | None = None,
     merge_keys: list[str] | None = None,
+    query_callback: QueryCallback[PGUpdateQuery] | None = None,
 ):
     query = PGUpdateQuery(
         table=table, items=items, start_from=start_from, where_keys=keys, where=where, merge_keys=merge_keys
     )
+    if query_callback:
+        query_callback(query)
     await conn.executemany(query.query, query.values)
