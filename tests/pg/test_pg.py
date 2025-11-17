@@ -514,3 +514,609 @@ def test_update_many(aengine, loop, engine, setup_fn, params, expected_query, ex
     loop.run_until_complete(update_many(aengine, **params))
     db_data = fetch_all(engine, expected_query)
     assert db_data == expected
+
+
+# Tests for query_callback feature
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_one_query_callback(aengine, loop, engine):
+    """Test that query_callback is invoked for insert_one and receives the correct query object"""
+    from tracktolib.pg import insert_one, PGInsertQuery
+
+    callback_invoked = []
+
+    def callback(query: PGInsertQuery):
+        callback_invoked.append(True)
+        assert isinstance(query, PGInsertQuery)
+        assert query.table == "foo.foo"
+        assert query.items == [{"foo": 1}]
+        assert "INSERT INTO foo.foo" in query.query
+
+    loop.run_until_complete(insert_one(aengine, "foo.foo", {"foo": 1}, query_callback=callback))
+
+    assert len(callback_invoked) == 1
+    db_data = fetch_all(engine, "SELECT bar, foo FROM foo.foo")
+    assert db_data == [{"bar": None, "foo": 1}]
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_one_query_callback_with_conflict(aengine, loop, engine):
+    """Test query_callback with on_conflict parameter"""
+    from tracktolib.pg import insert_one, PGInsertQuery, Conflict
+
+    callback_queries = []
+
+    def callback(query: PGInsertQuery):
+        callback_queries.append(query)
+        assert query.has_conflict
+        assert "ON CONFLICT" in query.query
+
+    # Insert initial data
+    loop.run_until_complete(insert_one(aengine, "foo.foo", {"id": 1, "foo": 10}))
+    
+    # Insert with conflict
+    loop.run_until_complete(
+        insert_one(
+            aengine,
+            "foo.foo",
+            {"id": 1, "foo": 20},
+            on_conflict=Conflict(keys=["id"]),
+            query_callback=callback
+        )
+    )
+
+    assert len(callback_queries) == 1
+    assert callback_queries[0].on_conflict is not None
+    db_data = fetch_all(engine, "SELECT foo FROM foo.foo WHERE id = 1")
+    assert db_data == [{"foo": 20}]
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_one_query_callback_none(aengine, loop, engine):
+    """Test that passing None as query_callback works correctly"""
+    from tracktolib.pg import insert_one
+
+    # Should not raise any errors
+    loop.run_until_complete(insert_one(aengine, "foo.foo", {"foo": 1}, query_callback=None))
+
+    db_data = fetch_all(engine, "SELECT bar, foo FROM foo.foo")
+    assert db_data == [{"bar": None, "foo": 1}]
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_many_query_callback(aengine, loop, engine):
+    """Test that query_callback is invoked for insert_many"""
+    from tracktolib.pg import insert_many, PGInsertQuery
+
+    callback_data = []
+
+    def callback(query: PGInsertQuery):
+        callback_data.append({
+            "table": query.table,
+            "items": query.items,
+            "query": query.query
+        })
+        assert isinstance(query, PGInsertQuery)
+        assert len(query.items) == 2
+
+    items = [{"foo": 1}, {"bar": "hello"}]
+    loop.run_until_complete(
+        insert_many(aengine, "foo.foo", items, fill=True, query_callback=callback)
+    )
+
+    assert len(callback_data) == 1
+    assert callback_data[0]["table"] == "foo.foo"
+    assert len(callback_data[0]["items"]) == 2
+    
+    db_data = fetch_all(engine, "SELECT bar, foo FROM foo.foo ORDER BY foo")
+    assert db_data == [{"bar": None, "foo": 1}, {"bar": "hello", "foo": None}]
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_many_query_callback_with_conflict(aengine, loop, engine):
+    """Test query_callback for insert_many with on_conflict"""
+    from tracktolib.pg import insert_many, PGInsertQuery, Conflict
+
+    callback_invoked = []
+
+    def callback(query: PGInsertQuery):
+        callback_invoked.append(query)
+        assert query.has_conflict
+        assert "ON CONFLICT" in query.query
+
+    # Insert initial data
+    loop.run_until_complete(insert_many(aengine, "foo.foo", [{"id": 1, "foo": 10}, {"id": 2, "foo": 20}]))
+    
+    # Insert with conflict
+    items = [{"id": 1, "foo": 11}, {"id": 2, "foo": 22}]
+    loop.run_until_complete(
+        insert_many(
+            aengine,
+            "foo.foo",
+            items,
+            on_conflict=Conflict(keys=["id"]),
+            query_callback=callback
+        )
+    )
+
+    assert len(callback_invoked) == 1
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_returning_query_callback_single_value(aengine, loop, engine):
+    """Test query_callback with insert_returning for single return value"""
+    from tracktolib.pg import insert_returning, PGInsertQuery
+
+    callback_data = []
+
+    def callback(query: PGInsertQuery):
+        callback_data.append(query)
+        assert query.is_returning
+        assert "RETURNING" in query.query
+        assert query.returning is not None
+
+    new_id = loop.run_until_complete(
+        insert_returning(
+            aengine,
+            "foo.foo",
+            {"id": 1, "foo": 100},
+            returning="id",
+            query_callback=callback
+        )
+    )
+
+    assert new_id == 1
+    assert len(callback_data) == 1
+    assert callback_data[0].returning.returning_ids == ["id"]
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_returning_query_callback_multiple_values(aengine, loop, engine):
+    """Test query_callback with insert_returning for multiple return values"""
+    from tracktolib.pg import insert_returning, PGInsertQuery
+
+    callback_queries = []
+
+    def callback(query: PGInsertQuery):
+        callback_queries.append(query)
+        assert query.is_returning
+        assert list(query.returning.returning_ids) == ["id", "foo"]
+
+    result = loop.run_until_complete(
+        insert_returning(
+            aengine,
+            "foo.foo",
+            {"id": 1, "foo": 42},
+            returning=["id", "foo"],
+            query_callback=callback
+        )
+    )
+
+    assert len(callback_queries) == 1
+    assert dict(result) == {"id": 1, "foo": 42}
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_returning_query_callback_with_conflict(aengine, loop, engine):
+    """Test query_callback with insert_returning and on_conflict"""
+    from tracktolib.pg import insert_returning, PGInsertQuery
+
+    callback_data = []
+
+    def callback(query: PGInsertQuery):
+        callback_data.append({
+            "has_conflict": query.has_conflict,
+            "is_returning": query.is_returning,
+            "query": query.query
+        })
+
+    # Insert initial data
+    loop.run_until_complete(insert_returning(aengine, "foo.foo", {"id": 1, "foo": 10}, returning="id"))
+    
+    # Insert with conflict
+    new_id = loop.run_until_complete(
+        insert_returning(
+            aengine,
+            "foo.foo",
+            {"id": 1, "foo": 20},
+            returning="id",
+            on_conflict="ON CONFLICT (id) DO UPDATE SET foo = EXCLUDED.foo",
+            query_callback=callback
+        )
+    )
+
+    assert len(callback_data) == 1
+    assert callback_data[0]["has_conflict"]
+    assert callback_data[0]["is_returning"]
+    assert "ON CONFLICT" in callback_data[0]["query"]
+    assert "RETURNING" in callback_data[0]["query"]
+
+
+@pytest.mark.usefixtures("setup_tables", "insert_data")
+def test_update_one_query_callback(aengine, loop, engine):
+    """Test that query_callback is invoked for update_one"""
+    from tracktolib.pg import update_one, PGUpdateQuery
+
+    callback_queries = []
+
+    def callback(query: PGUpdateQuery):
+        callback_queries.append(query)
+        assert isinstance(query, PGUpdateQuery)
+        assert query.table == "foo.foo"
+        assert "UPDATE foo.foo" in query.query
+
+    loop.run_until_complete(
+        update_one(
+            aengine,
+            "foo.foo",
+            {"foo": 999, "id": 1},
+            keys=["id"],
+            query_callback=callback
+        )
+    )
+
+    assert len(callback_queries) == 1
+    assert callback_queries[0].where_keys == ["id"]
+    
+    db_data = fetch_all(engine, "SELECT foo FROM foo.foo WHERE id = 1")
+    assert db_data == [{"foo": 999}]
+
+
+@pytest.mark.usefixtures("setup_tables", "insert_data")
+def test_update_one_query_callback_with_merge(aengine, loop, engine):
+    """Test query_callback with update_one using merge_keys"""
+    from tracktolib.pg import update_one, PGUpdateQuery
+    from tracktolib.pg_sync import insert_one
+
+    # Setup: insert JSONB data
+    insert_one(engine, "foo.baz", {"id": 1, "baz": {"key1": "value1"}})
+    engine.commit()
+
+    callback_data = []
+
+    def callback(query: PGUpdateQuery):
+        callback_data.append({
+            "merge_keys": query.merge_keys,
+            "query": query.query
+        })
+        assert "COALESCE" in query.query
+        assert "JSONB_BUILD_OBJECT()" in query.query
+
+    loop.run_until_complete(
+        update_one(
+            aengine,
+            "foo.baz",
+            {"id": 1, "baz": {"key2": "value2"}},
+            keys=["id"],
+            merge_keys=["baz"],
+            query_callback=callback
+        )
+    )
+
+    assert len(callback_data) == 1
+    assert callback_data[0]["merge_keys"] == ["baz"]
+    
+    db_data = fetch_all(engine, "SELECT baz FROM foo.baz WHERE id = 1")
+    assert db_data[0]["baz"] == {"key1": "value1", "key2": "value2"}
+
+
+@pytest.mark.usefixtures("setup_tables", "insert_data")
+def test_update_one_query_callback_none(aengine, loop, engine):
+    """Test that update_one works correctly when query_callback is None"""
+    from tracktolib.pg import update_one
+
+    # Should not raise any errors
+    loop.run_until_complete(
+        update_one(aengine, "foo.foo", {"foo": 555, "id": 1}, keys=["id"], query_callback=None)
+    )
+
+    db_data = fetch_all(engine, "SELECT foo FROM foo.foo WHERE id = 1")
+    assert db_data == [{"foo": 555}]
+
+
+@pytest.mark.usefixtures("setup_tables", "insert_data")
+def test_update_returning_query_callback_single_value(aengine, loop, engine):
+    """Test query_callback with update_returning for single return value"""
+    from tracktolib.pg import update_returning, PGUpdateQuery
+
+    callback_data = []
+
+    def callback(query: PGUpdateQuery):
+        callback_data.append(query)
+        assert isinstance(query, PGUpdateQuery)
+        assert query.returning == ["foo"]
+        assert "RETURNING" in query.query
+
+    result = loop.run_until_complete(
+        update_returning(
+            aengine,
+            "foo.foo",
+            {"foo": 777, "id": 1},
+            returning="foo",
+            keys=["id"],
+            query_callback=callback
+        )
+    )
+
+    assert result == 777
+    assert len(callback_data) == 1
+
+
+@pytest.mark.usefixtures("setup_tables", "insert_data")
+def test_update_returning_query_callback_multiple_values(aengine, loop, engine):
+    """Test query_callback with update_returning for multiple return values"""
+    from tracktolib.pg import update_returning, PGUpdateQuery
+
+    callback_queries = []
+
+    def callback(query: PGUpdateQuery):
+        callback_queries.append(query)
+        assert query.returning == ["foo", "bar"]
+
+    result = loop.run_until_complete(
+        update_returning(
+            aengine,
+            "foo.foo",
+            {"foo": 888, "id": 1},
+            returning=["foo", "bar"],
+            keys=["id"],
+            query_callback=callback
+        )
+    )
+
+    assert len(callback_queries) == 1
+    result_dict = dict(result)
+    assert result_dict["foo"] == 888
+    assert result_dict["bar"] == "baz"
+
+
+@pytest.mark.usefixtures("setup_tables", "insert_data")
+def test_update_returning_query_callback_return_keys(aengine, loop, engine):
+    """Test query_callback with update_returning using return_keys=True"""
+    from tracktolib.pg import update_returning, PGUpdateQuery
+
+    callback_data = []
+
+    def callback(query: PGUpdateQuery):
+        callback_data.append({
+            "return_keys": query.return_keys,
+            "where_keys": query.where_keys,
+            "query": query.query
+        })
+
+    result = loop.run_until_complete(
+        update_returning(
+            aengine,
+            "foo.foo",
+            {"foo": 333, "id": 1},
+            return_keys=True,
+            keys=["id"],
+            query_callback=callback
+        )
+    )
+
+    assert len(callback_data) == 1
+    assert callback_data[0]["return_keys"] is True
+    assert callback_data[0]["where_keys"] == ["id"]
+    assert dict(result) == {"foo": 333}
+
+
+@pytest.mark.usefixtures("setup_tables", "insert_data")
+def test_update_many_query_callback(aengine, loop, engine):
+    """Test that query_callback is invoked for update_many"""
+    from tracktolib.pg import update_many, PGUpdateQuery
+
+    callback_queries = []
+
+    def callback(query: PGUpdateQuery):
+        callback_queries.append(query)
+        assert isinstance(query, PGUpdateQuery)
+        assert len(query.items) == 2
+        assert query.table == "foo.foo"
+
+    items = [{"id": 1, "foo": 111}, {"id": 2, "foo": 222}]
+    loop.run_until_complete(
+        update_many(
+            aengine,
+            "foo.foo",
+            items,
+            keys=["id"],
+            query_callback=callback
+        )
+    )
+
+    assert len(callback_queries) == 1
+    
+    db_data = fetch_all(engine, "SELECT foo, id FROM foo.foo WHERE id IN (1, 2) ORDER BY id")
+    assert db_data == [{"foo": 111, "id": 1}, {"foo": 222, "id": 2}]
+
+
+@pytest.mark.usefixtures("setup_tables", "insert_data")
+def test_update_many_query_callback_none(aengine, loop, engine):
+    """Test that update_many works correctly when query_callback is None"""
+    from tracktolib.pg import update_many
+
+    items = [{"id": 1, "foo": 444}, {"id": 2, "foo": 555}]
+    
+    # Should not raise any errors
+    loop.run_until_complete(
+        update_many(aengine, "foo.foo", items, keys=["id"], query_callback=None)
+    )
+
+    db_data = fetch_all(engine, "SELECT foo, id FROM foo.foo WHERE id IN (1, 2) ORDER BY id")
+    assert db_data == [{"foo": 444, "id": 1}, {"foo": 555, "id": 2}]
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_query_callback_inspection_and_logging(aengine, loop, engine):
+    """Test using query_callback for query inspection and logging"""
+    from tracktolib.pg import insert_one, insert_many, update_one, PGInsertQuery, PGUpdateQuery
+
+    logged_queries = []
+
+    def log_callback(query):
+        """Simulate logging queries for debugging/monitoring"""
+        logged_queries.append({
+            "type": type(query).__name__,
+            "table": query.table,
+            "query_sql": query.query,
+            "values": query.values,
+            "item_count": len(query.items)
+        })
+
+    # Insert one with logging
+    loop.run_until_complete(
+        insert_one(aengine, "foo.foo", {"foo": 1}, query_callback=log_callback)
+    )
+
+    # Insert many with logging
+    loop.run_until_complete(
+        insert_many(aengine, "foo.foo", [{"foo": 2}, {"foo": 3}], query_callback=log_callback)
+    )
+
+    # Update with logging
+    loop.run_until_complete(
+        update_one(aengine, "foo.foo", {"foo": 10, "id": 1}, keys=["id"], query_callback=log_callback)
+    )
+
+    assert len(logged_queries) == 3
+    assert logged_queries[0]["type"] == "PGInsertQuery"
+    assert logged_queries[0]["item_count"] == 1
+    assert logged_queries[1]["type"] == "PGInsertQuery"
+    assert logged_queries[1]["item_count"] == 2
+    assert logged_queries[2]["type"] == "PGUpdateQuery"
+    assert logged_queries[2]["item_count"] == 1
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_query_callback_exception_handling(aengine, loop, engine):
+    """Test that exceptions in query_callback are propagated correctly"""
+    from tracktolib.pg import insert_one
+
+    def failing_callback(query):
+        raise ValueError("Callback intentionally failed")
+
+    with pytest.raises(ValueError, match="Callback intentionally failed"):
+        loop.run_until_complete(
+            insert_one(aengine, "foo.foo", {"foo": 1}, query_callback=failing_callback)
+        )
+
+    # Verify no data was inserted due to the error
+    db_data = fetch_all(engine, "SELECT * FROM foo.foo")
+    assert db_data == []
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_query_callback_type_hints(aengine, loop, engine):
+    """Test that query_callback receives properly typed query objects"""
+    from tracktolib.pg import (
+        insert_one, insert_many, insert_returning,
+        update_one, update_returning, update_many,
+        PGInsertQuery, PGUpdateQuery
+    )
+
+    insert_callbacks = []
+    update_callbacks = []
+
+    def insert_callback(query: PGInsertQuery):
+        insert_callbacks.append(type(query))
+        assert hasattr(query, "has_conflict")
+        assert hasattr(query, "is_returning")
+
+    def update_callback(query: PGUpdateQuery):
+        update_callbacks.append(type(query))
+        assert hasattr(query, "where_keys")
+        assert hasattr(query, "merge_keys")
+
+    # Test insert functions
+    loop.run_until_complete(insert_one(aengine, "foo.foo", {"foo": 1}, query_callback=insert_callback))
+    loop.run_until_complete(insert_many(aengine, "foo.foo", [{"foo": 2}], query_callback=insert_callback))
+    loop.run_until_complete(
+        insert_returning(aengine, "foo.foo", {"id": 3, "foo": 3}, returning="id", query_callback=insert_callback)
+    )
+
+    # Test update functions
+    loop.run_until_complete(
+        update_one(aengine, "foo.foo", {"foo": 10, "id": 1}, keys=["id"], query_callback=update_callback)
+    )
+    loop.run_until_complete(
+        update_returning(
+            aengine, "foo.foo", {"foo": 20, "id": 1}, returning="foo", keys=["id"], query_callback=update_callback
+        )
+    )
+    loop.run_until_complete(
+        update_many(aengine, "foo.foo", [{"foo": 30, "id": 1}], keys=["id"], query_callback=update_callback)
+    )
+
+    assert len(insert_callbacks) == 3
+    assert all(cb.__name__ == "PGInsertQuery" for cb in insert_callbacks)
+    assert len(update_callbacks) == 3
+    assert all(cb.__name__ == "PGUpdateQuery" for cb in update_callbacks)
+
+
+@pytest.mark.usefixtures("setup_tables")
+def test_query_callback_access_to_query_properties(aengine, loop, engine):
+    """Test that query_callback can access all relevant query properties"""
+    from tracktolib.pg import insert_one, update_one, PGInsertQuery, PGUpdateQuery
+
+    insert_properties = {}
+    update_properties = {}
+
+    def insert_callback(query: PGInsertQuery):
+        insert_properties["table"] = query.table
+        insert_properties["items"] = query.items
+        insert_properties["keys"] = query.keys
+        insert_properties["columns"] = query.columns
+        insert_properties["values"] = query.values
+        insert_properties["fill"] = query.fill
+        insert_properties["quote_columns"] = query.quote_columns
+
+    def update_callback(query: PGUpdateQuery):
+        update_properties["table"] = query.table
+        update_properties["items"] = query.items
+        update_properties["keys"] = query.keys
+        update_properties["where_keys"] = query.where_keys
+        update_properties["values"] = query.values
+        update_properties["start_from"] = query.start_from
+
+    loop.run_until_complete(
+        insert_one(aengine, "foo.foo", {"foo": 100}, fill=True, query_callback=insert_callback)
+    )
+
+    loop.run_until_complete(
+        update_one(aengine, "foo.foo", {"foo": 200, "id": 1}, keys=["id"], query_callback=update_callback)
+    )
+
+    # Verify insert properties
+    assert insert_properties["table"] == "foo.foo"
+    assert insert_properties["items"] == [{"foo": 100, "bar": None}]
+    assert "foo" in insert_properties["keys"]
+    assert insert_properties["fill"] is True
+
+    # Verify update properties
+    assert update_properties["table"] == "foo.foo"
+    assert update_properties["where_keys"] == ["id"]
+    assert update_properties["items"] == [{"foo": 200, "id": 1}]
+
+
+@pytest.mark.parametrize("async_engine", ["connection", "pool"])
+@pytest.mark.usefixtures("setup_tables")
+def test_query_callback_works_with_both_connection_types(aengine, apool, loop, engine, async_engine):
+    """Test that query_callback works with both Connection and Pool"""
+    from tracktolib.pg import insert_one, PGInsertQuery
+
+    _engine = aengine if async_engine == "connection" else apool
+
+    callback_invoked = []
+
+    def callback(query: PGInsertQuery):
+        callback_invoked.append(True)
+
+    loop.run_until_complete(
+        insert_one(_engine, "foo.foo", {"foo": 123}, query_callback=callback)
+    )
+
+    assert len(callback_invoked) == 1
+    db_data = fetch_all(engine, "SELECT foo FROM foo.foo")
+    assert db_data == [{"foo": 123}]
