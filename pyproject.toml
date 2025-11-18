@@ -1,10 +1,9 @@
 [project]
 name = "tracktolib"
-version = "0.61.1"
+version = "0.61.2"
 authors = [
     { email = "julien.brayere@tracktor.fr" }
 ]
-requires-python = ">=3.12,<4.0"
 description = "Utility library for python"
 license = "MIT"
 readme = "README.md"
@@ -17,6 +16,7 @@ classifiers = [
 include = [
     "LICENSE"
 ]
+requires-python = ">=3.12,<4.0"
 
 dependencies = []
 
@@ -91,7 +91,7 @@ pythonPlatform = "Linux"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.61.1"
+version = "0.61.2"
 tag_format = "$version"
 version_files = [
     "pyproject.toml:version"
