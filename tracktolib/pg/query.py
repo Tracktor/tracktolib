@@ -105,8 +105,8 @@ class PGQuery(Generic[K, V]):
     def columns(self):
         return [f'"{x}"' for x in self.keys] if self.quote_columns else self.keys
 
-    def iter_values(self) -> Iterator[tuple]:
-        _keys = self.keys
+    def iter_values(self, keys: list[K] | None = None) -> Iterator[tuple]:
+        _keys = keys if keys is not None else self.keys
         for _item in self.items:
             yield tuple(_item[k] for k in _keys)
 
@@ -264,7 +264,12 @@ class PGUpdateQuery(PGQuery):
     def values(self):
         if not self._values:
             raise ValueError("No values found")
-        return self._values if len(self.items) == 1 else super().values
+        if len(self.items) == 1:
+            return self._values
+        _where_keys = self.where_keys or []
+        _keys_not_where = [k for k in self.keys if k not in _where_keys]
+        values = list(self.iter_values(keys=_keys_not_where + _where_keys))
+        return values
 
     def _get_where_query(self) -> str:
         if self.where:
