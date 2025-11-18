@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   gh: circleci/github-cli@1.0
-  sre: tracktor/ci-tools@0.7.1
+  sre: tracktor/ci-tools@0.13.1
 
 references:
   pypi_context: &pypi_context
@@ -29,8 +29,8 @@ references:
 executors:
   test-3-12:
     docker:
-      - image: cimg/python:3.12.1-node
-      - image: cimg/postgres:14.4
+      - image: cimg/python:3.13-node
+      - image: cimg/postgres:17.0
         environment:
           POSTGRES_PASSWORD: postgres
       - image: minio/minio
@@ -41,41 +41,32 @@ executors:
 
   build:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/python:3.13
 
 jobs:
 
-  run-tests-3-12:
-    executor: test-3-12
+  run-tests-3-13:
+    executor: test-3-13
     steps:
       - checkout
       - sre/run-python-tests:
           extras: '--all-extras'
           formatter: 'ruff'
-      - sre/run-python-tests:
-          extras: '--all-extras'
-          formatter: 'ruff'
+          tool: 'uv'
+          before-steps:
+            - run:
+                name: Install dependencies
+                command: uv sync --all-extras --all-groups
 
   bump-version:
     executor: build
     steps:
       - gh/setup
       - checkout
-      - run:
-          name: Install bump deps
-          command: pip install commitizen==3.11.0
-      - add_ssh_keys:
-          fingerprints:
-            - "e0:d6:34:bd:b0:87:84:60:18:7e:e0:c8:e6:1d:be:d2"
-      - run:
-          name: Adding github.com to known hosts
-          command: |
-            mkdir -p ~/.ssh
-            ssh-keyscan github.com >> ~/.ssh/known_hosts
       - sre/bump-version:
           lang: "python"
-          use_poetry: true
           branch: "master"
+          tool: "uv"
       - store_artifacts:
           path: dist
       - save_cache:
@@ -94,19 +85,19 @@ jobs:
             - tracktolib-{{ checksum "pyproject.toml" }}
       - run:
           name: Publishing
-          command: poetry publish -u __token__ -p $PYPI_TOKEN
+          command: uv publish --token $PYPI_TOKEN
 
 
 workflows:
 
   run-tests:
     jobs:
-      - run-tests-3-12:
+      - run-tests-3-13:
           filters: *filters_not_tagged
       - bump-version:
           context: *pypi_context
           requires: [
-            run-tests-3-12
+            run-tests-3-13
           ]
           filters: *filters_only_master
 
