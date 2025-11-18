@@ -1,6 +1,6 @@
 import logging
-from typing import Literal, overload, Any, TypeGuard
 from dataclasses import dataclass
+from typing import Literal, overload, Any, TypeGuard
 
 try:
     from pythonjsonlogger.json import JsonFormatter
@@ -18,12 +18,12 @@ class CustomJsonFormatter(JsonFormatter):
         self.version: str = version
         super().__init__(*args, **kwargs)
 
-    def add_fields(self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]):
-        super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
+    def add_fields(self, log_data: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]):
+        super(CustomJsonFormatter, self).add_fields(log_data, record, message_dict)
 
-        log_record.pop("color_message", None)
-        if not log_record.get("version"):
-            log_record["version"] = self.version
+        log_data.pop("color_message", None)
+        if not log_data.get("version"):
+            log_data["version"] = self.version
 
 
 @overload

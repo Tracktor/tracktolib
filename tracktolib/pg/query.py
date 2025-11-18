@@ -217,7 +217,7 @@ def get_update_fields(
         fields.append(
             f"{_col} = ${_counter}"
             if k not in _merge_keys
-            else f"{_col} = COALESCE(t.{_col}, JSONB_BUILD_OBJECT()) || " f"${_counter}"
+            else f"{_col} = COALESCE(t.{_col}, JSONB_BUILD_OBJECT()) || ${_counter}"
         )
         counter += 1
     return ",\n".join(fields), values + where_values

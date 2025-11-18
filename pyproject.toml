@@ -1,8 +1,10 @@
-[tool.poetry]
+[project]
 name = "tracktolib"
 version = "0.61.2"
+authors = [
+    { email = "julien.brayere@tracktor.fr" }
+]
 description = "Utility library for python"
-authors = ["Julien Brayere <julien.brayere@tracktor.fr>"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/tracktor/tracktolib"
@@ -14,54 +16,60 @@ classifiers = [
 include = [
     "LICENSE"
 ]
+requires-python = ">=3.12,<4.0"
 
-[tool.poetry.dependencies]
-python = ">=3.12,<4.0"
+dependencies = []
 
-python-json-logger = { version = ">=3.2.1", optional = true }
-psycopg = { version = ">=3.1.12", optional = true }
-minio = { version = ">=7.2.0", optional = true }
-# Needed for minio, otherwise it raises ModuleNotFoundError: No module named 'Crypto.Cipher'
-pycryptodome =  { version = ">=3.20.0", optional = true }
-aiobotocore = { version = ">=2.9.0", optional = true }
-deepdiff = { version = ">=8.1.0", optional = true }
-httpx = { version = ">=0.25.0", optional = true }
-fastapi = { version = ">=0.103.2", optional = true }
-pydantic = { version = ">=2", optional = true }
-asyncpg = ">=0.27.0"
-rich = { version = ">=13.6.0", optional = true }
+[project.optional-dependencies]
+logs = ["python-json-logger>=3.2.1"]
+pg-sync = ["psycopg>=3.1.12"]
+s3-minio = [
+    "minio>=7.2.0",
+    # Needed for minio, otherwise it raises ModuleNotFoundError: No module named 'Crypto.Cipher'
+    "pycryptodome>=3.20.0",
+]
+s3 = ["aiobotocore>=2.9.0"]
+tests = ["deepdiff>=8.1.0"]
+http = ["httpx>=0.25.0"]
+api = [
+    "fastapi>=0.103.2",
+    "pydantic>=2",
+]
+pg = [
+    "asyncpg>=0.27.0",
+    "rich>=13.6.0",
+]
 
-[tool.poetry.extras]
-logs = ["python-json-logger"]
-pg-sync = ["psycopg"]
-s3-minio = ["minio", "pycryptodome"]
-s3 = ["aiobotocore"]
-tests = ["deepdiff"]
-http = ["httpx"]
-api = ["fastapi", "pydantic"]
-pg = ["asyncpg", "rich"]
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.0.0,<8",
+    "pytest>=9.0.1,<10",
+    "pyright>=1.1.371",
+    "ruff>=0.14.5",
+    "pydantic>=2.12.4",
+    # Issue for mac with trackit version of multidict
+    "multidict>=6.0.5",
+    "fastapi>=0.111.1",
+    "httpx>=0.27.0",
+    "psycopg>=3.2.1",
+    "minio>=7.2.7",
+    "pycryptodome>=3.23.0",
+    "aiobotocore==2.15.2",
+    "python-json-logger>=3.2.0",
+    "pre-commit>=4.4.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-commitizen = "^3.11.0"
-pytest-cov = "^5.0.0"
-pytest = "^8.2.2"
-pyright = "^1.1.371"
-ruff = "^0.5.2"
-pydantic = "^2.8.2"
-# Issue for mac with trackit version of multidict
-multidict = "^6.0.5"
-fastapi ="^0.111.1"
-httpx =  "^0.27.0"
-psycopg = "^3.2.1"
-minio = "^7.2.7"
-pycryptodome = "^3.20.0"
-aiobotocore = "2.15.2"
-python-json-logger = "^3.2.0"
-
+bump = [
+    "commitizen>=4.10.0"
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.9.4,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "tracktolib"
+module-root = ""
 
 [tool.pytest.ini_options]
 addopts = "--cov=tracktolib -s -q -x --no-cov-on-fail"
@@ -78,7 +86,7 @@ filterwarnings = [
 include = ["tracktolib", "tests"]
 exclude = []
 
-pythonVersion = "3.12"
+pythonVersion = "3.13"
 pythonPlatform = "Linux"
 
 [tool.commitizen]
@@ -93,9 +101,8 @@ bump_message = "release $current_version → $new_version [skip ci]"
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
-# Waiting for fix: https://github.com/charliermarsh/ruff/issues/282
-#ignore = ["E999"]
+target-version = "py313"
+
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [
