@@ -270,7 +270,7 @@ class PGUpdateQuery(PGQuery):
         if self.where:
             return self.where
         elif self.where_keys is not None:
-            start_from = self.start_from if self.start_from is not None else len(self.values) - len(self.where_keys)
+            start_from = self.start_from if self.start_from is not None else len(self.keys) - len(self.where_keys)
 
             return "WHERE " + " AND ".join(f"{k} = ${i + start_from + 1}" for i, k in enumerate(self.where_keys))
         return ""

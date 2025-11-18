@@ -347,61 +347,75 @@ def test_fetch_count(aengine, loop):
 @pytest.mark.parametrize(
     "data,params,expected",
     [
-        (
-            {"foo": 1},
+        pytest.param(
+            [{"foo": 1}],
             {"start_from": 0, "where": None, "returning": None},
             {"query": "UPDATE schema.table t SET foo = $1", "values": [1]},
+            id="no where - no returning",
         ),
-        (
-            {"foo": 1},
+        pytest.param(
+            [{"foo": 1}],
             {"start_from": 1, "where": "WHERE bar = $1", "returning": None},
             {"query": "UPDATE schema.table t SET foo = $2 WHERE bar = $1", "values": [1]},
+            id="where - no returning",
         ),
-        (
-            {"foo": 1},
+        pytest.param(
+            [{"foo": 1}],
             {"returning": ["foo"]},
             {"query": "UPDATE schema.table t SET foo = $1 RETURNING foo", "values": [1]},
+            id="no where - returning",
         ),
-        (
-            {"foo": 1, "id": 1},
+        pytest.param(
+            [{"foo": 1, "id": 1}],
             {"where_keys": ["id"]},
             {"query": "UPDATE schema.table t SET foo = $1 WHERE id = $2", "values": [1, 1]},
+            id="where - no returning - keys",
         ),
-        (
-            {"foo": 1, "id": 1},
+        pytest.param(
+            [{"foo": 1, "id": 1}],
             {"where_keys": ["id"], "return_keys": True},
             {"query": "UPDATE schema.table t SET foo = $1 WHERE id = $2 RETURNING foo", "values": [1, 1]},
+            id="where - returning - keys",
         ),
-        (
-            {"foo": 2, "id": 1, "bar": 3},
+        pytest.param(
+            [{"foo": 2, "id": 1, "bar": 3}],
             {"where_keys": ["id", "bar"], "return_keys": True},
             {
                 "query": "UPDATE schema.table t SET foo = $1 WHERE bar = $2 AND id = $3 RETURNING foo",
                 "values": [2, 3, 1],
             },
+            id="where - returning - multiple keys",
         ),
-        (
-            {"foo": 2, "id": 1, "bar": 3},
+        pytest.param(
+            [{"foo": 2, "id": 1, "bar": 3}],
             {"where_keys": ["bar", "id"], "return_keys": True},
             {
                 "query": "UPDATE schema.table t SET foo = $1 WHERE bar = $2 AND id = $3 RETURNING foo",
                 "values": [2, 3, 1],
             },
+            id="where - returning - multiple keys different order",
         ),
-        (
-            {"bar": {"foo": 1}},
+        pytest.param(
+            [{"bar": {"foo": 1}}],
             {"merge_keys": ["bar"]},
             {
                 "query": "UPDATE schema.table t SET bar = COALESCE(t.bar, JSONB_BUILD_OBJECT()) || $1",
                 "values": [{"foo": 1}],
             },
+            id="merge keys - no where",
+        ),
+        pytest.param(
+            [{"foo": 1, "id": 1, "bar": 1}, {"foo": 20, "id": 2, "bar": 22}],
+            {"where_keys": ["id"]},
+            {"query": "UPDATE schema.table t SET bar = $1, foo = $2 WHERE id = $3", "values": [(1, 1, 1), (22, 20, 2)]},
+            id="multiple rows - only first",
         ),
     ],
 )
 def test_pg_update_query(data, params, expected):
     from tracktolib.pg import PGUpdateQuery
 
-    query = PGUpdateQuery("schema.table", [data], **params)
+    query = PGUpdateQuery("schema.table", data, **params)
     compare_strings(query.query, expected["query"])
     assert query.values == expected["values"]
 
