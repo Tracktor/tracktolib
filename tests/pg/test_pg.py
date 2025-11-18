@@ -405,9 +405,12 @@ def test_fetch_count(aengine, loop):
             id="merge keys - no where",
         ),
         pytest.param(
-            [{"foo": 1, "id": 1, "bar": 1}, {"foo": 20, "id": 2, "bar": 22}],
+            [{"foo": 10, "id": 1, "zar": 100}, {"foo": 20, "id": 2, "zar": 22}],
             {"where_keys": ["id"]},
-            {"query": "UPDATE schema.table t SET bar = $1, foo = $2 WHERE id = $3", "values": [(1, 1, 1), (22, 20, 2)]},
+            {
+                "query": "UPDATE schema.table t SET foo = $1, zar = $2 WHERE id = $3",
+                "values": [(10, 100, 1), (20, 22, 2)],
+            },
             id="multiple rows - only first",
         ),
     ],
