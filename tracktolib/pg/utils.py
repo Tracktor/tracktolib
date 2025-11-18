@@ -130,7 +130,7 @@ async def upsert_csv(
 
         missing_cols = set(_columns) - set(infos.keys())
         if missing_cols:
-            raise ValueError(f'Could not find the following columns in the table: {",".join(missing_cols)}')
+            raise ValueError(f"Could not find the following columns in the table: {','.join(missing_cols)}")
 
         async with conn.transaction():
             _tmp_table, _tmp_query, _insert_query = get_tmp_table_query(
