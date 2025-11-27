@@ -413,6 +413,15 @@ def test_fetch_count(aengine, loop):
             },
             id="multiple rows - only first",
         ),
+        pytest.param(
+            [{"foo": 10, "id": 1, "zar": 100}],
+            {"is_many": True},
+            {
+                "query": "UPDATE schema.table t SET foo = $1, id = $2, zar = $3",
+                "values": [(10, 1, 100)],
+            },
+            id="one row - only first",
+        ),
     ],
 )
 def test_pg_update_query(data, params, expected):
@@ -518,6 +527,19 @@ def test_safe_pg(aengine, loop):
             "SELECT bar, foo, id FROM foo.foo WHERE id IN (1, 2) ORDER BY id",
             [{"bar": "baz", "foo": 1, "id": 1}, {"bar": None, "foo": 22, "id": 2}],
             id="default",
+        ),
+        pytest.param(
+            None,
+            {
+                "table": "foo.foo",
+                "items": [
+                    {"id": 1, "foo": 1},
+                ],
+                "keys": ["id"],
+            },
+            "SELECT bar, foo, id FROM foo.foo WHERE id IN (1, 2) ORDER BY id",
+            [{"bar": "baz", "foo": 1, "id": 1}, {"bar": None, "foo": 20, "id": 2}],
+            id="update one item",
         ),
     ],
 )
