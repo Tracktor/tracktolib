@@ -239,6 +239,8 @@ class PGUpdateQuery(PGQuery):
     return_keys: bool = False
     """Values to update using merge (like {}::jsonb || {}::jsonb)"""
     merge_keys: list[str] | None = None
+    """If True, the query is for many items and values will be a list of tuples"""
+    is_many: bool = False
 
     _update_fields: str | None = field(init=False, default=None)
     _values: list | None = field(init=False, default=None)
@@ -264,7 +266,7 @@ class PGUpdateQuery(PGQuery):
     def values(self):
         if not self._values:
             raise ValueError("No values found")
-        if len(self.items) == 1:
+        if len(self.items) == 1 and not self.is_many:
             return self._values
         _where_keys = self.where_keys or []
         _keys_not_where = [k for k in self.keys if k not in _where_keys]
@@ -516,7 +518,13 @@ async def update_many(
     query_callback: QueryCallback[PGUpdateQuery] | None = None,
 ):
     query = PGUpdateQuery(
-        table=table, items=items, start_from=start_from, where_keys=keys, where=where, merge_keys=merge_keys
+        table=table,
+        items=items,
+        start_from=start_from,
+        where_keys=keys,
+        where=where,
+        merge_keys=merge_keys,
+        is_many=True,
     )
     if query_callback is not None:
         query_callback(query)
