@@ -1461,7 +1461,7 @@ wheels = [
 
 [[package]]
 name = "tracktolib"
-version = "0.62.0"
+version = "0.62.1"
 source = { editable = "." }
 
 [package.optional-dependencies]
