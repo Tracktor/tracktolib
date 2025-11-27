@@ -225,10 +225,14 @@ def get_update_fields(
 
 @dataclass
 class PGUpdateQuery(PGQuery):
-    """Value to start the arguments from:
-    For instance, with a value of 10, the first argument will be $11
+    """
+    Postgresql UPDATE query generator
     """
 
+    """
+    Value to start the arguments from:
+    For instance, with a value of 10, the first argument will be $11
+    """
     start_from: int | None = None
     """Keys to use for the WHERE clause. Theses fields will not be updated"""
     where_keys: list[str] | None = None
