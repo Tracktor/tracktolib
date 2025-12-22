@@ -1,10 +1,11 @@
 import base64
+import os
 from typing import Any
 
-import niquests
-
-from tractops import env
-from tractops.utils import check_resp
+try:
+    import niquests
+except ImportError:
+    raise ImportError('Please install niquests or tracktolib with "notion" to use this module')
 
 from .models import (
     Block,
@@ -23,7 +24,6 @@ from .models import (
 __all__ = (
     # Auth helpers
     "get_notion_headers",
-    "get_notion_session",
     "get_oauth_headers",
     # OAuth
     "create_token",
@@ -53,23 +53,26 @@ NOTION_API_URL = "https://api.notion.com"
 NOTION_VERSION = "2022-06-28"
 
 
+def _check_resp(response: niquests.Response) -> None:
+    """Check response status and include JSON body in error if available."""
+    try:
+        response.raise_for_status()
+    except niquests.HTTPError as e:
+        # Try to parse JSON body for more info
+        if response.reason is None:
+            try:
+                response.reason = response.json()
+            except niquests.JSONDecodeError:
+                pass
+        raise e
+
+
 def _get_notion_token() -> str:
     """Get Notion token from config or environment."""
-    # Try environment variable first
-    if env.NOTION_TOKEN:
-        return env.NOTION_TOKEN
-
-    # Try config file
-    try:
-        from tractops.config import Config
-
-        config = Config.load_from_file()
-        if config.notion and config.notion.api_key:
-            return config.notion.api_key
-    except FileNotFoundError:
-        pass
-
-    raise ValueError("Notion token not found. Set NOTION_TOKEN env var or run 'tractops setup'.")
+    token = os.environ.get("NOTION_TOKEN")
+    if not token:
+        raise ValueError("Notion token not found. Set NOTION_TOKEN env var.")
+    return token
 
 
 def get_notion_headers(token: str | None = None) -> dict[str, str]:
@@ -78,15 +81,7 @@ def get_notion_headers(token: str | None = None) -> dict[str, str]:
     return {
         "Authorization": f"Bearer {_token}",
         "Notion-Version": NOTION_VERSION,
-        "Content-Type": "application/json",
     }
-
-
-def get_notion_session(token: str | None = None) -> niquests.AsyncSession:
-    """Create an async HTTP session configured for Notion API."""
-    session = niquests.AsyncSession(base_url=NOTION_API_URL)
-    session.headers.update(get_notion_headers(token))
-    return session
 
 
 def get_oauth_headers(client_id: str, client_secret: str) -> dict[str, str]:
@@ -120,7 +115,7 @@ async def create_token(
         payload["redirect_uri"] = redirect_uri
 
     response = await session.post("/v1/oauth/token", json=payload, headers=headers)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -135,7 +130,7 @@ async def introspect_token(
     payload = {"token": token}
 
     response = await session.post("/v1/oauth/introspect", json=payload, headers=headers)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -150,7 +145,7 @@ async def revoke_token(
     payload = {"token": token}
 
     response = await session.post("/v1/oauth/revoke", json=payload, headers=headers)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -168,7 +163,7 @@ async def refresh_token(
     }
 
     response = await session.post("/v1/oauth/token", json=payload, headers=headers)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -189,21 +184,22 @@ async def fetch_users(
         params["page_size"] = str(page_size)
 
     response = await session.get("/v1/users", params=params or None)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
 async def fetch_user(session: niquests.AsyncSession, user_id: str) -> User:
     """Retrieve a user by ID."""
     response = await session.get(f"/v1/users/{user_id}")
-    check_resp(response)
+
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
 async def fetch_me(session: niquests.AsyncSession) -> User:
     """Retrieve the bot user associated with the token."""
     response = await session.get("/v1/users/me")
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -213,7 +209,7 @@ async def fetch_me(session: niquests.AsyncSession) -> User:
 async def fetch_page(session: niquests.AsyncSession, page_id: str) -> Page:
     """Retrieve a page by ID."""
     response = await session.get(f"/v1/pages/{page_id}")
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -239,7 +235,7 @@ async def create_page(
         payload["cover"] = cover
 
     response = await session.post("/v1/pages", json=payload)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -264,7 +260,7 @@ async def update_page(
         payload["cover"] = cover
 
     response = await session.patch(f"/v1/pages/{page_id}", json=payload)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -274,7 +270,7 @@ async def update_page(
 async def fetch_database(session: niquests.AsyncSession, database_id: str) -> Database:
     """Retrieve a database by ID."""
     response = await session.get(f"/v1/databases/{database_id}")
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -299,7 +295,7 @@ async def query_database(
         payload["page_size"] = page_size
 
     response = await session.post(f"/v1/databases/{database_id}/query", json=payload or None)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -309,7 +305,7 @@ async def query_database(
 async def fetch_block(session: niquests.AsyncSession, block_id: str) -> Block:
     """Retrieve a block by ID."""
     response = await session.get(f"/v1/blocks/{block_id}")
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -328,7 +324,7 @@ async def fetch_block_children(
         params["page_size"] = str(page_size)
 
     response = await session.get(f"/v1/blocks/{block_id}/children", params=params or None)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -341,7 +337,7 @@ async def fetch_append_block_children(
     payload = {"children": children}
 
     response = await session.patch(f"/v1/blocks/{block_id}/children", json=payload)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
@@ -371,5 +367,5 @@ async def fetch_search(
         payload["page_size"] = page_size
 
     response = await session.post("/v1/search", json=payload or None)
-    check_resp(response)
+    _check_resp(response)
     return response.json()  # type: ignore[return-value]
