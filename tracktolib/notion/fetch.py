@@ -72,7 +72,7 @@ def _get_notion_token() -> str:
     return token
 
 
-def get_notion_headers(api_version: str = "2025-09-03", token: str | None = None) -> dict[str, str]:
+def get_notion_headers(api_version: str = "2025-09-03", token: str | None = None):
     """Get headers for Notion API requests."""
     _token = token or _get_notion_token()
     return {
@@ -358,9 +358,8 @@ if __name__ == "__main__":
 
     async def main():
         async with niquests.AsyncSession() as session:
-            session.headers = get_notion_headers()
+            session.headers.update(get_notion_headers())
             me = await fetch_me(session)
             print("Me:", me)
-            # await fetch_search(session, filter='a')
 
     asyncio.run(main())
