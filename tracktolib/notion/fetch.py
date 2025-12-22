@@ -1,4 +1,3 @@
-import base64
 import os
 from typing import Any
 
@@ -24,7 +23,6 @@ from .models import (
 __all__ = (
     # Auth helpers
     "get_notion_headers",
-    "get_oauth_headers",
     # OAuth
     "create_token",
     "introspect_token",
@@ -50,7 +48,6 @@ __all__ = (
 )
 
 NOTION_API_URL = "https://api.notion.com"
-NOTION_VERSION = "2022-06-28"
 
 
 def _check_resp(response: niquests.Response) -> None:
@@ -75,23 +72,12 @@ def _get_notion_token() -> str:
     return token
 
 
-def get_notion_headers(token: str | None = None) -> dict[str, str]:
+def get_notion_headers(api_version: str = "2025-09-03", token: str | None = None) -> dict[str, str]:
     """Get headers for Notion API requests."""
     _token = token or _get_notion_token()
     return {
         "Authorization": f"Bearer {_token}",
-        "Notion-Version": NOTION_VERSION,
-    }
-
-
-def get_oauth_headers(client_id: str, client_secret: str) -> dict[str, str]:
-    """Get headers for Notion OAuth requests (Basic auth)."""
-    credentials = f"{client_id}:{client_secret}"
-    encoded = base64.b64encode(credentials.encode()).decode()
-    return {
-        "Authorization": f"Basic {encoded}",
-        "Content-Type": "application/json",
-        "Notion-Version": NOTION_VERSION,
+        "Notion-Version": api_version,
     }
 
 
@@ -106,7 +92,6 @@ async def create_token(
     redirect_uri: str | None = None,
 ) -> TokenResponse:
     """Create an access token from an OAuth authorization code."""
-    headers = get_oauth_headers(client_id, client_secret)
     payload: dict[str, str] = {
         "grant_type": "authorization_code",
         "code": code,
@@ -114,7 +99,7 @@ async def create_token(
     if redirect_uri:
         payload["redirect_uri"] = redirect_uri
 
-    response = await session.post("/v1/oauth/token", json=payload, headers=headers)
+    response = await session.post("/v1/oauth/token", json=payload, auth=(client_id, client_secret))
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -126,10 +111,8 @@ async def introspect_token(
     token: str,
 ) -> IntrospectTokenResponse:
     """Get a token's active status, scope, and issued time."""
-    headers = get_oauth_headers(client_id, client_secret)
     payload = {"token": token}
-
-    response = await session.post("/v1/oauth/introspect", json=payload, headers=headers)
+    response = await session.post("/v1/oauth/introspect", json=payload, auth=(client_id, client_secret))
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -141,10 +124,9 @@ async def revoke_token(
     token: str,
 ) -> RevokeTokenResponse:
     """Revoke an access token."""
-    headers = get_oauth_headers(client_id, client_secret)
     payload = {"token": token}
 
-    response = await session.post("/v1/oauth/revoke", json=payload, headers=headers)
+    response = await session.post("/v1/oauth/revoke", json=payload, auth=(client_id, client_secret))
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -156,13 +138,12 @@ async def refresh_token(
     refresh_token_value: str,
 ) -> TokenResponse:
     """Refresh an access token, generating new access and refresh tokens."""
-    headers = get_oauth_headers(client_id, client_secret)
     payload = {
         "grant_type": "refresh_token",
         "refresh_token": refresh_token_value,
     }
 
-    response = await session.post("/v1/oauth/token", json=payload, headers=headers)
+    response = await session.post("/v1/oauth/token", json=payload, auth=(client_id, client_secret))
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -191,7 +172,6 @@ async def fetch_users(
 async def fetch_user(session: niquests.AsyncSession, user_id: str) -> User:
     """Retrieve a user by ID."""
     response = await session.get(f"/v1/users/{user_id}")
-
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
