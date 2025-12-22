@@ -179,7 +179,7 @@ async def fetch_user(session: niquests.AsyncSession, user_id: str) -> User:
 
 
 async def fetch_me(session: niquests.AsyncSession) -> User:
-    """Rfetrieve the bot user associated with the token."""
+    """Retrieve the bot user associated with the token."""
     response = await session.get(f"{NOTION_API_URL}/v1/users/me")
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
@@ -351,3 +351,16 @@ async def fetch_search(
     response = await session.post(f"{NOTION_API_URL}/v1/search", json=payload or None)
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    async def main():
+        async with niquests.AsyncSession() as session:
+            session.headers = get_notion_headers()
+            me = await fetch_me(session)
+            print("Me:", me)
+            # await fetch_search(session, filter='a')
+
+    asyncio.run(main())
