@@ -347,6 +347,6 @@ if __name__ == "__main__":
             session.headers.update(get_notion_headers())
             me = await fetch_me(session)
             print("Me:", me)
-            print(await fetch_search(session, filter="aaa"))
+            # print(await fetch_search(session, filter="aaa"))
 
     asyncio.run(main())
