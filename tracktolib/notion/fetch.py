@@ -50,20 +50,6 @@ __all__ = (
 NOTION_API_URL = "https://api.notion.com"
 
 
-def _check_resp(response: niquests.Response) -> None:
-    """Check response status and include JSON body in error if available."""
-    try:
-        response.raise_for_status()
-    except niquests.HTTPError as e:
-        # Try to parse JSON body for more info
-        if response.reason is None:
-            try:
-                response.reason = response.json()
-            except niquests.JSONDecodeError:
-                pass
-        raise e
-
-
 def _get_notion_token() -> str:
     """Get Notion token from config or environment."""
     token = os.environ.get("NOTION_TOKEN")
@@ -100,7 +86,7 @@ async def create_token(
         payload["redirect_uri"] = redirect_uri
 
     response = await session.post(f"{NOTION_API_URL}/v1/oauth/token", json=payload, auth=(client_id, client_secret))
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -115,7 +101,7 @@ async def introspect_token(
     response = await session.post(
         f"{NOTION_API_URL}/v1/oauth/introspect", json=payload, auth=(client_id, client_secret)
     )
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -129,7 +115,7 @@ async def revoke_token(
     payload = {"token": token}
 
     response = await session.post(f"{NOTION_API_URL}/v1/oauth/revoke", json=payload, auth=(client_id, client_secret))
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -146,7 +132,7 @@ async def refresh_token(
     }
 
     response = await session.post(f"{NOTION_API_URL}/v1/oauth/token", json=payload, auth=(client_id, client_secret))
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -167,21 +153,21 @@ async def fetch_users(
         params["page_size"] = str(page_size)
 
     response = await session.get(f"{NOTION_API_URL}/v1/users", params=params or None)
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
 async def fetch_user(session: niquests.AsyncSession, user_id: str) -> User:
     """Retrieve a user by ID."""
     response = await session.get(f"{NOTION_API_URL}/v1/users/{user_id}")
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
 async def fetch_me(session: niquests.AsyncSession) -> User:
     """Retrieve the bot user associated with the token."""
     response = await session.get(f"{NOTION_API_URL}/v1/users/me")
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -191,7 +177,7 @@ async def fetch_me(session: niquests.AsyncSession) -> User:
 async def fetch_page(session: niquests.AsyncSession, page_id: str) -> Page:
     """Retrieve a page by ID."""
     response = await session.get(f"{NOTION_API_URL}/v1/pages/{page_id}")
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -217,7 +203,7 @@ async def create_page(
         payload["cover"] = cover
 
     response = await session.post(f"{NOTION_API_URL}/v1/pages", json=payload)
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -242,7 +228,7 @@ async def update_page(
         payload["cover"] = cover
 
     response = await session.patch(f"{NOTION_API_URL}/v1/pages/{page_id}", json=payload)
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -252,7 +238,7 @@ async def update_page(
 async def fetch_database(session: niquests.AsyncSession, database_id: str) -> Database:
     """Retrieve a database by ID."""
     response = await session.get(f"{NOTION_API_URL}/v1/databases/{database_id}")
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -277,7 +263,7 @@ async def query_database(
         payload["page_size"] = page_size
 
     response = await session.post(f"{NOTION_API_URL}/v1/databases/{database_id}/query", json=payload or None)
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -287,7 +273,7 @@ async def query_database(
 async def fetch_block(session: niquests.AsyncSession, block_id: str) -> Block:
     """Retrieve a block by ID."""
     response = await session.get(f"{NOTION_API_URL}/v1/blocks/{block_id}")
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -306,7 +292,7 @@ async def fetch_block_children(
         params["page_size"] = str(page_size)
 
     response = await session.get(f"{NOTION_API_URL}/v1/blocks/{block_id}/children", params=params or None)
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -319,7 +305,7 @@ async def fetch_append_block_children(
     payload = {"children": children}
 
     response = await session.patch(f"{NOTION_API_URL}/v1/blocks/{block_id}/children", json=payload)
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -349,7 +335,7 @@ async def fetch_search(
         payload["page_size"] = page_size
 
     response = await session.post(f"{NOTION_API_URL}/v1/search", json=payload or None)
-    _check_resp(response)
+    response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
@@ -361,5 +347,6 @@ if __name__ == "__main__":
             session.headers.update(get_notion_headers())
             me = await fetch_me(session)
             print("Me:", me)
+            print(await fetch_search(session, filter="aaa"))
 
     asyncio.run(main())
