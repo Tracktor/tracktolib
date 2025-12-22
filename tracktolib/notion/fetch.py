@@ -99,7 +99,7 @@ async def create_token(
     if redirect_uri:
         payload["redirect_uri"] = redirect_uri
 
-    response = await session.post("/v1/oauth/token", json=payload, auth=(client_id, client_secret))
+    response = await session.post(f"{NOTION_API_URL}/v1/oauth/token", json=payload, auth=(client_id, client_secret))
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -112,7 +112,9 @@ async def introspect_token(
 ) -> IntrospectTokenResponse:
     """Get a token's active status, scope, and issued time."""
     payload = {"token": token}
-    response = await session.post("/v1/oauth/introspect", json=payload, auth=(client_id, client_secret))
+    response = await session.post(
+        f"{NOTION_API_URL}/v1/oauth/introspect", json=payload, auth=(client_id, client_secret)
+    )
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -126,7 +128,7 @@ async def revoke_token(
     """Revoke an access token."""
     payload = {"token": token}
 
-    response = await session.post("/v1/oauth/revoke", json=payload, auth=(client_id, client_secret))
+    response = await session.post(f"{NOTION_API_URL}/v1/oauth/revoke", json=payload, auth=(client_id, client_secret))
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -143,7 +145,7 @@ async def refresh_token(
         "refresh_token": refresh_token_value,
     }
 
-    response = await session.post("/v1/oauth/token", json=payload, auth=(client_id, client_secret))
+    response = await session.post(f"{NOTION_API_URL}/v1/oauth/token", json=payload, auth=(client_id, client_secret))
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -164,21 +166,21 @@ async def fetch_users(
     if page_size:
         params["page_size"] = str(page_size)
 
-    response = await session.get("/v1/users", params=params or None)
+    response = await session.get(f"{NOTION_API_URL}/v1/users", params=params or None)
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
 async def fetch_user(session: niquests.AsyncSession, user_id: str) -> User:
     """Retrieve a user by ID."""
-    response = await session.get(f"/v1/users/{user_id}")
+    response = await session.get(f"{NOTION_API_URL}/v1/users/{user_id}")
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
 
 async def fetch_me(session: niquests.AsyncSession) -> User:
-    """Retrieve the bot user associated with the token."""
-    response = await session.get("/v1/users/me")
+    """Rfetrieve the bot user associated with the token."""
+    response = await session.get(f"{NOTION_API_URL}/v1/users/me")
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -188,7 +190,7 @@ async def fetch_me(session: niquests.AsyncSession) -> User:
 
 async def fetch_page(session: niquests.AsyncSession, page_id: str) -> Page:
     """Retrieve a page by ID."""
-    response = await session.get(f"/v1/pages/{page_id}")
+    response = await session.get(f"{NOTION_API_URL}/v1/pages/{page_id}")
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -214,7 +216,7 @@ async def create_page(
     if cover:
         payload["cover"] = cover
 
-    response = await session.post("/v1/pages", json=payload)
+    response = await session.post(f"{NOTION_API_URL}/v1/pages", json=payload)
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -239,7 +241,7 @@ async def update_page(
     if cover is not None:
         payload["cover"] = cover
 
-    response = await session.patch(f"/v1/pages/{page_id}", json=payload)
+    response = await session.patch(f"{NOTION_API_URL}/v1/pages/{page_id}", json=payload)
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -249,7 +251,7 @@ async def update_page(
 
 async def fetch_database(session: niquests.AsyncSession, database_id: str) -> Database:
     """Retrieve a database by ID."""
-    response = await session.get(f"/v1/databases/{database_id}")
+    response = await session.get(f"{NOTION_API_URL}/v1/databases/{database_id}")
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -274,7 +276,7 @@ async def query_database(
     if page_size:
         payload["page_size"] = page_size
 
-    response = await session.post(f"/v1/databases/{database_id}/query", json=payload or None)
+    response = await session.post(f"{NOTION_API_URL}/v1/databases/{database_id}/query", json=payload or None)
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -284,7 +286,7 @@ async def query_database(
 
 async def fetch_block(session: niquests.AsyncSession, block_id: str) -> Block:
     """Retrieve a block by ID."""
-    response = await session.get(f"/v1/blocks/{block_id}")
+    response = await session.get(f"{NOTION_API_URL}/v1/blocks/{block_id}")
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -303,7 +305,7 @@ async def fetch_block_children(
     if page_size:
         params["page_size"] = str(page_size)
 
-    response = await session.get(f"/v1/blocks/{block_id}/children", params=params or None)
+    response = await session.get(f"{NOTION_API_URL}/v1/blocks/{block_id}/children", params=params or None)
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -316,7 +318,7 @@ async def fetch_append_block_children(
     """Append children blocks to a parent block."""
     payload = {"children": children}
 
-    response = await session.patch(f"/v1/blocks/{block_id}/children", json=payload)
+    response = await session.patch(f"{NOTION_API_URL}/v1/blocks/{block_id}/children", json=payload)
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
 
@@ -346,6 +348,6 @@ async def fetch_search(
     if page_size:
         payload["page_size"] = page_size
 
-    response = await session.post("/v1/search", json=payload or None)
+    response = await session.post(f"{NOTION_API_URL}/v1/search", json=payload or None)
     _check_resp(response)
     return response.json()  # type: ignore[return-value]
