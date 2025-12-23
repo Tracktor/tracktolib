@@ -1,5 +1,4 @@
 import typing
-import warnings
 from dataclasses import dataclass, field
 from typing import TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias, overload, Any, Literal
 
@@ -470,13 +469,6 @@ async def insert_returning(
 ) -> asyncpg.Record | Any | list[asyncpg.Record] | None:
     returning_values = [returning] if isinstance(returning, str) else returning
     items = item if isinstance(item, list) else [item]
-
-    if len(items) > 1:
-        warnings.warn(
-            "Passing a list to insert_returning is deprecated. Use insert_many with returning parameter instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
 
     query = insert_pg(table=table, items=items, on_conflict=on_conflict, fill=fill, returning=returning_values)
     if query_callback is not None:
