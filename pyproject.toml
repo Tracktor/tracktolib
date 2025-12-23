@@ -11,7 +11,11 @@ homepage = "https://github.com/tracktor/tracktolib"
 repository = "https://github.com/tracktor/tracktolib"
 keywords = ["utility"]
 classifiers = [
-    "Operating System :: OS Independent"
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 include = [
     "LICENSE"
