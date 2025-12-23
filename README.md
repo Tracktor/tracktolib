@@ -4,21 +4,25 @@
 [![Latest PyPI version](https://img.shields.io/pypi/v/tracktolib?logo=pypi)](https://pypi.python.org/pypi/tracktolib)
 [![CircleCI](https://circleci.com/gh/Tracktor/tracktolib/tree/master.svg?style=shield)](https://app.circleci.com/pipelines/github/Tracktor/tracktolib?branch=master)
 
-Utility library for python
+Utility library for Python 3.12+
 
-# Installation
-
-Just run:
+## Installation
 
 ```bash
-uv add tracktolib@latest 
+uv add tracktolib
 ```
 
-# Utilities
+With specific extras:
 
-- **log**
+```bash
+uv add tracktolib[pg,api]
+```
 
-Utility functions for logging.
+## Modules
+
+### logs
+
+Utility functions to initialize logging formatting and streams.
 
 ```python
 import logging
@@ -28,56 +32,87 @@ logger = logging.getLogger()
 formatter, stream_handler = init_logging(logger, 'json', version='0.0.1')
 ```
 
-- **pg**
+### pg
 
-Utility functions for [asyncpg](https://github.com/MagicStack/asyncpg)
+Async PostgreSQL helpers using [asyncpg](https://github.com/MagicStack/asyncpg).
 
-- **pg-sync**
+```bash
+uv add tracktolib[pg]
+```
 
-Utility functions based on psycopg such as `fetch_one`, `insert_many`, `fetch_count` ...
+### pg-sync
 
-To use the functions, create a `Connection` using psycopg: `conn = psycopg2.connect()`
+Sync PostgreSQL helpers using [psycopg](https://www.psycopg.org/psycopg3/) (v3).
 
-*fetch_one*
+```bash
+uv add tracktolib[pg-sync]
+```
 
 ```python
-from tracktolib.pg.pg_sync import (
-    insert_many, fetch_one, fetch_count, fetch_all
-)
+from psycopg import connect
+from tracktolib.pg_sync import insert_many, fetch_one, fetch_count, fetch_all
+
+conn = connect('postgresql://user:pass@localhost/db')
 
 data = [
     {'foo': 'bar', 'value': 1},
     {'foo': 'baz', 'value': 2}
 ]
-insert_many(conn, 'public.test', data)  # Will insert the 2 dict
+insert_many(conn, 'public.test', data)
+
 query = 'SELECT foo from public.test order by value asc'
-value = fetch_one(conn, query, required=True)  # Will return {'foo': 'bar'}, raise an error is not found
+value = fetch_one(conn, query, required=True)  # {'foo': 'bar'}, raises if not found
+
 assert fetch_count(conn, 'public.test') == 2
+
 query = 'SELECT * from public.test order by value asc'
 assert fetch_all(conn, query) == data
-
 ```
 
-- **tests**
+### s3
 
-Utility functions for testing
+Async S3 helpers using [aiobotocore](https://github.com/aio-libs/aiobotocore).
 
-- **s3-minio**
+```bash
+uv add tracktolib[s3]
+```
 
-Utility functions for [minio](https://min.io/docs/minio/linux/developers/python/API.html)
+### s3-minio
 
-- **s3**
+S3 helpers using [minio](https://min.io/docs/minio/linux/developers/python/API.html).
 
-Utility functions for [aiobotocore](https://github.com/aio-libs/aiobotocore)
+```bash
+uv add tracktolib[s3-minio]
+```
 
-- **logs**
+### http
 
-Utility functions to initialize the logging formatting and streams
+HTTP client helpers using [httpx](https://www.python-httpx.org/).
 
-- **http**
+```bash
+uv add tracktolib[http]
+```
 
-Utility functions using [httpx](https://www.python-httpx.org/)
+### api
 
-- **api**
+FastAPI utilities using [fastapi](https://fastapi.tiangolo.com/) and [pydantic](https://docs.pydantic.dev/).
 
-Utility functions using [fastapi](https://fastapi.tiangolo.com/)
+```bash
+uv add tracktolib[api]
+```
+
+### notion
+
+Notion API helpers using [niquests](https://github.com/jawah/niquests).
+
+```bash
+uv add tracktolib[notion]
+```
+
+### tests
+
+Testing utilities using [deepdiff](https://github.com/seperman/deepdiff).
+
+```bash
+uv add tracktolib[tests]
+```
