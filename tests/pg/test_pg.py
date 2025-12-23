@@ -20,6 +20,32 @@ def test_insert_many_query():
     assert query == "INSERT INTO schema.table AS t (foo) VALUES ($1)"
 
 
+@pytest.mark.parametrize(
+    "items,expected_query,expected_flat_values",
+    [
+        pytest.param(
+            [{"foo": 1}, {"foo": 2}],
+            "INSERT INTO schema.table AS t (foo) VALUES ($1), ($2) RETURNING id",
+            [1, 2],
+            id="single_column",
+        ),
+        pytest.param(
+            [{"bar": "a", "foo": 1}, {"bar": "b", "foo": 2}],
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2), ($3, $4) RETURNING id",
+            ["a", 1, "b", 2],
+            id="multiple_columns",
+        ),
+    ],
+)
+def test_insert_many_returning_query(items, expected_query, expected_flat_values):
+    from tracktolib.pg import PGInsertQuery, PGReturningQuery
+
+    _returning = PGReturningQuery.load(keys=["id"])
+    q = PGInsertQuery("schema.table", items, returning=_returning)
+    assert q.query == expected_query
+    assert q._get_flat_values() == expected_flat_values
+
+
 def compare_strings(str1: str, str2: str):
     str1 = " ".join(x.strip() for x in str1.split("\n"))
     str2 = " ".join(x.strip() for x in str2.split("\n"))
@@ -273,6 +299,32 @@ def test_insert_one_returning_many(loop, aengine, engine):
     assert returned_value == {"bar": None}
     returned_values = loop.run_until_complete(insert_returning(aengine, "foo.foo", {"id": 2, "foo": 2}, returning="*"))
     assert_equals(dict(returned_values), {"id": 2, "foo": 2, "bar": None})
+
+
+@pytest.mark.parametrize(
+    "items, returning, expected_returned",
+    [
+        pytest.param(
+            [{"id": 1, "foo": 10}, {"id": 2, "foo": 20}, {"id": 3, "foo": 30}],
+            "id",
+            [{"id": 1}, {"id": 2}, {"id": 3}],
+            id="single_returning_column",
+        ),
+        pytest.param(
+            [{"id": 1, "foo": 10, "bar": "a"}, {"id": 2, "foo": 20, "bar": "b"}],
+            ["id", "bar"],
+            [{"id": 1, "bar": "a"}, {"id": 2, "bar": "b"}],
+            id="multiple_returning_columns",
+        ),
+    ],
+)
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_many_returning(loop, aengine, engine, items, returning, expected_returned):
+    from tracktolib.pg import insert_returning
+
+    returned_values = loop.run_until_complete(insert_returning(aengine, "foo.foo", items, returning=returning))
+    assert len(returned_values) == len(expected_returned)
+    assert [dict(r) for r in returned_values] == expected_returned
 
 
 @pytest.fixture()

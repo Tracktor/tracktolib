@@ -160,12 +160,34 @@ class PGInsertQuery(PGQuery):
     def is_returning(self):
         return self.returning is not None
 
+    def _get_values_query(self) -> str:
+        """Generate the VALUES clause for the query."""
+        _columns = self.columns
+        num_cols = len(_columns)
+
+        if len(self.items) == 1 or not self.is_returning:
+            # Single row or no returning: simple placeholders
+            return ", ".join(f"${i + 1}" for i in range(num_cols))
+        else:
+            # Multiple rows with returning: generate all value groups
+            value_groups = []
+            for row_idx in range(len(self.items)):
+                offset = row_idx * num_cols
+                group = ", ".join(f"${offset + i + 1}" for i in range(num_cols))
+                value_groups.append(f"({group})")
+            return ", ".join(value_groups)
+
     @property
     def query(self) -> str:
         _columns = self.columns
-        _values = ", ".join(f"${i + 1}" for i, _ in enumerate(_columns))
+        _values = self._get_values_query()
 
-        query = _get_insert_query(self.table, _columns, _values)
+        if len(self.items) > 1 and self.is_returning:
+            # For multi-row insert with returning, build full VALUES clause
+            _columns_str = ", ".join(_columns)
+            query = f"INSERT INTO {self.table} AS t ({_columns_str}) VALUES {_values}"
+        else:
+            query = _get_insert_query(self.table, _columns, _values)
 
         # Conflict
         if self.on_conflict:
@@ -184,12 +206,13 @@ class PGInsertQuery(PGQuery):
         if self.returning is not None:
             if self.returning.returning_ids is None:
                 raise ValueError("No returning ids found")
-            if len(self.items) == 1:
-                query = _get_returning_query(query, self.returning.returning_ids)
-            else:
-                raise NotImplementedError("Cannot return value when inserting many.")
+            query = _get_returning_query(query, self.returning.returning_ids)
 
         return query
+
+    def _get_flat_values(self) -> list:
+        """Get all values as a flat list for multi-row insert with returning."""
+        return [val for item_values in self.iter_values() for val in item_values]
 
 
 def get_update_fields(
@@ -341,6 +364,7 @@ async def insert_one(
     await query.run(conn)
 
 
+@overload
 async def insert_many(
     conn: _Connection,
     table: str,
@@ -349,12 +373,53 @@ async def insert_many(
     on_conflict: OnConflict | None = None,
     fill: bool = False,
     quote_columns: bool = False,
+    returning: None = None,
     query_callback: QueryCallback[PGInsertQuery] | None = None,
-):
-    query = insert_pg(table=table, items=items, on_conflict=on_conflict, fill=fill, quote_columns=quote_columns)
+) -> None: ...
+
+
+@overload
+async def insert_many(
+    conn: _Connection,
+    table: str,
+    items: list[dict],
+    *,
+    on_conflict: OnConflict | None = None,
+    fill: bool = False,
+    quote_columns: bool = False,
+    returning: str | list[str],
+    query_callback: QueryCallback[PGInsertQuery] | None = None,
+) -> list[asyncpg.Record]: ...
+
+
+async def insert_many(
+    conn: _Connection,
+    table: str,
+    items: list[dict],
+    *,
+    on_conflict: OnConflict | None = None,
+    fill: bool = False,
+    quote_columns: bool = False,
+    returning: str | list[str] | None = None,
+    query_callback: QueryCallback[PGInsertQuery] | None = None,
+) -> list[asyncpg.Record] | None:
+    returning_values = [returning] if isinstance(returning, str) else returning
+    query = insert_pg(
+        table=table,
+        items=items,
+        on_conflict=on_conflict,
+        fill=fill,
+        quote_columns=quote_columns,
+        returning=returning_values,
+    )
     if query_callback is not None:
         query_callback(query)
-    await query.run(conn)
+
+    if returning is not None:
+        return await conn.fetch(query.query, *query._get_flat_values())
+    else:
+        await query.run(conn)
+        return None
 
 
 @overload
@@ -381,22 +446,41 @@ async def insert_returning(
 ) -> asyncpg.Record | None: ...
 
 
+@overload
 async def insert_returning(
     conn: _Connection,
     table: str,
-    item: dict,
+    item: list[dict],
+    returning: str | list[str],
+    on_conflict: OnConflict | None = None,
+    fill: bool = False,
+    query_callback: QueryCallback[PGInsertQuery] | None = None,
+) -> list[asyncpg.Record]: ...
+
+
+async def insert_returning(
+    conn: _Connection,
+    table: str,
+    item: dict | list[dict],
     returning: list[str] | str,
     on_conflict: OnConflict | None = None,
     fill: bool = False,
     query_callback: QueryCallback[PGInsertQuery] | None = None,
-) -> asyncpg.Record | Any | None:
+) -> asyncpg.Record | Any | list[asyncpg.Record] | None:
     returning_values = [returning] if isinstance(returning, str) else returning
-    query = insert_pg(table=table, items=[item], on_conflict=on_conflict, fill=fill, returning=returning_values)
+    items = item if isinstance(item, list) else [item]
+
+    query = insert_pg(table=table, items=items, on_conflict=on_conflict, fill=fill, returning=returning_values)
     if query_callback is not None:
         query_callback(query)
-    fn = conn.fetchval if len(returning_values) == 1 and returning != "*" else conn.fetchrow
 
-    return await fn(query.query, *query.values)
+    if len(items) > 1:
+        # Multi-row insert: use fetch() with flat values
+        return await conn.fetch(query.query, *query._get_flat_values())
+    else:
+        # Single row insert: use fetchval or fetchrow
+        fn = conn.fetchval if len(returning_values) == 1 and returning != "*" else conn.fetchrow
+        return await fn(query.query, *query.values)
 
 
 async def fetch_count(conn: _Connection, query: str, *args) -> int:
