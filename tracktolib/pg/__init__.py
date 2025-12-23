@@ -12,5 +12,6 @@ from .query import (
     update_one,
     insert_pg,
     OnConflict,
+    update_many,
 )
 from .utils import iterate_pg, upsert_csv, safe_pg, safe_pg_context, PGError, PGException

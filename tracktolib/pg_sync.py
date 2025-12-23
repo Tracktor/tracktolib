@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable, Any, overload, Literal, cast, Optional
+from typing import Iterable, Any, overload, Literal, cast, Optional, Mapping, Sequence
 
 from typing_extensions import LiteralString
 
@@ -7,13 +7,12 @@ try:
     from psycopg import Connection, Cursor
     from psycopg.abc import Query
     from psycopg.errors import InvalidCatalogName
-    from psycopg.rows import dict_row
+    from psycopg.rows import dict_row, DictRow, TupleRow
     from psycopg.types.json import Json
 except ImportError:
     raise ImportError('Please install psycopg or tracktolib with "pg-sync" to use this module')
 
 from .pg_utils import get_tmp_table_query
-
 
 __all__ = (
     "clean_tables",
@@ -68,50 +67,70 @@ def fetch_one(engine: Connection, query: Query, *args, required: bool = False) -
     return _data
 
 
-def _parse_value(v):
+def _parse_value(v: Any) -> Any:
     if isinstance(v, dict):
         return Json(v)
     return v
 
 
-def get_insert_data(table: LiteralString, data: list[dict]) -> tuple[LiteralString, list[tuple[Any, ...]]]:
+def get_insert_data(
+    table: LiteralString, data: Sequence[Mapping[str, Any]]
+) -> tuple[LiteralString, list[tuple[Any, ...]]]:
     keys = data[0].keys()
     _values = ",".join("%s" for _ in range(0, len(keys)))
-    query = f"INSERT INTO {table} as t ({','.join(keys)}) VALUES ({_values})"
+    query = cast(LiteralString, f"INSERT INTO {table} as t ({','.join(keys)}) VALUES ({_values})")
     return query, [tuple(_parse_value(_x) for _x in x.values()) for x in data]
 
 
-def insert_many(engine: Connection | Cursor, table: LiteralString, data: list[dict]):
+def insert_many(engine: Connection | Cursor, table: LiteralString, data: Sequence[Mapping[str, Any]]):
     query, _data = get_insert_data(table, data)
-    with engine.cursor() as cur:
-        _ = cur.executemany(query, _data)
-    engine.commit()
+    if isinstance(engine, Connection):
+        with engine.cursor() as cur:
+            _ = cur.executemany(query, _data)
+        engine.commit()
+    else:
+        # If we are using a cursor, we can use executemany directly
+        _ = engine.executemany(query, _data)
 
 
 @overload
-def insert_one(engine: Connection, table: LiteralString, data: dict, returning: None = None) -> None: ...
+def insert_one(
+    engine: Connection | Cursor, table: LiteralString, data: Mapping[str, Any], returning: None = None
+) -> None: ...
 
 
 @overload
-def insert_one(engine: Connection, table: LiteralString, data: dict, returning: list[LiteralString]) -> dict: ...
+def insert_one(
+    engine: Connection, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString]
+) -> dict: ...
+
+
+@overload
+def insert_one(
+    engine: Cursor, table: LiteralString, data: Mapping[str, Any], returning: list[LiteralString]
+) -> DictRow | TupleRow | None: ...
 
 
 def insert_one(
-    engine: Connection, table: LiteralString, data: dict, returning: list[LiteralString] | None = None
-) -> dict | None:
+    engine: Connection | Cursor,
+    table: LiteralString,
+    data: Mapping[str, Any],
+    returning: list[LiteralString] | None = None,
+) -> dict | DictRow | TupleRow | None:
     query, _data = get_insert_data(table, [data])
     _is_returning = False
     if returning:
         query = f"{query} RETURNING {','.join(returning)}"
         _is_returning = True
 
-    with engine.cursor(row_factory=dict_row) as cur:
-        _ = cur.execute(query, _data[0])
-        if _is_returning:
-            resp = cur.fetchone()
-        else:
-            resp = None
-    engine.commit()
+    if isinstance(engine, Connection):
+        with engine.cursor(row_factory=dict_row) as cur:
+            _ = cur.execute(query, _data[0])
+            resp = cur.fetchone() if _is_returning else None
+        engine.commit()
+    else:
+        _ = engine.execute(query, _data[0])
+        resp = engine.fetchone() if _is_returning else None
     return resp
 
 
@@ -138,11 +157,11 @@ def clean_tables(engine: Connection, tables: Iterable[LiteralString], reset_seq:
 
 def get_tables(engine: Connection, schemas: list[str], ignored_tables: Iterable[str] | None = None):
     table_query = """
-    SELECT CONCAT_WS('.', schemaname, tablename) AS table
-    FROM pg_catalog.pg_tables
-    WHERE schemaname = ANY(%s)
-    ORDER BY schemaname, tablename
-    """
+                  SELECT CONCAT_WS('.', schemaname, tablename) AS table
+                  FROM pg_catalog.pg_tables
+                  WHERE schemaname = ANY (%s)
+                  ORDER BY schemaname, tablename \
+                  """
     resp = fetch_all(engine, table_query, schemas)
 
     # Foreign keys

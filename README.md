@@ -8,14 +8,11 @@ Utility library for python
 
 # Installation
 
-You can choose to not install all the dependencies by specifying
-the [extra](https://python-poetry.org/docs/cli/#options-4) parameter such as:
+Just run:
 
 ```bash
-poetry add tracktolib@latest -E pg-sync -E tests --group dev 
+uv add tracktolib@latest 
 ```
-
-Here we only install the utilities using `psycopg` (pg-sync) and `deepdiff` (tests) for the dev environment.
 
 # Utilities
 

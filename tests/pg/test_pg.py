@@ -10,14 +10,40 @@ def test_insert_one_query():
     from tracktolib.pg import PGInsertQuery
 
     query = PGInsertQuery("schema.table", [{"foo": 1}]).query
-    assert query == "INSERT INTO schema.table AS t (foo) VALUES ( $1 )"
+    assert query == "INSERT INTO schema.table AS t (foo) VALUES ($1)"
 
 
 def test_insert_many_query():
     from tracktolib.pg import PGInsertQuery
 
     query = PGInsertQuery("schema.table", [{"foo": 1}, {"foo": 2}]).query
-    assert query == "INSERT INTO schema.table AS t (foo) VALUES ( $1 )"
+    assert query == "INSERT INTO schema.table AS t (foo) VALUES ($1)"
+
+
+@pytest.mark.parametrize(
+    "items,expected_query,expected_flat_values",
+    [
+        pytest.param(
+            [{"foo": 1}, {"foo": 2}],
+            "INSERT INTO schema.table AS t (foo) VALUES ($1), ($2) RETURNING id",
+            [1, 2],
+            id="single_column",
+        ),
+        pytest.param(
+            [{"bar": "a", "foo": 1}, {"bar": "b", "foo": 2}],
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2), ($3, $4) RETURNING id",
+            ["a", 1, "b", 2],
+            id="multiple_columns",
+        ),
+    ],
+)
+def test_insert_many_returning_query(items, expected_query, expected_flat_values):
+    from tracktolib.pg import PGInsertQuery, PGReturningQuery
+
+    _returning = PGReturningQuery.load(keys=["id"])
+    q = PGInsertQuery("schema.table", items, returning=_returning)
+    assert q.query == expected_query
+    assert q._get_flat_values() == expected_flat_values
 
 
 def compare_strings(str1: str, str2: str):
@@ -34,7 +60,7 @@ def compare_strings(str1: str, str2: str):
             {"foo": 1},
             {"keys": ["id"]},
             None,
-            "INSERT INTO schema.table AS t (foo) VALUES ( $1 ) "
+            "INSERT INTO schema.table AS t (foo) VALUES ($1) "
             "ON CONFLICT (id) DO UPDATE SET foo = COALESCE(EXCLUDED.foo, t.foo)",
             False,
         ),
@@ -42,7 +68,7 @@ def compare_strings(str1: str, str2: str):
             {"foo": 1, "bar": 2},
             {"keys": ["id"]},
             None,
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) "
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) "
             "ON CONFLICT (id) DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar), "
             "foo = COALESCE(EXCLUDED.foo, t.foo)",
             False,
@@ -51,7 +77,7 @@ def compare_strings(str1: str, str2: str):
             {"foo": 1, "bar": 2},
             {"keys": ["id"], "where": "id = 2"},
             None,
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) "
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) "
             "ON CONFLICT (id) WHERE id = 2 DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar), "
             "foo = COALESCE(EXCLUDED.foo, t.foo)",
             False,
@@ -60,7 +86,7 @@ def compare_strings(str1: str, str2: str):
             {"foo": 1, "bar": 2},
             {"keys": ["id"], "ignore_keys": ["foo"]},
             None,
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) "
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) "
             "ON CONFLICT (id) DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar)",
             False,
         ),
@@ -68,21 +94,21 @@ def compare_strings(str1: str, str2: str):
             {"foo": 1, "bar": 2},
             {"query": "ON CONFLICT DO NOTHING"},
             None,
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) " "ON CONFLICT DO NOTHING",
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) ON CONFLICT DO NOTHING",
             False,
         ),
         (
             {"foo": 1, "bar": 2},
             {"query": "ON CONFLICT DO NOTHING"},
             None,
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) " "ON CONFLICT DO NOTHING",
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) ON CONFLICT DO NOTHING",
             False,
         ),
         (
             {"foo": 1, "bar": 2},
             {"query": "ON CONFLICT DO NOTHING"},
             {"key": "bar"},
-            "INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) " "ON CONFLICT DO NOTHING RETURNING bar",
+            "INSERT INTO schema.table AS t (bar, foo) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING bar",
             False,
         ),
         (
@@ -90,12 +116,12 @@ def compare_strings(str1: str, str2: str):
             {"constraint": "my_constraint"},
             None,
             """
-                        INSERT INTO schema.table AS t (bar, foo) VALUES ( $1, $2 ) 
-                        ON CONFLICT ON CONSTRAINT my_constraint 
-                        DO UPDATE SET 
-                            bar = COALESCE(EXCLUDED.bar, t.bar), 
-                            foo = COALESCE(EXCLUDED.foo, t.foo)
-                        """,
+                INSERT INTO schema.table AS t (bar, foo)
+                VALUES ($1, $2)
+                ON CONFLICT ON CONSTRAINT my_constraint
+                    DO UPDATE SET bar = COALESCE(EXCLUDED.bar, t.bar),
+                                  foo = COALESCE(EXCLUDED.foo, t.foo)
+                """,
             False,
         ),
         (
@@ -103,12 +129,12 @@ def compare_strings(str1: str, str2: str):
             {"constraint": "my_constraint"},
             None,
             """
-                        INSERT INTO schema.table AS t ("bar", "foo") VALUES ( $1, $2 ) 
-                        ON CONFLICT ON CONSTRAINT my_constraint 
-                        DO UPDATE SET 
-                            "bar" = COALESCE(EXCLUDED."bar", t."bar"), 
-                            "foo" = COALESCE(EXCLUDED."foo", t."foo")
-                        """,
+                INSERT INTO schema.table AS t ("bar", "foo")
+                VALUES ($1, $2)
+                ON CONFLICT ON CONSTRAINT my_constraint
+                    DO UPDATE SET "bar" = COALESCE(EXCLUDED."bar", t."bar"),
+                                  "foo" = COALESCE(EXCLUDED."foo", t."foo")
+                """,
             True,
         ),
         (
@@ -116,11 +142,11 @@ def compare_strings(str1: str, str2: str):
             {"merge_keys": ["foo"], "keys": ["bar"]},
             None,
             """
-                        INSERT INTO schema.table AS t (bar, foo) 
-                        VALUES ( $1, $2 ) ON CONFLICT (bar) 
-                        DO UPDATE SET 
-                            foo = COALESCE(t.foo, jsonb_build_object()) || EXCLUDED.foo
-                        """,
+                INSERT INTO schema.table AS t (bar, foo)
+                VALUES ($1, $2)
+                ON CONFLICT (bar)
+                    DO UPDATE SET foo = COALESCE(t.foo, JSONB_BUILD_OBJECT()) || EXCLUDED.foo
+                """,
             False,
         ),
     ],
@@ -275,6 +301,32 @@ def test_insert_one_returning_many(loop, aengine, engine):
     assert_equals(dict(returned_values), {"id": 2, "foo": 2, "bar": None})
 
 
+@pytest.mark.parametrize(
+    "items, returning, expected_returned",
+    [
+        pytest.param(
+            [{"id": 1, "foo": 10}, {"id": 2, "foo": 20}, {"id": 3, "foo": 30}],
+            "id",
+            [{"id": 1}, {"id": 2}, {"id": 3}],
+            id="single_returning_column",
+        ),
+        pytest.param(
+            [{"id": 1, "foo": 10, "bar": "a"}, {"id": 2, "foo": 20, "bar": "b"}],
+            ["id", "bar"],
+            [{"id": 1, "bar": "a"}, {"id": 2, "bar": "b"}],
+            id="multiple_returning_columns",
+        ),
+    ],
+)
+@pytest.mark.usefixtures("setup_tables")
+def test_insert_many_returning(loop, aengine, engine, items, returning, expected_returned):
+    from tracktolib.pg import insert_returning
+
+    returned_values = loop.run_until_complete(insert_returning(aengine, "foo.foo", items, returning=returning))
+    assert len(returned_values) == len(expected_returned)
+    assert [dict(r) for r in returned_values] == expected_returned
+
+
 @pytest.fixture()
 def insert_iterate_data(engine):
     from tracktolib.pg_sync import insert_many
@@ -347,61 +399,87 @@ def test_fetch_count(aengine, loop):
 @pytest.mark.parametrize(
     "data,params,expected",
     [
-        (
-            {"foo": 1},
+        pytest.param(
+            [{"foo": 1}],
             {"start_from": 0, "where": None, "returning": None},
             {"query": "UPDATE schema.table t SET foo = $1", "values": [1]},
+            id="no where - no returning",
         ),
-        (
-            {"foo": 1},
+        pytest.param(
+            [{"foo": 1}],
             {"start_from": 1, "where": "WHERE bar = $1", "returning": None},
             {"query": "UPDATE schema.table t SET foo = $2 WHERE bar = $1", "values": [1]},
+            id="where - no returning",
         ),
-        (
-            {"foo": 1},
+        pytest.param(
+            [{"foo": 1}],
             {"returning": ["foo"]},
             {"query": "UPDATE schema.table t SET foo = $1 RETURNING foo", "values": [1]},
+            id="no where - returning",
         ),
-        (
-            {"foo": 1, "id": 1},
+        pytest.param(
+            [{"foo": 1, "id": 1}],
             {"where_keys": ["id"]},
             {"query": "UPDATE schema.table t SET foo = $1 WHERE id = $2", "values": [1, 1]},
+            id="where - no returning - keys",
         ),
-        (
-            {"foo": 1, "id": 1},
+        pytest.param(
+            [{"foo": 1, "id": 1}],
             {"where_keys": ["id"], "return_keys": True},
             {"query": "UPDATE schema.table t SET foo = $1 WHERE id = $2 RETURNING foo", "values": [1, 1]},
+            id="where - returning - keys",
         ),
-        (
-            {"foo": 2, "id": 1, "bar": 3},
+        pytest.param(
+            [{"foo": 2, "id": 1, "bar": 3}],
             {"where_keys": ["id", "bar"], "return_keys": True},
             {
                 "query": "UPDATE schema.table t SET foo = $1 WHERE bar = $2 AND id = $3 RETURNING foo",
                 "values": [2, 3, 1],
             },
+            id="where - returning - multiple keys",
         ),
-        (
-            {"foo": 2, "id": 1, "bar": 3},
+        pytest.param(
+            [{"foo": 2, "id": 1, "bar": 3}],
             {"where_keys": ["bar", "id"], "return_keys": True},
             {
                 "query": "UPDATE schema.table t SET foo = $1 WHERE bar = $2 AND id = $3 RETURNING foo",
                 "values": [2, 3, 1],
             },
+            id="where - returning - multiple keys different order",
         ),
-        (
-            {"bar": {"foo": 1}},
+        pytest.param(
+            [{"bar": {"foo": 1}}],
             {"merge_keys": ["bar"]},
             {
-                "query": "UPDATE schema.table t SET bar = COALESCE(t.bar, jsonb_build_object()) || $1",
+                "query": "UPDATE schema.table t SET bar = COALESCE(t.bar, JSONB_BUILD_OBJECT()) || $1",
                 "values": [{"foo": 1}],
             },
+            id="merge keys - no where",
+        ),
+        pytest.param(
+            [{"foo": 10, "id": 1, "zar": 100}, {"foo": 20, "id": 2, "zar": 22}],
+            {"where_keys": ["id"]},
+            {
+                "query": "UPDATE schema.table t SET foo = $1, zar = $2 WHERE id = $3",
+                "values": [(10, 100, 1), (20, 22, 2)],
+            },
+            id="multiple rows - only first",
+        ),
+        pytest.param(
+            [{"foo": 10, "id": 1, "zar": 100}],
+            {"is_many": True},
+            {
+                "query": "UPDATE schema.table t SET foo = $1, id = $2, zar = $3",
+                "values": [(10, 1, 100)],
+            },
+            id="one row - only first",
         ),
     ],
 )
 def test_pg_update_query(data, params, expected):
     from tracktolib.pg import PGUpdateQuery
 
-    query = PGUpdateQuery("schema.table", [data], **params)
+    query = PGUpdateQuery("schema.table", data, **params)
     compare_strings(query.query, expected["query"])
     assert query.values == expected["values"]
 
@@ -412,21 +490,21 @@ def test_pg_update_query(data, params, expected):
         pytest.param(
             None,
             {"table": "foo.foo", "item": {"foo": 1, "id": 1}, "keys": ["id"]},
-            "SELECT * from foo.foo where id = 1",
+            "SELECT * FROM foo.foo WHERE id = 1",
             [{"bar": "baz", "foo": 1, "id": 1}],
             id="default",
         ),
         pytest.param(
             lambda engine: insert_one(engine, "foo.baz", {"id": 0, "baz": {"foo": 1}}),
             {"table": "foo.baz", "item": {"baz": {"hello": "world"}, "id": 0}, "keys": ["id"], "merge_keys": ["baz"]},
-            "SELECT * from foo.baz where id = 0",
+            "SELECT * FROM foo.baz WHERE id = 0",
             [{"bar": None, "baz": {"foo": 1, "hello": "world"}, "id": 0}],
             id="merge keys",
         ),
         pytest.param(
             lambda engine: insert_one(engine, "foo.baz", {"id": 0, "baz": {"foo": 1}}),
             {"table": "foo.baz", "item": {"bar": {"foo": 2}, "id": 0}, "keys": ["id"], "merge_keys": ["baz"]},
-            "SELECT * from foo.baz where id = 0",
+            "SELECT * FROM foo.baz WHERE id = 0",
             [{"bar": {"foo": 2}, "baz": {"foo": 1}, "id": 0}],
             id="merge keys missing key",
         ),
@@ -490,3 +568,40 @@ def test_safe_pg(aengine, loop):
     with pytest.raises(PGException):
         with safe_pg_context([PGError("bar_unique", "Another bar value exists")]):
             loop.run_until_complete(insert_bar())
+
+
+@pytest.mark.parametrize(
+    "setup_fn,params,expected_query,expected",
+    [
+        pytest.param(
+            None,
+            {"table": "foo.foo", "items": [{"id": 1, "foo": 1}, {"id": 2, "foo": 22}], "keys": ["id"]},
+            "SELECT bar, foo, id FROM foo.foo WHERE id IN (1, 2) ORDER BY id",
+            [{"bar": "baz", "foo": 1, "id": 1}, {"bar": None, "foo": 22, "id": 2}],
+            id="default",
+        ),
+        pytest.param(
+            None,
+            {
+                "table": "foo.foo",
+                "items": [
+                    {"id": 1, "foo": 1},
+                ],
+                "keys": ["id"],
+            },
+            "SELECT bar, foo, id FROM foo.foo WHERE id IN (1, 2) ORDER BY id",
+            [{"bar": "baz", "foo": 1, "id": 1}, {"bar": None, "foo": 20, "id": 2}],
+            id="update one item",
+        ),
+    ],
+)
+@pytest.mark.usefixtures("setup_tables", "insert_data")
+def test_update_many(aengine, loop, engine, setup_fn, params, expected_query, expected):
+    from tracktolib.pg import update_many
+
+    if setup_fn:
+        setup_fn(engine)
+
+    loop.run_until_complete(update_many(aengine, **params))
+    db_data = fetch_all(engine, expected_query)
+    assert db_data == expected
