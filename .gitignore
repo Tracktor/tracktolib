@@ -108,3 +108,11 @@ venv.bak/
 .pytest_cache/
 tmp/
 tests/junit.xml
+
+
+# LLMS
+
+.claude/
+.gemini/
+CLAUDE.md
+GEMINI.md

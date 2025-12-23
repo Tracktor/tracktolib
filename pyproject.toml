@@ -11,7 +11,11 @@ homepage = "https://github.com/tracktor/tracktolib"
 repository = "https://github.com/tracktor/tracktolib"
 keywords = ["utility"]
 classifiers = [
-    "Operating System :: OS Independent"
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 include = [
     "LICENSE"
@@ -87,7 +91,7 @@ filterwarnings = [
 include = ["tracktolib", "tests"]
 exclude = []
 
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 pythonPlatform = "Linux"
 
 [tool.commitizen]
@@ -102,7 +106,7 @@ bump_message = "release $current_version → $new_version [skip ci]"
 
 [tool.ruff]
 line-length = 120
-target-version = "py313"
+target-version = "py314"
 
 
 [tool.ruff.lint.per-file-ignores]

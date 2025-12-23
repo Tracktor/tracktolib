@@ -39,6 +39,18 @@ executors:
           MINIO_ROOT_PASSWORD: foobarbaz
         command: server /data
 
+  test-3-14:
+    docker:
+      - image: cimg/python:3.14-node
+      - image: cimg/postgres:17.0
+        environment:
+          POSTGRES_PASSWORD: postgres
+      - image: minio/minio
+        environment:
+          MINIO_ROOT_USER: foo
+          MINIO_ROOT_PASSWORD: foobarbaz
+        command: server /data
+
   build:
     docker:
       - image: cimg/python:3.13
@@ -47,6 +59,19 @@ jobs:
 
   run-tests-3-13:
     executor: test-3-13
+    steps:
+      - checkout
+      - sre/run-python-tests:
+          extras: '--all-extras'
+          formatter: 'ruff'
+          tool: 'uv'
+          before-steps:
+            - run:
+                name: Install dependencies
+                command: uv sync --all-extras --all-groups
+
+  run-tests-3-14:
+    executor: test-3-14
     steps:
       - checkout
       - sre/run-python-tests:
@@ -94,10 +119,13 @@ workflows:
     jobs:
       - run-tests-3-13:
           filters: *filters_not_tagged
+      - run-tests-3-14:
+          filters: *filters_not_tagged
       - bump-version:
           context: *pypi_context
           requires: [
-            run-tests-3-13
+            run-tests-3-13,
+            run-tests-3-14
           ]
           filters: *filters_only_master
 
