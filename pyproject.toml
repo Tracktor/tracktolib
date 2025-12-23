@@ -91,7 +91,7 @@ filterwarnings = [
 include = ["tracktolib", "tests"]
 exclude = []
 
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 pythonPlatform = "Linux"
 
 [tool.commitizen]
@@ -106,7 +106,7 @@ bump_message = "release $current_version → $new_version [skip ci]"
 
 [tool.ruff]
 line-length = 120
-target-version = "py313"
+target-version = "py314"
 
 
 [tool.ruff.lint.per-file-ignores]
