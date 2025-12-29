@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, Literal
 
 try:
     import niquests
@@ -19,6 +19,19 @@ from .models import (
     User,
     UserListResponse,
 )
+
+# API version constants
+API_VERSION_2022_06_28 = "2022-06-28"
+API_VERSION_2025_09_03 = "2025-09-03"
+DEFAULT_API_VERSION = API_VERSION_2025_09_03
+
+ApiVersion = Literal["2022-06-28", "2025-09-03"]
+
+
+def _use_data_source_api(api_version: str) -> bool:
+    """Check if the API version uses data_source endpoints (2025-09-03+)."""
+    return api_version >= "2025-09-03"
+
 
 __all__ = (
     # Auth helpers
@@ -181,6 +194,19 @@ async def fetch_page(session: niquests.AsyncSession, page_id: str) -> Page:
     return response.json()  # type: ignore[return-value]
 
 
+def _convert_parent_for_api_version(parent: dict[str, Any], api_version: str) -> dict[str, Any]:
+    """Convert parent dict between database_id and data_source_id based on API version."""
+    if _use_data_source_api(api_version):
+        # Convert database_id to data_source_id for new API
+        if "database_id" in parent:
+            return {"data_source_id": parent["database_id"]}
+    else:
+        # Convert data_source_id to database_id for old API
+        if "data_source_id" in parent:
+            return {"database_id": parent["data_source_id"]}
+    return parent
+
+
 async def create_page(
     session: niquests.AsyncSession,
     *,
@@ -189,10 +215,18 @@ async def create_page(
     children: list[dict[str, Any]] | None = None,
     icon: dict[str, Any] | None = None,
     cover: dict[str, Any] | None = None,
+    api_version: ApiVersion | None = None,
 ) -> Page:
-    """Create a new page."""
+    """Create a new page.
+
+    For API version 2025-09-03+, parent should use {"data_source_id": "..."}.
+    For older API versions, parent should use {"database_id": "..."}.
+    The function will automatically convert between the two formats.
+    """
+    _api_version = api_version or session.headers.get("Notion-Version", DEFAULT_API_VERSION)
+    converted_parent = _convert_parent_for_api_version(parent, _api_version)
     payload: dict[str, Any] = {
-        "parent": parent,
+        "parent": converted_parent,
         "properties": properties,
     }
     if children:
@@ -235,9 +269,24 @@ async def update_page(
 # Databases endpoints
 
 
-async def fetch_database(session: niquests.AsyncSession, database_id: str) -> Database:
-    """Retrieve a database by ID."""
-    response = await session.get(f"{NOTION_API_URL}/v1/databases/{database_id}")
+async def fetch_database(
+    session: niquests.AsyncSession,
+    database_id: str,
+    *,
+    api_version: ApiVersion | None = None,
+) -> Database:
+    """Retrieve a database/data source by ID.
+
+    For API version 2025-09-03+, uses /v1/data_sources/{id} endpoint.
+    For older API versions, uses /v1/databases/{id} endpoint.
+    """
+    _api_version = api_version or session.headers.get("Notion-Version", DEFAULT_API_VERSION)
+    if _use_data_source_api(_api_version):
+        endpoint = f"{NOTION_API_URL}/v1/data_sources/{database_id}"
+    else:
+        endpoint = f"{NOTION_API_URL}/v1/databases/{database_id}"
+
+    response = await session.get(endpoint)
     response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
@@ -250,8 +299,14 @@ async def query_database(
     sorts: list[dict[str, Any]] | None = None,
     start_cursor: str | None = None,
     page_size: int | None = None,
+    api_version: ApiVersion | None = None,
 ) -> PageListResponse:
-    """Query a database."""
+    """Query a database/data source.
+
+    For API version 2025-09-03+, uses /v1/data_sources/{id}/query endpoint.
+    For older API versions, uses /v1/databases/{id}/query endpoint.
+    """
+    _api_version = api_version or session.headers.get("Notion-Version", DEFAULT_API_VERSION)
     payload: dict[str, Any] = {}
     if filter:
         payload["filter"] = filter
@@ -262,7 +317,12 @@ async def query_database(
     if page_size:
         payload["page_size"] = page_size
 
-    response = await session.post(f"{NOTION_API_URL}/v1/databases/{database_id}/query", json=payload or None)
+    if _use_data_source_api(_api_version):
+        endpoint = f"{NOTION_API_URL}/v1/data_sources/{database_id}/query"
+    else:
+        endpoint = f"{NOTION_API_URL}/v1/databases/{database_id}/query"
+
+    response = await session.post(endpoint, json=payload or None)
     response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
@@ -312,6 +372,23 @@ async def fetch_append_block_children(
 # Search endpoint
 
 
+def _convert_search_filter_for_api_version(filter: dict[str, Any], api_version: str) -> dict[str, Any]:
+    """Convert search filter value between 'database' and 'data_source' based on API version."""
+    if "value" not in filter:
+        return filter
+
+    filter_copy = filter.copy()
+    if _use_data_source_api(api_version):
+        # Convert 'database' to 'data_source' for new API
+        if filter_copy.get("value") == "database":
+            filter_copy["value"] = "data_source"
+    else:
+        # Convert 'data_source' to 'database' for old API
+        if filter_copy.get("value") == "data_source":
+            filter_copy["value"] = "database"
+    return filter_copy
+
+
 async def fetch_search(
     session: niquests.AsyncSession,
     *,
@@ -320,13 +397,20 @@ async def fetch_search(
     sort: dict[str, Any] | None = None,
     start_cursor: str | None = None,
     page_size: int | None = None,
+    api_version: ApiVersion | None = None,
 ) -> SearchResponse:
-    """Search pages and databases."""
+    """Search pages and databases/data sources.
+
+    For API version 2025-09-03+, filter value 'database' is automatically
+    converted to 'data_source'. For older versions, 'data_source' is
+    converted to 'database'.
+    """
+    _api_version = api_version or session.headers.get("Notion-Version", DEFAULT_API_VERSION)
     payload: dict[str, Any] = {}
     if query:
         payload["query"] = query
     if filter:
-        payload["filter"] = filter
+        payload["filter"] = _convert_search_filter_for_api_version(filter, _api_version)
     if sort:
         payload["sort"] = sort
     if start_cursor:

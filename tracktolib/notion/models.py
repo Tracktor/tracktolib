@@ -126,10 +126,17 @@ class PageParent(TypedDict):
 
 
 class DatabaseParent(TypedDict):
-    """Database parent."""
+    """Database parent (deprecated in API 2025-09-03, use DataSourceParent)."""
 
     type: Literal["database_id"]
     database_id: str
+
+
+class DataSourceParent(TypedDict):
+    """Data source parent (API 2025-09-03+)."""
+
+    type: Literal["data_source_id"]
+    data_source_id: str
 
 
 class WorkspaceParent(TypedDict):
@@ -146,7 +153,7 @@ class BlockParent(TypedDict):
     block_id: str
 
 
-Parent = PageParent | DatabaseParent | WorkspaceParent | BlockParent
+Parent = PageParent | DatabaseParent | DataSourceParent | WorkspaceParent | BlockParent
 
 
 # Page types
