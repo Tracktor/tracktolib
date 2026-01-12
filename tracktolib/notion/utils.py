@@ -2,15 +2,35 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, AsyncIterator, Protocol, cast
+
+import niquests
 
 if TYPE_CHECKING:
-    import niquests
-
     from .models import Block, Comment, PartialBlock
 
 from .blocks import ExportResult, blocks_to_markdown_with_comments, comments_to_markdown, markdown_to_blocks
+from .fetch import NOTION_API_URL, create_comment, create_page, fetch_block_children
+
+
+@asynccontextmanager
+async def multiplex_session(session: niquests.AsyncSession) -> AsyncIterator[niquests.AsyncSession]:
+    """Create a multiplexed session that copies headers from the original session.
+
+    Automatically calls gather() on exit to execute all queued requests in parallel.
+
+    Args:
+        session: The original session to copy headers from.
+
+    Yields:
+        A new multiplexed session with copied headers.
+    """
+    async with niquests.AsyncSession(multiplexed=True) as mux_session:
+        mux_session.headers.update(session.headers)
+        yield mux_session
+        await mux_session.gather()
 
 
 class ProgressCallback(Protocol):
@@ -55,8 +75,6 @@ async def export_markdown_to_page(
     Returns:
         ExportResult with count of blocks created and page URL
     """
-    from .fetch import create_comment, create_page
-
     if not content.strip():
         return {"count": 0, "url": None}
 
@@ -114,10 +132,6 @@ async def download_page_to_markdown(
     Returns:
         Number of blocks converted
     """
-    import niquests
-
-    from .fetch import NOTION_API_URL, fetch_block_children
-
     # Fetch all blocks from the page
     all_blocks: list[Block | PartialBlock] = []
     cursor: str | None = None
@@ -143,9 +157,7 @@ async def download_page_to_markdown(
         block_ids = [page_id] + [b.get("id") for b in all_blocks if b.get("id")]
 
         # Use multiplexed session for parallel comment fetching
-        async with niquests.AsyncSession(multiplexed=True) as mux_session:
-            mux_session.headers.update(session.headers)
-
+        async with multiplex_session(session) as mux_session:
             # Queue all comment requests
             comment_responses: list[niquests.Response] = []
             for block_id in block_ids:
@@ -155,51 +167,41 @@ async def download_page_to_markdown(
                 )
                 comment_responses.append(resp)
 
-            # Execute all requests in parallel
-            await mux_session.gather()
-
         # Process responses and collect unique user IDs
         user_ids: set[str] = set()
         block_id_to_comments: dict[str, list[Comment]] = {}
 
         for block_id, resp in zip(block_ids, comment_responses):
-            if resp.status_code == 200:
-                data = resp.json()
-                comments = data.get("results", [])
-                if comments:
-                    block_id_to_comments[block_id] = comments
-                    for comment in comments:
-                        user_id = comment.get("created_by", {}).get("id")
-                        if user_id:
-                            user_ids.add(user_id)
+            resp.raise_for_status()
+            data = resp.json()
+            comments = data.get("results", [])
+            if comments:
+                block_id_to_comments[block_id] = comments
+                for comment in comments:
+                    user_id = comment.get("created_by", {}).get("id")
+                    if user_id:
+                        user_ids.add(user_id)
 
         # Fetch all user names in parallel
         user_cache: dict[str, str] = {}
         if user_ids:
-            async with niquests.AsyncSession(multiplexed=True) as mux_session:
-                mux_session.headers.update(session.headers)
-
+            async with multiplex_session(session) as mux_session:
                 # Queue all user requests
                 user_responses: list[tuple[str, niquests.Response]] = []
                 for user_id in user_ids:
                     resp = await mux_session.get(f"{NOTION_API_URL}/v1/users/{user_id}")
                     user_responses.append((user_id, resp))
 
-                # Execute all requests in parallel
-                await mux_session.gather()
-
             # Process user responses
             for user_id, resp in user_responses:
-                if resp.status_code == 200:
-                    user = resp.json()
-                    user_cache[user_id] = user.get("name") or user_id
-                else:
-                    user_cache[user_id] = user_id
+                resp.raise_for_status()
+                user = resp.json()
+                user_cache[user_id] = user.get("name") or user_id
 
         # Apply user names to comments
         for comments in block_id_to_comments.values():
             for comment in comments:
-                created_by = comment.get("created_by", {})
+                created_by = cast(dict[str, Any], comment.get("created_by", {}))
                 user_id = created_by.get("id")
                 if user_id and user_id in user_cache:
                     created_by["name"] = user_cache[user_id]

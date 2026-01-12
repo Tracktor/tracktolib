@@ -2,6 +2,7 @@
 
 from typing import Any, Literal, NotRequired, TypedDict
 
+
 # Base types
 
 
