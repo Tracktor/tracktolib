@@ -286,3 +286,29 @@ class SearchResponse(TypedDict):
     results: list[Page | PartialPage | Database | PartialDatabase]
     next_cursor: str | None
     has_more: bool
+
+
+# Comment types
+
+
+class Comment(TypedDict):
+    """Comment object response."""
+
+    object: Literal["comment"]
+    id: str
+    parent: Parent
+    discussion_id: str
+    created_time: str
+    last_edited_time: str
+    created_by: PartialUser
+    rich_text: list[RichTextItemResponse]
+
+
+class CommentListResponse(TypedDict):
+    """Response from listing comments."""
+
+    object: Literal["list"]
+    type: Literal["comment"]
+    results: list[Comment]
+    next_cursor: str | None
+    has_more: bool

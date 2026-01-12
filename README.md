@@ -109,6 +109,26 @@ Notion API helpers using [niquests](https://github.com/jawah/niquests).
 uv add tracktolib[notion]
 ```
 
+```python
+import niquests
+from tracktolib.notion.fetch import fetch_database, get_notion_headers
+from tracktolib.notion.cache import NotionCache
+
+async with niquests.AsyncSession() as session:
+    session.headers.update(get_notion_headers())
+
+    # Without cache
+    db = await fetch_database(session, "database-id")
+
+    # With persistent cache (stored in ~/.cache/tracktolib/notion/cache.json)
+    cache = NotionCache()
+    db = await fetch_database(session, "database-id", cache=cache)
+
+    # Check cached databases
+    cache.get_databases()           # All cached databases
+    cache.get_database("db-id")     # Specific database (id, title, properties, cached_at)
+```
+
 ### tests
 
 Testing utilities using [deepdiff](https://github.com/seperman/deepdiff).
