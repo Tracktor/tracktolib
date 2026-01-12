@@ -416,8 +416,7 @@ async def fetch_comments(
     if page_size:
         params["page_size"] = str(page_size)
 
-    response = await session.get(f"{NOTION_API_URL}/v1/comments", params=params)
-    response.raise_for_status()
+    response = (await session.get(f"{NOTION_API_URL}/v1/comments", params=params)).raise_for_status()
     return response.json()  # type: ignore[return-value]
 
 
