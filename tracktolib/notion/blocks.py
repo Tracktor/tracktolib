@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     # Types
+    "CodeBlock",
     "ExportResult",
     # Rich text parsing
     "parse_rich_text",
@@ -28,6 +29,10 @@ __all__ = [
     "blocks_to_markdown",
     "blocks_to_markdown_with_comments",
     "comments_to_markdown",
+    "strip_comments_from_markdown",
+    # Block comparison
+    "blocks_content_equal",
+    "find_divergence_index",
 ]
 
 
@@ -38,6 +43,28 @@ class ExportResult(TypedDict):
     """Number of blocks created in the page."""
     url: str | None
     """URL of the created Notion page, or None if creation failed."""
+
+
+class _TextContent(TypedDict):
+    content: str
+
+
+class _TextItem(TypedDict):
+    type: str
+    text: _TextContent
+
+
+class _CodeContent(TypedDict):
+    rich_text: list[_TextItem]
+    language: str
+
+
+class CodeBlock(TypedDict):
+    """Notion code block structure."""
+
+    object: str
+    type: str
+    code: _CodeContent
 
 
 # Language aliases for code blocks
@@ -153,23 +180,37 @@ def make_heading_block(text: str, level: int) -> dict[str, Any]:
     }
 
 
-def make_code_block(code: str, language: str = "plain text") -> dict[str, Any]:
-    """Create a Notion code block.
+def make_code_block(code: str, language: str = "plain text", *, chunk_size: int = 2000) -> list[dict[str, Any]]:
+    """Create Notion code block(s).
+
+    If code exceeds chunk_size characters, it is split into multiple blocks
+    to preserve the full content.
 
     Args:
         code: The code content
         language: Programming language (supports aliases like 'py', 'js', 'ts')
+        chunk_size: Maximum characters per block (default 2000, Notion's limit)
+
+    Returns:
+        List of code block dicts (usually one, multiple if code > chunk_size chars)
     """
     notion_lang = LANGUAGE_ALIASES.get(language.lower(), language.lower())
 
-    return {
-        "object": "block",
-        "type": "code",
-        "code": {
-            "rich_text": [{"type": "text", "text": {"content": code[:2000]}}],
-            "language": notion_lang,
-        },
-    }
+    blocks: list[dict[str, Any]] = []
+    for i in range(0, len(code), chunk_size):
+        chunk = code[i : i + chunk_size]
+        blocks.append(
+            {
+                "object": "block",
+                "type": "code",
+                "code": {
+                    "rich_text": [{"type": "text", "text": {"content": chunk}}],
+                    "language": notion_lang,
+                },
+            }
+        )
+
+    return blocks
 
 
 def make_bulleted_list_block(text: str) -> dict[str, Any]:
@@ -215,7 +256,18 @@ def make_divider_block() -> dict[str, Any]:
     }
 
 
-def markdown_to_blocks(content: str, *, max_blocks: int = 100) -> list[dict[str, Any]]:
+def make_quote_block(text: str) -> dict[str, Any]:
+    """Create a Notion quote block with rich text formatting."""
+    return {
+        "object": "block",
+        "type": "quote",
+        "quote": {
+            "rich_text": parse_rich_text(text),
+        },
+    }
+
+
+def markdown_to_blocks(content: str) -> list[dict[str, Any]]:
     """Convert markdown content to Notion blocks with proper formatting.
 
     Handles:
@@ -231,10 +283,9 @@ def markdown_to_blocks(content: str, *, max_blocks: int = 100) -> list[dict[str,
 
     Args:
         content: Markdown content to convert
-        max_blocks: Maximum number of blocks to return (Notion API limit is 100)
 
     Returns:
-        List of Notion block objects
+        List of Notion block objects (caller handles chunking for API limits)
     """
     blocks: list[dict[str, Any]] = []
     lines = content.split("\n")
@@ -254,7 +305,7 @@ def markdown_to_blocks(content: str, *, max_blocks: int = 100) -> list[dict[str,
                 i += 1
             code_content = "\n".join(code_lines)
             if code_content:
-                blocks.append(make_code_block(code_content, language))
+                blocks.extend(make_code_block(code_content, language))
             i += 1  # Skip closing ```
             continue
 
@@ -298,8 +349,25 @@ def markdown_to_blocks(content: str, *, max_blocks: int = 100) -> list[dict[str,
             i += 1
             continue
 
-        # Skip empty lines
+        # Check for blockquote
+        quote_match = re.match(r"^>\s*(.*)$", line)
+        if quote_match:
+            text = quote_match.group(1)
+            blocks.append(make_quote_block(text))
+            i += 1
+            continue
+
+        # Empty line - check if it separates quote blocks
         if not line.strip():
+            # Look ahead to see if next non-empty line is a quote
+            # and previous block was also a quote
+            if blocks and blocks[-1].get("type") == "quote":
+                j = i + 1
+                while j < len(lines) and not lines[j].strip():
+                    j += 1
+                if j < len(lines) and lines[j].startswith(">"):
+                    # Insert empty paragraph to preserve blank line between quotes
+                    blocks.append(make_paragraph_block(""))
             i += 1
             continue
 
@@ -313,6 +381,7 @@ def markdown_to_blocks(content: str, *, max_blocks: int = 100) -> list[dict[str,
                 not next_line.strip()
                 or next_line.startswith("#")
                 or next_line.startswith("```")
+                or next_line.startswith(">")
                 or re.match(r"^[-*_]{3,}\s*$", next_line)
                 or re.match(r"^\s*[-*]\s*\[", next_line)
                 or re.match(r"^\s*[-*]\s+", next_line)
@@ -331,8 +400,7 @@ def markdown_to_blocks(content: str, *, max_blocks: int = 100) -> list[dict[str,
             else:
                 blocks.append(make_paragraph_block(para_text))
 
-    # Notion API limit: max 100 children per request
-    return blocks[:max_blocks]
+    return blocks
 
 
 def rich_text_to_markdown(rich_text: Sequence[RichTextItemResponse] | Sequence[dict[str, Any]]) -> str:
@@ -458,14 +526,27 @@ def blocks_to_markdown(blocks: list[Block | PartialBlock] | list[dict[str, Any]]
     Returns:
         Markdown string
     """
-    lines: list[str] = []
+    result: list[str] = []
+    prev_type: str | None = None
 
     for block in blocks:
+        block_type = block.get("type")
         md_line = _block_to_markdown(block)
         if md_line is not None:
-            lines.append(md_line)
+            # Empty paragraph acts as separator (resets consecutive quote joining)
+            if block_type == "paragraph" and md_line == "":
+                prev_type = None
+                continue
+            # Join consecutive quotes with single newline
+            if prev_type == "quote" and block_type == "quote":
+                result.append(f"\n{md_line}")
+            elif result:
+                result.append(f"\n\n{md_line}")
+            else:
+                result.append(md_line)
+            prev_type = block_type
 
-    return "\n\n".join(lines)
+    return "".join(result)
 
 
 def _inline_comment_to_markdown(comment: Comment | dict[str, Any]) -> str:
@@ -505,21 +586,35 @@ def blocks_to_markdown_with_comments(
     if block_comments is None:
         block_comments = {}
 
-    lines: list[str] = []
+    result: list[str] = []
+    prev_type: str | None = None
 
     for block in blocks:
+        block_type = block.get("type")
         md_line = _block_to_markdown(block)
         if md_line is not None:
-            lines.append(md_line)
+            # Empty paragraph acts as separator (resets consecutive quote joining)
+            if block_type == "paragraph" and md_line == "":
+                prev_type = None
+                continue
+            # Join consecutive quotes with single newline
+            if prev_type == "quote" and block_type == "quote":
+                result.append(f"\n{md_line}")
+            elif result:
+                result.append(f"\n\n{md_line}")
+            else:
+                result.append(md_line)
+            prev_type = block_type
 
             # Add inline comments for this block
             block_id = block.get("id")
             if block_id and block_id in block_comments:
                 for comment in block_comments[block_id]:
                     comment_md = _inline_comment_to_markdown(comment)
-                    lines.append(comment_md)
+                    result.append(f"\n\n{comment_md}")
+                    prev_type = None  # Reset after comment
 
-    return "\n\n".join(lines)
+    return "".join(result)
 
 
 def comments_to_markdown(comments: list[Comment] | list[dict[str, Any]]) -> str:
@@ -564,3 +659,122 @@ def comments_to_markdown(comments: list[Comment] | list[dict[str, Any]]) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+def strip_comments_from_markdown(content: str) -> str:
+    """Remove comment blockquotes (> 💬) from markdown content.
+
+    This is useful when re-uploading markdown that was downloaded with comments,
+    to avoid converting comments into regular quote blocks.
+
+    Args:
+        content: Markdown content potentially containing comment blockquotes
+
+    Returns:
+        Markdown content with comment lines removed
+    """
+    lines = content.splitlines()
+    result = []
+    for line in lines:
+        if line.startswith("> 💬"):
+            continue
+        result.append(line)
+    return "\n".join(result)
+
+
+def _extract_block_content(block: Block | PartialBlock | dict[str, Any]) -> dict[str, Any]:
+    """Extract only the content-relevant parts of a block for comparison.
+
+    Ignores metadata like id, created_time, last_edited_time, etc.
+    """
+    block_type = block.get("type")
+    if not block_type:
+        return {}
+
+    block_data = block.get(block_type, {})
+
+    if block_type == "divider":
+        return {"type": "divider"}
+
+    if block_type in ("paragraph", "heading_1", "heading_2", "heading_3", "bulleted_list_item", "numbered_list_item"):
+        rich_text = block_data.get("rich_text", [])
+        return {"type": block_type, "text": rich_text_to_markdown(rich_text)}
+
+    if block_type == "to_do":
+        rich_text = block_data.get("rich_text", [])
+        return {
+            "type": block_type,
+            "text": rich_text_to_markdown(rich_text),
+            "checked": block_data.get("checked", False),
+        }
+
+    if block_type == "code":
+        rich_text = block_data.get("rich_text", [])
+        code = "".join(item.get("text", {}).get("content", "") for item in rich_text)
+        return {"type": block_type, "code": code, "language": block_data.get("language", "")}
+
+    if block_type in ("quote", "callout"):
+        rich_text = block_data.get("rich_text", [])
+        result: dict[str, Any] = {"type": block_type, "text": rich_text_to_markdown(rich_text)}
+        if block_type == "callout":
+            icon = block_data.get("icon", {})
+            result["emoji"] = icon.get("emoji", "")
+        return result
+
+    return {"type": block_type}
+
+
+def blocks_content_equal(
+    existing: Block | PartialBlock | dict[str, Any],
+    new: dict[str, Any],
+) -> bool:
+    """Check if two blocks have equivalent content.
+
+    Compares only content-relevant fields, ignoring metadata like IDs and timestamps.
+    This allows comparing an existing Notion block (with full metadata) against
+    a newly created block (without IDs).
+
+    Args:
+        existing: An existing block from Notion (has id, timestamps, etc.)
+        new: A new block to compare (may not have id/timestamps)
+
+    Returns:
+        True if the blocks have equivalent content
+    """
+    return _extract_block_content(existing) == _extract_block_content(new)
+
+
+def find_divergence_index(
+    existing_blocks: list[Block | PartialBlock] | list[dict[str, Any]],
+    new_blocks: list[dict[str, Any]],
+) -> int:
+    """Find the index where existing blocks start to differ from new blocks.
+
+    Compares blocks from the start until a difference is found.
+    Blocks that match are preserved (keeping their IDs and comments).
+
+    Args:
+        existing_blocks: Current blocks from Notion
+        new_blocks: New blocks to replace the content
+
+    Returns:
+        Index of first differing block. Returns min(len(existing), len(new))
+        if all compared blocks match.
+
+    Examples:
+        >>> find_divergence_index([A, B, C], [A, B, C])  # All same
+        3
+        >>> find_divergence_index([A, B, C], [A, B, D])  # C != D
+        2
+        >>> find_divergence_index([A, B], [A, B, C])     # New has more
+        2
+        >>> find_divergence_index([A, B, C], [A, B])     # Existing has more
+        2
+        >>> find_divergence_index([A, B, C], [X, Y, Z])  # First differs
+        0
+    """
+    min_len = min(len(existing_blocks), len(new_blocks))
+    for i in range(min_len):
+        if not blocks_content_equal(existing_blocks[i], new_blocks[i]):
+            return i
+    return min_len

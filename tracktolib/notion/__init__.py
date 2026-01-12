@@ -12,9 +12,16 @@ from tracktolib.notion.blocks import (
     markdown_to_blocks,
     parse_rich_text,
     rich_text_to_markdown,
+    strip_comments_from_markdown,
 )
 from tracktolib.notion.cache import CachedDatabase, NotionCache
-from tracktolib.notion.utils import ProgressCallback, download_page_to_markdown, export_markdown_to_page
+from tracktolib.notion.utils import (
+    ProgressCallback,
+    clear_page_blocks,
+    download_page_to_markdown,
+    export_markdown_to_page,
+    update_page_content,
+)
 
 __all__ = [
     "CachedDatabase",
@@ -23,6 +30,7 @@ __all__ = [
     "markdown_to_blocks",
     "blocks_to_markdown",
     "comments_to_markdown",
+    "strip_comments_from_markdown",
     "parse_rich_text",
     "rich_text_to_markdown",
     "make_paragraph_block",
@@ -35,6 +43,8 @@ __all__ = [
     # Export/Import
     "export_markdown_to_page",
     "download_page_to_markdown",
+    "clear_page_blocks",
+    "update_page_content",
     "ProgressCallback",
     "ExportResult",
 ]

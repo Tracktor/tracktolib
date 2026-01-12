@@ -106,3 +106,74 @@ def test_persistence_across_instances(temp_cache_dir, sample_database):
     assert retrieved is not None
     assert retrieved["id"] == "db-123"
     assert retrieved["title"] == "Test Database"
+
+
+# Page blocks caching tests
+
+
+@pytest.fixture
+def sample_blocks() -> list:
+    return [
+        {
+            "object": "block",
+            "id": "block-1",
+            "type": "paragraph",
+            "paragraph": {"rich_text": [{"type": "text", "text": {"content": "Hello"}}]},
+        },
+        {
+            "object": "block",
+            "id": "block-2",
+            "type": "heading_1",
+            "heading_1": {"rich_text": [{"type": "text", "text": {"content": "Title"}}]},
+        },
+    ]
+
+
+def test_set_and_get_page_blocks(cache, sample_blocks):
+    cached = cache.set_page_blocks("page-123", sample_blocks)
+
+    assert cached["page_id"] == "page-123"
+    assert cached["blocks"] == sample_blocks
+    assert "cached_at" in cached
+
+    retrieved = cache.get_page_blocks("page-123")
+    assert retrieved == sample_blocks
+
+
+def test_get_page_blocks_not_found(cache):
+    result = cache.get_page_blocks("non-existent")
+    assert result is None
+
+
+def test_delete_page_blocks(cache, sample_blocks):
+    cache.set_page_blocks("page-123", sample_blocks)
+    assert cache.get_page_blocks("page-123") is not None
+
+    cache.delete_page_blocks("page-123")
+    assert cache.get_page_blocks("page-123") is None
+
+
+def test_delete_page_blocks_not_found(cache):
+    cache.delete_page_blocks("non-existent")
+
+
+def test_page_blocks_persistence(temp_cache_dir, sample_blocks):
+    from tracktolib.notion.cache import NotionCache
+
+    cache1 = NotionCache(cache_dir=temp_cache_dir)
+    cache1.set_page_blocks("page-123", sample_blocks)
+
+    cache2 = NotionCache(cache_dir=temp_cache_dir)
+    retrieved = cache2.get_page_blocks("page-123")
+
+    assert retrieved is not None
+    assert len(retrieved) == 2
+    assert retrieved[0]["id"] == "block-1"
+
+
+def test_clear_removes_page_blocks(cache, sample_blocks):
+    cache.set_page_blocks("page-123", sample_blocks)
+    assert cache.get_page_blocks("page-123") is not None
+
+    cache.clear()
+    assert cache.get_page_blocks("page-123") is None

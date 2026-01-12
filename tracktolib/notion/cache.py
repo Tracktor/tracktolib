@@ -1,4 +1,6 @@
-from collections.abc import Mapping
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -14,8 +16,17 @@ class CachedDatabase(TypedDict):
     cached_at: str
 
 
+class CachedPageBlocks(TypedDict):
+    """Cached blocks for a page."""
+
+    page_id: str
+    blocks: list[dict[str, Any]]
+    cached_at: str
+
+
 class CacheData(TypedDict, total=False):
     databases: dict[str, CachedDatabase]
+    page_blocks: dict[str, CachedPageBlocks]
 
 
 @dataclass
@@ -80,3 +91,56 @@ class NotionCache:
     def clear(self) -> None:
         """Clear all cached data."""
         self._file_path.unlink(missing_ok=True)
+
+    def get_page_blocks(self, page_id: str) -> list[dict[str, Any]] | None:
+        """Get cached blocks for a page.
+
+        Args:
+            page_id: The Notion page ID
+
+        Returns:
+            List of cached blocks, or None if not cached
+        """
+        data = self._load()
+        cached = data.get("page_blocks", {}).get(page_id)
+        if cached:
+            return cached["blocks"]
+        return None
+
+    def set_page_blocks(
+        self,
+        page_id: str,
+        blocks: Sequence[dict[str, Any]],
+    ) -> CachedPageBlocks:
+        """Cache blocks for a page.
+
+        Args:
+            page_id: The Notion page ID
+            blocks: List of blocks to cache
+
+        Returns:
+            The cached entry
+        """
+        entry: CachedPageBlocks = {
+            "page_id": page_id,
+            "blocks": list(blocks),
+            "cached_at": datetime.now().isoformat(),
+        }
+
+        data = self._load()
+        if "page_blocks" not in data:
+            data["page_blocks"] = {}
+        data["page_blocks"][page_id] = entry
+        self._save(data)
+        return entry
+
+    def delete_page_blocks(self, page_id: str) -> None:
+        """Remove cached blocks for a page.
+
+        Args:
+            page_id: The Notion page ID to remove from cache
+        """
+        data = self._load()
+        if "page_blocks" in data:
+            data["page_blocks"].pop(page_id, None)
+            self._save(data)

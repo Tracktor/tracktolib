@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 try:
     import niquests
@@ -9,7 +9,7 @@ except ImportError:
     raise ImportError('Please install niquests or tracktolib with "notion" to use this module')
 
 if TYPE_CHECKING:
-    from .cache import NotionCache
+    from .cache import CachedDatabase, NotionCache
 
 from .models import (
     Block,
@@ -63,6 +63,7 @@ __all__ = (
     "fetch_block",
     "fetch_block_children",
     "fetch_append_block_children",
+    "delete_block",
     # Comments
     "fetch_comments",
     "create_comment",
@@ -279,13 +280,33 @@ async def update_page(
 # Databases endpoints
 
 
+@overload
+async def fetch_database(
+    session: niquests.AsyncSession,
+    database_id: str,
+    *,
+    api_version: ApiVersion | None = None,
+    cache: None = None,
+) -> Database: ...
+
+
+@overload
+async def fetch_database(
+    session: niquests.AsyncSession,
+    database_id: str,
+    *,
+    api_version: ApiVersion | None = None,
+    cache: NotionCache,
+) -> Database | CachedDatabase: ...
+
+
 async def fetch_database(
     session: niquests.AsyncSession,
     database_id: str,
     *,
     api_version: ApiVersion | None = None,
     cache: NotionCache | None = None,
-) -> Database:
+) -> Database | CachedDatabase:
     """Retrieve a database/data source by ID.
 
     For API version 2025-09-03+, uses /v1/data_sources/{id} endpoint.
@@ -293,10 +314,11 @@ async def fetch_database(
 
     If cache is provided, the database will be looked up in the cache first.
     On cache miss, the database is fetched from the API and stored in the cache.
+    When returning from cache, returns a CachedDatabase (partial) instead of full Database.
     """
     if cache:
         if cached := cache.get_database(database_id):
-            return cached  # type: ignore[return-value]
+            return cached
 
     _api_version = api_version or session.headers.get("Notion-Version", DEFAULT_API_VERSION)
     if _use_data_source_api(_api_version):
@@ -388,6 +410,21 @@ async def fetch_append_block_children(
     payload = {"children": children}
 
     response = await session.patch(f"{NOTION_API_URL}/v1/blocks/{block_id}/children", json=payload)
+    response.raise_for_status()
+    return response.json()  # type: ignore[return-value]
+
+
+async def delete_block(session: niquests.AsyncSession, block_id: str) -> Block:
+    """Delete (archive) a block.
+
+    Args:
+        session: Authenticated niquests session
+        block_id: The ID of the block to delete
+
+    Returns:
+        The deleted block object with archived=True
+    """
+    response = await session.delete(f"{NOTION_API_URL}/v1/blocks/{block_id}")
     response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 
