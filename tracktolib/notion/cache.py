@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
-from typing import Any, TypedDict
 import json
 import os
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from types import TracebackType
+from typing import Any, Self, TypedDict
 
 
 class CachedDatabase(TypedDict):
@@ -29,38 +30,71 @@ class CacheData(TypedDict, total=False):
     page_blocks: dict[str, CachedPageBlocks]
 
 
+def _default_cache_dir() -> Path:
+    """Default cache directory: $XDG_CACHE_HOME/tracktolib/notion or ~/.cache/tracktolib/notion."""
+    xdg_cache = os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))
+    return Path(xdg_cache) / "tracktolib" / "notion"
+
+
 @dataclass
 class NotionCache:
-    """Persistent cache for Notion data."""
+    """Persistent cache for Notion data.
 
-    cache_dir: Path | None = None
-    _file_path: Path = None  # type: ignore[assignment]
+    Use as a context manager to load on entry and save on exit:
+
+        with NotionCache() as cache:
+            db = cache.get_database("db-id")
+            cache.set_database({"id": "new-db", ...})
+        # Automatically saved on exit
+    """
+
+    # Directory for cache file.
+    cache_dir: Path = field(default_factory=_default_cache_dir)
+    _file_path: Path = field(init=False)
+    _data: CacheData = field(init=False)
+    _dirty: bool = field(init=False, default=False)
 
     def __post_init__(self) -> None:
-        if self.cache_dir is None:
-            xdg_cache = os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))
-            self.cache_dir = Path(xdg_cache) / "tracktolib" / "notion"
         self._file_path = self.cache_dir / "cache.json"
+        self._data = {}
 
-    def _load(self) -> CacheData:
-        if not self._file_path.exists():
-            return {}
-        return json.loads(self._file_path.read_text())
+    def load(self) -> None:
+        """Load cache from disk into memory."""
+        if self._file_path.exists():
+            self._data = json.loads(self._file_path.read_text())
+        else:
+            self._data = {}
+        self._dirty = False
 
-    def _save(self, data: CacheData) -> None:
+    def save(self) -> None:
+        """Save in-memory cache to disk (only if modified)."""
+        if not self._dirty:
+            return
         self._file_path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self._file_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=2, default=str))
+        tmp.write_text(json.dumps(self._data, indent=2, default=str))
         tmp.rename(self._file_path)
+        self._dirty = False
+
+    def __enter__(self) -> Self:
+        self.load()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.save()
 
     def get_database(self, database_id: str) -> CachedDatabase | None:
         """Get a cached database by ID."""
-        data = self._load()
-        return data.get("databases", {}).get(database_id)
+        return self._data.get("databases", {}).get(database_id)
 
     def get_databases(self) -> dict[str, CachedDatabase]:
         """Get all cached databases."""
-        return self._load().get("databases", {})
+        return self._data.get("databases", {})
 
     def set_database(self, database: Mapping[str, Any]) -> CachedDatabase:
         """Cache a database from Notion API response."""
@@ -74,23 +108,22 @@ class NotionCache:
             "cached_at": datetime.now().isoformat(),
         }
 
-        data = self._load()
-        if "databases" not in data:
-            data["databases"] = {}
-        data["databases"][database["id"]] = entry
-        self._save(data)
+        if "databases" not in self._data:
+            self._data["databases"] = {}
+        self._data["databases"][database["id"]] = entry
+        self._dirty = True
         return entry
 
     def delete_database(self, database_id: str) -> None:
         """Remove a database from cache."""
-        data = self._load()
-        if "databases" in data:
-            data["databases"].pop(database_id, None)
-            self._save(data)
+        if "databases" in self._data:
+            self._data["databases"].pop(database_id, None)
+            self._dirty = True
 
     def clear(self) -> None:
         """Clear all cached data."""
-        self._file_path.unlink(missing_ok=True)
+        self._data = {}
+        self._dirty = True
 
     def get_page_blocks(self, page_id: str) -> list[dict[str, Any]] | None:
         """Get cached blocks for a page.
@@ -101,8 +134,7 @@ class NotionCache:
         Returns:
             List of cached blocks, or None if not cached
         """
-        data = self._load()
-        cached = data.get("page_blocks", {}).get(page_id)
+        cached = self._data.get("page_blocks", {}).get(page_id)
         if cached:
             return cached["blocks"]
         return None
@@ -127,11 +159,10 @@ class NotionCache:
             "cached_at": datetime.now().isoformat(),
         }
 
-        data = self._load()
-        if "page_blocks" not in data:
-            data["page_blocks"] = {}
-        data["page_blocks"][page_id] = entry
-        self._save(data)
+        if "page_blocks" not in self._data:
+            self._data["page_blocks"] = {}
+        self._data["page_blocks"][page_id] = entry
+        self._dirty = True
         return entry
 
     def delete_page_blocks(self, page_id: str) -> None:
@@ -140,7 +171,6 @@ class NotionCache:
         Args:
             page_id: The Notion page ID to remove from cache
         """
-        data = self._load()
-        if "page_blocks" in data:
-            data["page_blocks"].pop(page_id, None)
-            self._save(data)
+        if "page_blocks" in self._data:
+            self._data["page_blocks"].pop(page_id, None)
+            self._dirty = True

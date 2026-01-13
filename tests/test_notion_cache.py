@@ -11,7 +11,9 @@ def temp_cache_dir(tmp_path: Path) -> Path:
 def cache(temp_cache_dir: Path):
     from tracktolib.notion.cache import NotionCache
 
-    return NotionCache(cache_dir=temp_cache_dir)
+    cache = NotionCache(cache_dir=temp_cache_dir)
+    cache.load()
+    return cache
 
 
 @pytest.fixture
@@ -97,15 +99,15 @@ def test_database_with_empty_title(cache):
 def test_persistence_across_instances(temp_cache_dir, sample_database):
     from tracktolib.notion.cache import NotionCache
 
-    cache1 = NotionCache(cache_dir=temp_cache_dir)
-    cache1.set_database(sample_database)
+    with NotionCache(cache_dir=temp_cache_dir) as cache1:
+        cache1.set_database(sample_database)
 
-    cache2 = NotionCache(cache_dir=temp_cache_dir)
-    retrieved = cache2.get_database("db-123")
+    with NotionCache(cache_dir=temp_cache_dir) as cache2:
+        retrieved = cache2.get_database("db-123")
 
-    assert retrieved is not None
-    assert retrieved["id"] == "db-123"
-    assert retrieved["title"] == "Test Database"
+        assert retrieved is not None
+        assert retrieved["id"] == "db-123"
+        assert retrieved["title"] == "Test Database"
 
 
 # Page blocks caching tests
@@ -160,15 +162,15 @@ def test_delete_page_blocks_not_found(cache):
 def test_page_blocks_persistence(temp_cache_dir, sample_blocks):
     from tracktolib.notion.cache import NotionCache
 
-    cache1 = NotionCache(cache_dir=temp_cache_dir)
-    cache1.set_page_blocks("page-123", sample_blocks)
+    with NotionCache(cache_dir=temp_cache_dir) as cache1:
+        cache1.set_page_blocks("page-123", sample_blocks)
 
-    cache2 = NotionCache(cache_dir=temp_cache_dir)
-    retrieved = cache2.get_page_blocks("page-123")
+    with NotionCache(cache_dir=temp_cache_dir) as cache2:
+        retrieved = cache2.get_page_blocks("page-123")
 
-    assert retrieved is not None
-    assert len(retrieved) == 2
-    assert retrieved[0]["id"] == "block-1"
+        assert retrieved is not None
+        assert len(retrieved) == 2
+        assert retrieved[0]["id"] == "block-1"
 
 
 def test_clear_removes_page_blocks(cache, sample_blocks):
