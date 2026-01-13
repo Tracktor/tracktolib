@@ -11,17 +11,20 @@ from niquests import PreparedRequest
 from niquests.hooks import AsyncLifeCycleHook
 from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
 
+from .markdown import (
+    markdown_to_blocks,
+    blocks_to_markdown_with_comments,
+    comments_to_markdown,
+    strip_comments_from_markdown,
+)
+
 if TYPE_CHECKING:
     from .cache import NotionCache
     from .models import Block, Comment, PartialBlock
 
 from .blocks import (
     ExportResult,
-    blocks_to_markdown_with_comments,
-    comments_to_markdown,
     find_divergence_index,
-    markdown_to_blocks,
-    strip_comments_from_markdown,
 )
 from .fetch import (
     create_comment,
@@ -32,6 +35,7 @@ from .fetch import (
     fetch_comments,
     fetch_user,
 )
+from tracktolib.utils import get_chunks
 
 __all__ = [
     "ClearResult",
@@ -621,8 +625,9 @@ async def update_page_content(
     if blocks_to_create:
         # Notion's append API adds to the end, which is what we want
         # since we deleted everything after the preserved blocks
-        await fetch_append_block_children(session, page_id, blocks_to_create)
-        created = len(blocks_to_create)
+        for chunk in get_chunks(blocks_to_create, NOTION_BLOCK_LIMIT):
+            await fetch_append_block_children(session, page_id, chunk)
+            created += len(chunk)
 
     # Update cache with the new state
     if cache:

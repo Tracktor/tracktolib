@@ -99,7 +99,10 @@ class NotionCache:
     def set_database(self, database: Mapping[str, Any]) -> CachedDatabase:
         """Cache a database from Notion API response."""
         title_prop = database.get("title", [])
-        title = title_prop[0]["plain_text"] if title_prop else ""
+        title = next(
+            (el["plain_text"] for el in title_prop if isinstance(el, Mapping) and "plain_text" in el),
+            "",
+        )
 
         entry: CachedDatabase = {
             "id": database["id"],

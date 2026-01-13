@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 try:
@@ -9,6 +10,7 @@ except ImportError:
     raise ImportError('Please install niquests or tracktolib with "notion" to use this module')
 
 if TYPE_CHECKING:
+    from .blocks import NotionBlock
     from .cache import CachedDatabase, NotionCache
 
 from .models import (
@@ -223,7 +225,7 @@ async def create_page(
     *,
     parent: dict[str, Any],
     properties: dict[str, Any],
-    children: list[dict[str, Any]] | None = None,
+    children: Sequence[NotionBlock | dict[str, Any]] | None = None,
     icon: dict[str, Any] | None = None,
     cover: dict[str, Any] | None = None,
     api_version: ApiVersion | None = None,
@@ -404,7 +406,7 @@ async def fetch_block_children(
 async def fetch_append_block_children(
     session: niquests.AsyncSession,
     block_id: str,
-    children: list[dict[str, Any]],
+    children: Sequence[NotionBlock | dict[str, Any]],
 ) -> BlockListResponse:
     """Append children blocks to a parent block."""
     payload = {"children": children}
