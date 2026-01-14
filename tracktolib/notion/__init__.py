@@ -11,10 +11,12 @@ from tracktolib.notion.blocks import (
 )
 from tracktolib.notion.cache import CachedDatabase, NotionCache
 from tracktolib.notion.utils import (
+    PageComment,
     ProgressCallback,
     clear_page_blocks,
     download_page_to_markdown,
     export_markdown_to_page,
+    fetch_all_page_comments,
     update_page_content,
 )
 
@@ -35,6 +37,8 @@ __all__ = [
     "download_page_to_markdown",
     "clear_page_blocks",
     "update_page_content",
+    "fetch_all_page_comments",
     "ProgressCallback",
     "ExportResult",
+    "PageComment",
 ]

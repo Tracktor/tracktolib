@@ -32,17 +32,19 @@ from .fetch import (
     fetch_comments,
     fetch_user,
 )
-from tracktolib.utils import get_chunks
+from tracktolib.utils import get_chunks, run_coros
 
 __all__ = [
     "ClearResult",
     "DEFAULT_CONCURRENCY",
+    "PageComment",
     "ProgressCallback",
     "UpdateResult",
     "clear_page_blocks",
     "download_page_to_markdown",
     "export_markdown_to_page",
     "fetch_all_page_blocks",
+    "fetch_all_page_comments",
     "update_page_content",
 ]
 
@@ -65,6 +67,25 @@ class ClearResult(TypedDict):
 
     deleted: int
     """Number of blocks deleted."""
+
+
+class PageComment(TypedDict):
+    """Comment with block context."""
+
+    id: str
+    """Comment ID."""
+    discussion_id: str
+    """Discussion thread ID."""
+    block_id: str
+    """ID of the block this comment is attached to."""
+    block_type: str
+    """Type of the block (e.g., 'paragraph', 'code')."""
+    author_name: str
+    """Name of the comment author."""
+    created_time: str
+    """ISO 8601 timestamp when the comment was created."""
+    text: str
+    """Plain text content of the comment."""
 
 
 class UpdateResult(TypedDict):
@@ -201,38 +222,33 @@ async def download_page_to_markdown(
         # Collect all block IDs to fetch comments for (including page itself)
         block_ids = [page_id] + [b.get("id") for b in all_blocks if b.get("id")]
 
-        # Fetch comments in parallel using TaskGroup + Semaphore
+        # Fetch comments in parallel
         sem = semaphore or asyncio.Semaphore(DEFAULT_CONCURRENCY)
         block_id_to_comments: dict[str, list[Comment]] = {}
         user_ids: set[str] = set()
 
-        async def fetch_block_comments(bid: str) -> None:
-            async with sem:
-                data = await fetch_comments(session, block_id=bid)
+        async def fetch_block_comments(bid: str) -> tuple[str, list[Comment]]:
+            data = await fetch_comments(session, block_id=bid)
             comments_list = data.get("results", [])
             if comments_list:
-                block_id_to_comments[bid] = comments_list
+                # Use actual parent block_id from comment to avoid race condition
+                actual_block_id = comments_list[0].get("parent", {}).get("block_id", bid)
+                return actual_block_id, comments_list
+            return bid, []
+
+        async for actual_block_id, comments_list in run_coros((fetch_block_comments(bid) for bid in block_ids), sem):
+            if comments_list:
+                block_id_to_comments[actual_block_id] = comments_list
                 for comment in comments_list:
                     user_id = comment.get("created_by", {}).get("id")
                     if user_id:
                         user_ids.add(user_id)
 
-        async with asyncio.TaskGroup() as tg:
-            for bid in block_ids:
-                tg.create_task(fetch_block_comments(bid))
-
         # Fetch all user names in parallel
         user_cache: dict[str, str] = {}
-        if user_ids:
 
-            async def fetch_user_name(uid: str) -> None:
-                async with sem:
-                    user = await fetch_user(session, uid)
-                user_cache[uid] = user.get("name") or uid
-
-            async with asyncio.TaskGroup() as tg:
-                for uid in user_ids:
-                    tg.create_task(fetch_user_name(uid))
+        async for uid, name in run_coros((_fetch_user_with_id(session, uid) for uid in user_ids), sem):
+            user_cache[uid] = name
 
         # Apply user names to comments
         for comments_list in block_id_to_comments.values():
@@ -373,6 +389,77 @@ async def fetch_all_page_blocks(
         cache.set_page_blocks(page_id, all_blocks)  # type: ignore[arg-type]
 
     return all_blocks
+
+
+async def _fetch_block_comments(
+    session: niquests.AsyncSession, block: Block | PartialBlock
+) -> list[tuple[str, str, Comment]]:
+    block_id = block.get("id", "")
+    block_type = block.get("type", "unknown")
+    resp = await fetch_comments(session, block_id)
+    return [(block_id, block_type, c) for c in resp.get("results", [])]
+
+
+async def _fetch_user_with_id(session: niquests.AsyncSession, uid: str) -> tuple[str, str]:
+    user = await fetch_user(session, uid)
+    return uid, user.get("name") or uid
+
+
+async def fetch_all_page_comments(
+    session: niquests.AsyncSession,
+    page_id: str,
+    *,
+    concurrency: int = DEFAULT_CONCURRENCY,
+) -> list[PageComment]:
+    """Fetch all comments from a page and its blocks.
+
+    Args:
+        session: Authenticated niquests session with Notion headers
+        page_id: The page to fetch comments from
+        concurrency: Max concurrent requests (default 50)
+
+    Returns:
+        List of comments with block context, ordered by block position
+    """
+    blocks = await fetch_all_page_blocks(session, page_id)
+    sem = asyncio.Semaphore(concurrency)
+
+    # Fetch comments for all blocks
+    raw_comments: list[tuple[str, str, Comment]] = []
+    user_ids: set[str] = set()
+
+    async for result in run_coros((_fetch_block_comments(session, b) for b in blocks), sem):
+        for block_id, block_type, c in result:
+            raw_comments.append((block_id, block_type, c))
+            user_id = c.get("created_by", {}).get("id")
+            if user_id:
+                user_ids.add(user_id)
+
+    # Fetch user names in parallel
+    user_ids_list = list(user_ids)
+    user_cache: dict[str, str] = {}
+
+    async for uid, name in run_coros((_fetch_user_with_id(session, uid) for uid in user_ids_list), sem):
+        user_cache[uid] = name
+
+    # Build final comments with resolved user names
+    comments: list[PageComment] = []
+    for block_id, block_type, c in raw_comments:
+        user_id = c.get("created_by", {}).get("id", "")
+        author_name = user_cache.get(user_id, "Unknown")
+        comments.append(
+            {
+                "id": c["id"],
+                "discussion_id": c["discussion_id"],
+                "block_id": block_id,
+                "block_type": block_type,
+                "author_name": author_name,
+                "created_time": c["created_time"],
+                "text": "".join(rt.get("plain_text", "") for rt in c.get("rich_text", [])),
+            }
+        )
+
+    return comments
 
 
 async def update_page_content(

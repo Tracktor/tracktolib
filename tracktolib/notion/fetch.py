@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, Sequence, overload
 
 try:
     import niquests
