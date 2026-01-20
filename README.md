@@ -87,7 +87,7 @@ uv add tracktolib[s3-minio]
 
 ### s3-niquests
 
-Async S3 helpers using [niquests]() and [botocore]().
+Async S3 helpers using [niquests](https://github.com/jawah/niquests) and [botocore](https://github.com/boto/botocore).
 
 ```bash
 uv add tracktolib[s3-niquests]

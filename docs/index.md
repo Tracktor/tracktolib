@@ -14,7 +14,7 @@ uv add tracktolib
 With specific extras:
 
 ```bash
-uv add tracktolib[pg,api]
+uv add tracktolib[pg-sync,api]
 ```
 
 ## Available Extras

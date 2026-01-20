@@ -122,15 +122,7 @@ async def get_stream_chunk[S: (bytes, str)](data_stream: AsyncIterable[S], min_s
 
     # Handle the final chunk(s)
     if buffer is not None and buffer_size > 0:
-        if buffer_size >= min_size:
-            if buffer_size < min_size * 2:
-                yield buffer
-            else:
-                mid_point = buffer_size // 2
-                yield buffer[:mid_point]
-                yield buffer[mid_point:]
-        else:
-            yield buffer
+        yield buffer
 
 
 def json_serial(obj):

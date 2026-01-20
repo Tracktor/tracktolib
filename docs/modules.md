@@ -53,5 +53,5 @@ uv add tracktolib[pg,api,logs]
 Install all extras:
 
 ```bash
-uv add tracktolib[pg,pg-sync,s3,s3-minio,api,logs,tests,notion]
+uv add tracktolib[pg,pg-sync,s3,s3-minio,s3-niquests,api,http,logs,tests,notion]
 ```

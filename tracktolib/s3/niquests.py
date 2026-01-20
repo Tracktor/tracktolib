@@ -480,18 +480,11 @@ async def s3_file_upload(
     content_length: int | None = None,
 ) -> None:
     """
-    Upload a file to S3 using multipart upload from an async byte stream.
+    Upload a file to S3 from an async byte stream.
 
-    Args:
-        s3: Botocore S3 client for generating presigned URLs
-        client: Niquests async session for HTTP requests
-        bucket: S3 bucket name
-        key: S3 object key
-        data: Async iterator yielding bytes chunks
-        min_part_size: Minimum size for each part (default 5MB, S3 minimum)
-        on_chunk_received: Optional callback called for each chunk received
-        content_length: Optional content length hint. If provided and less than
-            min_part_size, uses single PUT instead of multipart upload.
+    Uses multipart upload for large files. If `content_length` is provided and smaller
+    than `min_part_size`, uses a single PUT instead. Use `on_chunk_received` callback
+    to track upload progress.
     """
     if content_length is not None and content_length < min_part_size:
         # Small file - use single PUT operation
@@ -504,12 +497,18 @@ async def s3_file_upload(
         return
 
     async with s3_multipart_upload(s3, client, bucket=bucket, key=key) as mpart:
+        has_uploaded_parts = False
         async for chunk in get_stream_chunk(data, min_size=min_part_size):
             if on_chunk_received:
                 on_chunk_received(chunk)
             if len(chunk) < min_part_size:
-                # Final chunk is smaller than min_part_size, abort multipart and use single PUT
-                await mpart.fetch_abort()
-                await s3_put_object(s3, client, bucket=bucket, key=key, data=chunk, acl=None)
-                break
+                if not has_uploaded_parts:
+                    # No parts uploaded yet, abort multipart and use single PUT
+                    await mpart.fetch_abort()
+                    await s3_put_object(s3, client, bucket=bucket, key=key, data=chunk, acl=None)
+                else:
+                    # Parts already uploaded, upload final chunk as last part (S3 allows last part to be smaller)
+                    await mpart.upload_part(chunk)
+                return
             await mpart.upload_part(chunk)
+            has_uploaded_parts = True
