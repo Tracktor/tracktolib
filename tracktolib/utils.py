@@ -1,5 +1,5 @@
-import sys
-from types import ModuleType
+from pathlib import Path
+
 import asyncio
 import datetime as dt
 import importlib.util
@@ -7,9 +7,10 @@ import itertools
 import mmap
 import os
 import subprocess
+import sys
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
-from pathlib import Path
+from types import ModuleType
 from typing import AsyncIterable, AsyncIterator, Iterable, Iterator, Literal, overload, Any, Callable
 
 type OnCmdUpdate = Callable[[str], None]
@@ -102,19 +103,7 @@ def get_chunks[T](it: Iterable[T], size: int, *, as_list: bool = True) -> Iterat
         yield d if not as_list else list(d)
 
 
-async def async_get_chunks[T](it: AsyncIterable[T], size: int) -> AsyncIterator[list[T]]:
-    """Async version of get_chunks that works with AsyncIterable."""
-    chunk: list[T] = []
-    async for item in it:
-        chunk.append(item)
-        if len(chunk) >= size:
-            yield chunk
-            chunk = []
-    if chunk:
-        yield chunk
-
-
-async def async_get_sized_chunks[S: (bytes, str)](data_stream: AsyncIterable[S], min_size: int) -> AsyncIterator[S]:
+async def get_stream_chunk[S: (bytes, str)](data_stream: AsyncIterable[S], min_size: int) -> AsyncIterator[S]:
     """
     Yield chunks of at least min_size from an async stream.
 
@@ -148,10 +137,6 @@ async def async_get_sized_chunks[S: (bytes, str)](data_stream: AsyncIterable[S],
                 yield buffer[mid_point:]
         else:
             yield buffer
-
-
-# Alias for backward compatibility
-async_get_byte_chunks = async_get_sized_chunks
 
 
 def json_serial(obj):

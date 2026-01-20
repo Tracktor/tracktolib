@@ -1,28 +1,28 @@
 from __future__ import annotations
 
 from collections import namedtuple
+from pathlib import Path
+
+import http
+import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from pathlib import Path
 from typing import AsyncIterator, Callable, Literal, Self, TypedDict
-
-from tracktolib.utils import async_get_byte_chunks
 
 try:
     import botocore.client
     import botocore.session
+    from botocore.config import Config
     from botocore.exceptions import ClientError
 except ImportError as e:
     raise ImportError("botocore is required for S3 operations. Install with tracktolib[s3-niquests]") from e
 
 try:
     import niquests
-    from niquests import HTTPError
 except ImportError as e:
     raise ImportError("niquests is required for S3 operations. Install with tracktolib[s3-niquests]") from e
 
-# Alias for backward compatibility
-get_stream_chunk = async_get_byte_chunks
+from ..utils import get_stream_chunk
 
 __all__ = (
     "S3Session",
@@ -31,11 +31,12 @@ __all__ = (
     "s3_list_files",
     "s3_put_object",
     "s3_get_object",
+    "s3_download_file",
     "s3_upload_file",
     "s3_multipart_upload",
     "s3_file_upload",
-    "get_stream_chunk",
     "S3MultipartUpload",
+    "S3Object",
     "UploadPart",
 )
 
@@ -63,78 +64,100 @@ class S3Session:
         ) as s3:
             await s3.put_object('my-bucket', 'path/to/file.txt', b'content')
             content = await s3.get_object('my-bucket', 'path/to/file.txt')
+
+        # With custom clients:
+        async with S3Session(
+            endpoint_url='...',
+            access_key='...',
+            secret_key='...',
+            s3_client=my_s3_client,
+            http_client=my_http_session,
+        ) as s3:
+            ...
     """
 
     endpoint_url: str
     access_key: str
     secret_key: str
     region: str = "us-east-1"
-
+    config: Config | None = None
     _s3_client: botocore.client.BaseClient | None = None
-    _http: niquests.AsyncSession | None = None
+    _http_client: niquests.AsyncSession | None = None
+
+    def __post_init__(self):
+        if self._s3_client is None:
+            session = botocore.session.Session()
+            self._s3_client = session.create_client(
+                "s3",
+                endpoint_url=self.endpoint_url,
+                region_name=self.region,
+                aws_access_key_id=self.access_key,
+                aws_secret_access_key=self.secret_key,
+                config=self.config,
+            )
+        if self._http_client is None:
+            self._http_client = niquests.AsyncSession()
 
     @property
     def s3_client(self) -> botocore.client.BaseClient:
-        if self._s3_client is None:
-            raise RuntimeError("S3Session not initialized. Use async with S3Session(...) as s3:")
+        assert self._s3_client is not None
         return self._s3_client
 
     @property
-    def http(self) -> niquests.AsyncSession:
-        if self._http is None:
-            raise RuntimeError("S3Session not initialized. Use async with S3Session(...) as s3:")
-        return self._http
+    def http_client(self) -> niquests.AsyncSession:
+        assert self._http_client is not None
+        return self._http_client
 
     async def __aenter__(self) -> Self:
-        session = botocore.session.Session()
-        self._s3_client = session.create_client(
-            "s3",
-            endpoint_url=self.endpoint_url,
-            region_name=self.region,
-            aws_access_key_id=self.access_key,
-            aws_secret_access_key=self.secret_key,
-        )
-        self._http = niquests.AsyncSession()
-        await self._http.__aenter__()
+        await self.http_client.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._http is not None:
-            await self._http.__aexit__(exc_type, exc_val, exc_tb)
-            self._http = None
-        if self._s3_client is not None:
-            self._s3_client.close()
-            self._s3_client = None
+        await self.http_client.__aexit__(exc_type, exc_val, exc_tb)
+        self.s3_client.close()
 
     async def delete_object(self, bucket: str, key: str) -> niquests.Response:
         """Delete an object from S3."""
-        return await s3_delete_object(self.s3_client, self.http, bucket, key)
+        return await s3_delete_object(self.s3_client, self.http_client, bucket, key)
 
     async def delete_objects(self, bucket: str, keys: list[str]) -> list[niquests.Response]:
         """Delete multiple objects from S3."""
-        return await s3_delete_objects(self.s3_client, self.http, bucket, keys)
+        return await s3_delete_objects(self.s3_client, self.http_client, bucket, keys)
 
-    def list_files(self, bucket: str, prefix: str) -> list[dict]:
+    def list_files(self, bucket: str, prefix: str) -> AsyncIterator[S3Object]:
         """List files in an S3 bucket with a given prefix."""
-        return s3_list_files(self.s3_client, bucket, prefix)
+        return s3_list_files(self.s3_client, self.http_client, bucket, prefix)
 
     async def put_object(self, bucket: str, key: str, data: bytes, *, acl: ACL | None = "private") -> niquests.Response:
         """Upload an object to S3."""
-        return await s3_put_object(self.s3_client, self.http, bucket, key, data, acl=acl)
+        return await s3_put_object(self.s3_client, self.http_client, bucket, key, data, acl=acl)
 
     async def upload_file(
         self, bucket: str, file: Path, path: str, *, acl: ACL | None = "private"
     ) -> niquests.Response:
         """Upload a file to S3."""
-        return await s3_upload_file(self.s3_client, self.http, bucket, file, path, acl=acl)
+        return await s3_upload_file(self.s3_client, self.http_client, bucket, file, path, acl=acl)
 
     async def get_object(self, bucket: str, key: str) -> bytes | None:
         """Download an object from S3."""
-        return await s3_get_object(self.s3_client, self.http, bucket, key)
+        return await s3_get_object(self.s3_client, self.http_client, bucket, key)
+
+    async def download_file(
+        self,
+        bucket: str,
+        key: str,
+        on_chunk: Callable[[bytes], None] | None = None,
+        chunk_size: int = 1024 * 1024,
+    ) -> AsyncIterator[bytes]:
+        """Download a file from S3 with streaming support."""
+        async for chunk in s3_download_file(self.s3_client, self.http_client, bucket, key, chunk_size=chunk_size):
+            if on_chunk:
+                on_chunk(chunk)
+            yield chunk
 
     def multipart_upload(self, bucket: str, key: str, *, expires_in: int = 3600):
         """Create a multipart upload context manager."""
-        return s3_multipart_upload(self.s3_client, self.http, bucket, key, expires_in=expires_in)
+        return s3_multipart_upload(self.s3_client, self.http_client, bucket, key, expires_in=expires_in)
 
     async def file_upload(
         self,
@@ -148,7 +171,7 @@ class S3Session:
         """Upload a file to S3 using streaming (multipart for large files)."""
         return await s3_file_upload(
             self.s3_client,
-            self.http,
+            self.http_client,
             bucket,
             key,
             data,
@@ -168,6 +191,14 @@ class UploadPart(TypedDict):
     ETag: str | None
 
 
+class S3Object(TypedDict, total=False):
+    Key: str
+    LastModified: str
+    ETag: str
+    Size: int
+    StorageClass: str
+
+
 async def s3_delete_object(
     s3: botocore.client.BaseClient, client: niquests.AsyncSession, bucket: str, key: str
 ) -> niquests.Response:
@@ -179,9 +210,7 @@ async def s3_delete_object(
             "Key": key,
         },
     )
-    resp = await client.delete(url)
-    resp.raise_for_status()
-    return resp
+    return (await client.delete(url)).raise_for_status()
 
 
 async def s3_delete_objects(
@@ -195,25 +224,53 @@ async def s3_delete_objects(
     return responses
 
 
-def s3_list_files(
+async def s3_list_files(
     s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
     bucket: str,
     prefix: str,
-) -> list[dict]:
+) -> AsyncIterator[S3Object]:
     """
     List files in an S3 bucket with a given prefix.
-    Uses sync botocore client directly (list operations don't use presigned URLs).
+    Uses presigned URLs and niquests for async HTTP requests.
 
-    Returns a list of dicts with 'Key', 'LastModified', 'Size', etc.
+    Yields dicts with 'Key', 'LastModified', 'Size', etc.
     """
-    paginator = s3.get_paginator("list_objects")
-    page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
+    api_version = s3.meta.service_model.api_version
+    ns = {"s3": f"http://s3.amazonaws.com/doc/{api_version}/"}
 
-    files = []
-    for result in page_iterator:
-        for item in result.get("Contents", []):
-            files.append(item)
-    return files
+    continuation_token: str | None = None
+
+    while True:
+        params: dict = {"Bucket": bucket, "Prefix": prefix}
+        if continuation_token:
+            params["ContinuationToken"] = continuation_token
+
+        url = s3.generate_presigned_url(
+            ClientMethod="list_objects_v2",
+            Params=params,
+        )
+
+        resp = (await client.get(url)).raise_for_status()
+        if resp.content is None:
+            return
+        root = ET.fromstring(resp.content)
+
+        for contents in root.findall("s3:Contents", ns):
+            item: S3Object = {}
+            for child in contents:
+                tag = child.tag.replace(f"{{{ns['s3']}}}", "")
+                item[tag] = child.text
+            if "Size" in item:
+                item["Size"] = int(item["Size"])
+            yield item
+
+        is_truncated = root.find("s3:IsTruncated", ns)
+        if is_truncated is not None and is_truncated.text == "true":
+            next_token = root.find("s3:NextContinuationToken", ns)
+            continuation_token = next_token.text if next_token is not None else None
+        else:
+            break
 
 
 async def s3_put_object(
@@ -237,11 +294,7 @@ async def s3_put_object(
         ClientMethod="put_object",
         Params=params,
     )
-    resp = await client.put(url, data=data)
-    try:
-        resp.raise_for_status()
-    except HTTPError:
-        raise
+    resp = (await client.put(url, data=data)).raise_for_status()
     return resp
 
 
@@ -273,10 +326,29 @@ async def s3_get_object(
         },
     )
     resp = await client.get(url)
-    if resp.status_code == 404:
+    if resp.status_code == http.HTTPStatus.NOT_FOUND:
         return None
     resp.raise_for_status()
     return resp.content
+
+
+async def s3_download_file(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+    key: str,
+    *,
+    chunk_size: int = 1024 * 1024,
+) -> AsyncIterator[bytes]:
+    """Download an object from S3 with streaming support."""
+    url = s3.generate_presigned_url(
+        ClientMethod="get_object",
+        Params={"Bucket": bucket, "Key": key},
+    )
+    resp = await client.get(url, stream=True)
+    resp.raise_for_status()
+    async for chunk in await resp.iter_content(chunk_size):
+        yield chunk
 
 
 @asynccontextmanager
@@ -304,17 +376,16 @@ async def s3_multipart_upload(
         )
         xml_payload = f"<CompleteMultipartUpload>{parts_xml}</CompleteMultipartUpload>"
 
-        complete_resp = await client.post(complete_url, data=xml_payload, headers={"Content-Type": "application/xml"})
-        complete_resp.raise_for_status()
-        return complete_resp
+        return (
+            await client.post(complete_url, data=xml_payload, headers={"Content-Type": "application/xml"})
+        ).raise_for_status()
 
     async def fetch_abort():
         nonlocal _has_been_aborted
         if upload_id is None:
             raise ValueError("Upload ID is not set")
         abort_url = _generate_presigned_url("abort_multipart_upload", UploadId=upload_id)
-        abort_resp = await client.delete(abort_url)
-        abort_resp.raise_for_status()
+        abort_resp = (await client.delete(abort_url)).raise_for_status()
         _has_been_aborted = True
         return abort_resp
 
@@ -323,9 +394,7 @@ async def s3_multipart_upload(
         if upload_id is None:
             raise ValueError("Upload ID is not set")
         presigned_url = _generate_presigned_url("upload_part", UploadId=upload_id, PartNumber=_part_number)
-        upload_resp = await client.put(presigned_url, data=data)
-        upload_resp.raise_for_status()
-
+        upload_resp = (await client.put(presigned_url, data=data)).raise_for_status()
         _etag = upload_resp.headers.get("ETag")
         etag: str | None = _etag.decode() if isinstance(_etag, bytes) else _etag
         _part: UploadPart = {"PartNumber": _part_number, "ETag": etag}
