@@ -1,8 +1,8 @@
 ---
-title: 'S3 (Niquests)'
+title: 'S3 (Async)'
 ---
 
-# S3 (Niquests)
+# S3 (Async)
 
 Async S3 helpers using [niquests](https://github.com/jawah/niquests) and [botocore](https://github.com/boto/botocore).
 
@@ -39,7 +39,7 @@ async with S3Session(
     endpoint_url='http://localhost:9000',
     access_key='minioadmin',
     secret_key='minioadmin',
-    region='us-east-1',  # optional, defaults to 'us-east-1'
+    region='us-east-1',
 ) as s3:
     # Upload an object
     await s3.put_object('my-bucket', 'path/to/file.txt', b'Hello, World!')
@@ -97,13 +97,20 @@ Delete multiple objects.
 await s3.delete_objects('my-bucket', ['file1.txt', 'file2.txt'])
 ```
 
-#### `list_files(bucket, prefix)`
+#### `list_files(bucket, prefix, *, search_query=None, max_items=None, page_size=None, starting_token=None)`
 
-List files with a given prefix. This is a synchronous operation.
+List files with a given prefix. Returns an async iterator.
 
 ```python
-files = s3.list_files('my-bucket', 'uploads/')
-for f in files:
+async for f in s3.list_files('my-bucket', 'uploads/'):
+    print(f['Key'], f['Size'])
+
+# With pagination
+async for f in s3.list_files('my-bucket', 'uploads/', max_items=100, page_size=50):
+    print(f['Key'])
+
+# With JMESPath filter (files larger than 100 bytes)
+async for f in s3.list_files('my-bucket', 'uploads/', search_query="Contents[?Size > `100`][]"):
     print(f['Key'], f['Size'])
 ```
 
@@ -162,7 +169,7 @@ async with niquests.AsyncSession() as http:
 | `s3_upload_file` | Upload a file from disk |
 | `s3_delete_object` | Delete a single object |
 | `s3_delete_objects` | Delete multiple objects |
-| `s3_list_files` | List files with prefix (sync) |
+| `s3_list_files` | List files with prefix (async iterator) |
 | `s3_multipart_upload` | Multipart upload context manager |
 | `s3_file_upload` | Stream upload from async iterator |
 

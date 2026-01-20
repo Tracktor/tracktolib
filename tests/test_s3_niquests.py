@@ -25,7 +25,8 @@ def s3_client(loop):
         endpoint_url=f"http://{MINIO_URL}",
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
-        config=S3_CONFIG,
+        region="us-east-1",
+        s3_config=S3_CONFIG,
     )
     loop.run_until_complete(client.__aenter__())
     yield client

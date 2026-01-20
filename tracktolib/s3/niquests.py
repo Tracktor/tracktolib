@@ -80,8 +80,8 @@ class S3Session:
     endpoint_url: str
     access_key: str
     secret_key: str
-    region: str = "us-east-1"
-    config: Config | None = None
+    region: str
+    s3_config: Config | None = None
     _s3_client: botocore.client.BaseClient | None = None
     _http_client: niquests.AsyncSession | None = None
 
@@ -94,19 +94,21 @@ class S3Session:
                 region_name=self.region,
                 aws_access_key_id=self.access_key,
                 aws_secret_access_key=self.secret_key,
-                config=self.config,
+                config=self.s3_config,
             )
         if self._http_client is None:
             self._http_client = niquests.AsyncSession()
 
     @property
     def s3_client(self) -> botocore.client.BaseClient:
-        assert self._s3_client is not None
+        if self._s3_client is None:
+            raise ValueError("s3_client is not initialized")
         return self._s3_client
 
     @property
     def http_client(self) -> niquests.AsyncSession:
-        assert self._http_client is not None
+        if self._http_client is None:
+            raise ValueError("http_client is not initialized")
         return self._http_client
 
     async def __aenter__(self) -> Self:

@@ -17,9 +17,9 @@ Tracktolib is organized into modules, each providing utilities for specific use 
 
 | Module | Extra | Description |
 |--------|-------|-------------|
-| [S3 (Async)](modules/s3.md) | `s3` | Async S3 helpers using aiobotocore |
+| [S3 (Async)](modules/s3-niquests.md) | `s3-niquests` | Async S3 helpers using niquests + botocore |
 | [S3 (MinIO)](modules/s3-minio.md) | `s3-minio` | S3 helpers using MinIO client |
-| [S3 (Niquests)](modules/s3-niquests.md) | `s3-niquests` | S3 helpers using niquests + botocore |
+| [S3 (aiobotocore)](modules/s3.md) | `s3` | Async S3 helpers using aiobotocore (deprecated) |
 
 ## Web
 
