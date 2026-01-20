@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self, TypedDict
+from typing import TYPE_CHECKING, Any, Mapping, Self, Sequence, TypedDict
+
+if TYPE_CHECKING:
+    from .utils import PageComment
 
 
 class CachedDatabase(TypedDict):
@@ -25,9 +27,18 @@ class CachedPageBlocks(TypedDict):
     cached_at: str
 
 
+class CachedPageComments(TypedDict):
+    """Cached comments for a page."""
+
+    page_id: str
+    comments: list[dict[str, Any]]
+    cached_at: str
+
+
 class CacheData(TypedDict, total=False):
     databases: dict[str, CachedDatabase]
     page_blocks: dict[str, CachedPageBlocks]
+    page_comments: dict[str, CachedPageComments]
 
 
 def _default_cache_dir() -> Path:
@@ -176,4 +187,54 @@ class NotionCache:
         """
         if "page_blocks" in self._data:
             self._data["page_blocks"].pop(page_id, None)
+            self._dirty = True
+
+    def get_page_comments(self, page_id: str) -> list[PageComment] | None:
+        """Get cached comments for a page.
+
+        Args:
+            page_id: The Notion page ID
+
+        Returns:
+            List of cached comments, or None if not cached
+        """
+        cached = self._data.get("page_comments", {}).get(page_id)
+        if cached:
+            return cached["comments"]  # type: ignore[return-value]
+        return None
+
+    def set_page_comments(
+        self,
+        page_id: str,
+        comments: Sequence[PageComment],
+    ) -> CachedPageComments:
+        """Cache comments for a page.
+
+        Args:
+            page_id: The Notion page ID
+            comments: List of comments to cache
+
+        Returns:
+            The cached entry
+        """
+        entry: CachedPageComments = {
+            "page_id": page_id,
+            "comments": list(comments),
+            "cached_at": datetime.now().isoformat(),
+        }
+
+        if "page_comments" not in self._data:
+            self._data["page_comments"] = {}
+        self._data["page_comments"][page_id] = entry
+        self._dirty = True
+        return entry
+
+    def delete_page_comments(self, page_id: str) -> None:
+        """Remove cached comments for a page.
+
+        Args:
+            page_id: The Notion page ID to remove from cache
+        """
+        if "page_comments" in self._data:
+            self._data["page_comments"].pop(page_id, None)
             self._dirty = True

@@ -409,6 +409,7 @@ async def fetch_all_page_comments(
     session: niquests.AsyncSession,
     page_id: str,
     *,
+    cache: NotionCache | None = None,
     concurrency: int = DEFAULT_CONCURRENCY,
 ) -> list[PageComment]:
     """Fetch all comments from a page and its blocks.
@@ -416,12 +417,19 @@ async def fetch_all_page_comments(
     Args:
         session: Authenticated niquests session with Notion headers
         page_id: The page to fetch comments from
+        cache: Optional cache to read from and write to
         concurrency: Max concurrent requests (default 50)
 
     Returns:
         List of comments with block context, ordered by block position
     """
-    blocks = await fetch_all_page_blocks(session, page_id)
+    # Try cache first
+    if cache:
+        cached = cache.get_page_comments(page_id)
+        if cached is not None:
+            return cached
+
+    blocks = await fetch_all_page_blocks(session, page_id, cache=cache)
     sem = asyncio.Semaphore(concurrency)
 
     # Fetch comments for all blocks
@@ -458,6 +466,10 @@ async def fetch_all_page_comments(
                 "text": "".join(rt.get("plain_text", "") for rt in c.get("rich_text", [])),
             }
         )
+
+    # Update cache
+    if cache:
+        cache.set_page_comments(page_id, comments)
 
     return comments
 
