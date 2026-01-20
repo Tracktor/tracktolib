@@ -104,13 +104,7 @@ def get_chunks[T](it: Iterable[T], size: int, *, as_list: bool = True) -> Iterat
 
 
 async def get_stream_chunk[S: (bytes, str)](data_stream: AsyncIterable[S], min_size: int) -> AsyncIterator[S]:
-    """
-    Yield chunks of at least min_size from an async stream.
-
-    Buffers incoming data until at least min_size units are accumulated,
-    then yields chunks. Works with bytes, str, or any sliceable sequence.
-    Useful for S3 multipart uploads which require minimum part sizes.
-    """
+    """Buffers an async stream and yields chunks of at least `min_size`."""
     buffer: S | None = None
     buffer_size = 0
 
