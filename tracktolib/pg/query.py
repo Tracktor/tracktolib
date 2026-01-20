@@ -1,6 +1,6 @@
 import typing
 from dataclasses import dataclass, field
-from typing import TypeVar, Iterable, Callable, Generic, Iterator, TypeAlias, overload, Any, Literal
+from typing import Iterable, Callable, Iterator, TypeAlias, overload, Any, Literal
 
 from ..pg_utils import get_conflict_query
 
@@ -11,21 +11,18 @@ except ImportError:
 
 from tracktolib.utils import fill_dict
 
-K = TypeVar("K", bound=str)
-V = TypeVar("V")
 
-
-def _get_insert_query(table: str, columns: Iterable[K], values: str) -> str:
+def _get_insert_query[K: str](table: str, columns: Iterable[K], values: str) -> str:
     _columns = ", ".join(columns)
     return f"INSERT INTO {table} AS t ({_columns}) VALUES ({values})"
 
 
-def _get_returning_query(query: str, returning: Iterable[K]) -> str:
+def _get_returning_query[K: str](query: str, returning: Iterable[K]) -> str:
     _returning = ", ".join(returning)
     return f"{query} RETURNING {_returning}"
 
 
-def _get_on_conflict_query(
+def _get_on_conflict_query[K: str](
     query: str,
     columns: Iterable[K],
     update_columns: Iterable[K] | None,
@@ -47,14 +44,14 @@ def _get_on_conflict_query(
     return f"{query} {_on_conflict}"
 
 
-ReturningFn = Callable[[Iterable[K] | None, K | None], None]
-ConflictFn = Callable[[Iterable[K] | None, Iterable[K] | None, str | None], None]
+type ReturningFn[K: str] = Callable[[Iterable[K] | None, K | None], None]
+type ConflictFn[K: str] = Callable[[Iterable[K] | None, Iterable[K] | None, str | None], None]
 
-_Connection = asyncpg.Connection | asyncpg.pool.Pool
+type _Connection = asyncpg.Connection | asyncpg.pool.Pool
 
 
 @dataclass
-class PGReturningQuery(Generic[K]):
+class PGReturningQuery[K: str]:
     returning_ids: Iterable[K] | None = None
     query: str | None = None
 
@@ -69,7 +66,7 @@ class PGReturningQuery(Generic[K]):
 
 
 @dataclass
-class PGConflictQuery(Generic[K]):
+class PGConflictQuery[K: str]:
     keys: Iterable[K] | None = None
     ignore_keys: Iterable[K] | None = None
     query: str | None = None
@@ -86,7 +83,7 @@ class PGConflictQuery(Generic[K]):
 
 
 @dataclass
-class PGQuery(Generic[K, V]):
+class PGQuery[K: str, V]:
     table: str
     items: list[dict[K, V]]
 
@@ -328,7 +325,7 @@ class PGUpdateQuery(PGQuery):
 OnConflict: TypeAlias = PGConflictQuery | str
 
 
-def insert_pg(
+def insert_pg[K: str](
     table: str,
     items: list[dict],
     *,
@@ -344,8 +341,7 @@ def insert_pg(
     )
 
 
-Q = TypeVar("Q", bound=PGInsertQuery | PGUpdateQuery)
-QueryCallback = Callable[[Q], None]
+type QueryCallback[Q: PGInsertQuery | PGUpdateQuery] = Callable[[Q], None]
 
 
 async def insert_one(
@@ -488,7 +484,7 @@ async def fetch_count(conn: _Connection, query: str, *args) -> int:
     return typing.cast(int, c)
 
 
-def Conflict(
+def Conflict[K: str](
     keys: Iterable[K],
     ignore_keys: Iterable[K] | None = None,
 ) -> PGConflictQuery:

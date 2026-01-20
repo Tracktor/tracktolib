@@ -1,6 +1,13 @@
 import typing
+import warnings
 from io import TextIOWrapper, BufferedWriter
 from typing import BinaryIO, Callable, TextIO
+
+warnings.warn(
+    "tracktolib.http_utils is deprecated and will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 try:
     import httpx

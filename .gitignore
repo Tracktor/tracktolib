@@ -109,6 +109,7 @@ venv.bak/
 tmp/
 tests/junit.xml
 
+.scratch/
 
 # LLMS
 

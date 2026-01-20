@@ -10,10 +10,7 @@ import subprocess
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
-from typing import Iterable, TypeVar, Iterator, Literal, overload, Any, Callable
-
-
-T = TypeVar("T")
+from typing import AsyncIterable, AsyncIterator, Iterable, Iterator, Literal, overload, Any, Callable
 
 type OnCmdUpdate = Callable[[str], None]
 type OnCmdDone = Callable[[str, str, int], None]
@@ -87,22 +84,74 @@ def import_module(path: Path):
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int, *, as_list: Literal[False]) -> Iterator[Iterable[T]]: ...
+def get_chunks[T](it: Iterable[T], size: int, *, as_list: Literal[False]) -> Iterator[Iterable[T]]: ...
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int, *, as_list: Literal[True]) -> Iterator[list[T]]: ...
+def get_chunks[T](it: Iterable[T], size: int, *, as_list: Literal[True]) -> Iterator[list[T]]: ...
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int) -> Iterator[list[T]]: ...
+def get_chunks[T](it: Iterable[T], size: int) -> Iterator[list[T]]: ...
 
 
-def get_chunks(it: Iterable[T], size: int, *, as_list: bool = True) -> Iterator[Iterable[T]]:
+def get_chunks[T](it: Iterable[T], size: int, *, as_list: bool = True) -> Iterator[Iterable[T]]:
     iterator = iter(it)
     for first in iterator:
         d = itertools.chain([first], itertools.islice(iterator, size - 1))
         yield d if not as_list else list(d)
+
+
+async def async_get_chunks[T](it: AsyncIterable[T], size: int) -> AsyncIterator[list[T]]:
+    """Async version of get_chunks that works with AsyncIterable."""
+    chunk: list[T] = []
+    async for item in it:
+        chunk.append(item)
+        if len(chunk) >= size:
+            yield chunk
+            chunk = []
+    if chunk:
+        yield chunk
+
+
+async def async_get_sized_chunks[S: (bytes, str)](data_stream: AsyncIterable[S], min_size: int) -> AsyncIterator[S]:
+    """
+    Yield chunks of at least min_size from an async stream.
+
+    Buffers incoming data until at least min_size units are accumulated,
+    then yields chunks. Works with bytes, str, or any sliceable sequence.
+    Useful for S3 multipart uploads which require minimum part sizes.
+    """
+    buffer: S | None = None
+    buffer_size = 0
+
+    async for chunk in data_stream:
+        if not chunk:
+            continue
+        buffer = chunk if buffer is None else buffer + chunk  # type: ignore[operator]
+        buffer_size += len(chunk)
+
+        # Yield chunks of min_size while we have enough data for at least 2 chunks
+        while buffer_size >= min_size * 2:
+            yield buffer[:min_size]
+            buffer = buffer[min_size:]
+            buffer_size -= min_size
+
+    # Handle the final chunk(s)
+    if buffer is not None and buffer_size > 0:
+        if buffer_size >= min_size:
+            if buffer_size < min_size * 2:
+                yield buffer
+            else:
+                mid_point = buffer_size // 2
+                yield buffer[:mid_point]
+                yield buffer[mid_point:]
+        else:
+            yield buffer
+
+
+# Alias for backward compatibility
+async_get_byte_chunks = async_get_sized_chunks
 
 
 def json_serial(obj):
