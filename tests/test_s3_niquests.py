@@ -167,6 +167,54 @@ class TestS3NiquestsBasicOperations:
 
         loop.run_until_complete(_test())
 
+    @pytest.mark.parametrize(
+        ("search_query", "max_items", "page_size", "expected_count", "expected_keys"),
+        [
+            pytest.param(None, 2, None, 2, None, id="max_items"),
+            pytest.param(None, None, 1, 3, None, id="page_size"),
+            pytest.param(
+                "Contents[?Size > `50`][]",
+                None,
+                None,
+                2,
+                ["filter/large.txt", "filter/medium.txt"],
+                id="search_query",
+            ),
+        ],
+    )
+    def test_list_files_with_filters(
+        self, s3_bucket, loop, search_query, max_items, page_size, expected_count, expected_keys
+    ):
+        """Test listing files with max_items, page_size, and search_query."""
+        from tracktolib.s3.niquests import s3_put_object, s3_list_files
+
+        async def _test():
+            with get_botocore_client() as s3:
+                async with niquests.AsyncSession() as client:
+                    # Create test files with different sizes
+                    await s3_put_object(s3, client, s3_bucket, "filter/small.txt", b"x", acl=None)
+                    await s3_put_object(s3, client, s3_bucket, "filter/medium.txt", b"x" * 100, acl=None)
+                    await s3_put_object(s3, client, s3_bucket, "filter/large.txt", b"x" * 200, acl=None)
+
+                    files = [
+                        f
+                        async for f in s3_list_files(
+                            s3,
+                            client,
+                            s3_bucket,
+                            "filter/",
+                            search_query=search_query,
+                            max_items=max_items,
+                            page_size=page_size,
+                        )
+                    ]
+                    assert len(files) == expected_count
+                    if expected_keys is not None:
+                        keys = sorted([k for f in files if (k := f.get("Key"))])
+                        assert keys == expected_keys
+
+        loop.run_until_complete(_test())
+
 
 @pytest.mark.usefixtures("setup_bucket")
 class TestS3StreamingUpload:

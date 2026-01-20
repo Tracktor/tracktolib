@@ -12,6 +12,7 @@ from typing import AsyncIterator, Callable, Literal, Self, TypedDict
 try:
     import botocore.client
     import botocore.session
+    import jmespath
     from botocore.config import Config
     from botocore.exceptions import ClientError
 except ImportError as e:
@@ -124,9 +125,27 @@ class S3Session:
         """Delete multiple objects from S3."""
         return await s3_delete_objects(self.s3_client, self.http_client, bucket, keys)
 
-    def list_files(self, bucket: str, prefix: str) -> AsyncIterator[S3Object]:
+    def list_files(
+        self,
+        bucket: str,
+        prefix: str,
+        *,
+        search_query: str | None = None,
+        max_items: int | None = None,
+        page_size: int | None = None,
+        starting_token: str | None = None,
+    ) -> AsyncIterator[S3Object]:
         """List files in an S3 bucket with a given prefix."""
-        return s3_list_files(self.s3_client, self.http_client, bucket, prefix)
+        return s3_list_files(
+            self.s3_client,
+            self.http_client,
+            bucket,
+            prefix,
+            search_query=search_query,
+            max_items=max_items,
+            page_size=page_size,
+            starting_token=starting_token,
+        )
 
     async def put_object(self, bucket: str, key: str, data: bytes, *, acl: ACL | None = "private") -> niquests.Response:
         """Upload an object to S3."""
@@ -229,22 +248,32 @@ async def s3_list_files(
     client: niquests.AsyncSession,
     bucket: str,
     prefix: str,
+    *,
+    search_query: str | None = None,
+    max_items: int | None = None,
+    page_size: int | None = None,
+    starting_token: str | None = None,
 ) -> AsyncIterator[S3Object]:
     """
     List files in an S3 bucket with a given prefix.
-    Uses presigned URLs and niquests for async HTTP requests.
 
-    Yields dicts with 'Key', 'LastModified', 'Size', etc.
+    Yields dicts with 'Key', 'LastModified', 'Size', etc. Use `search_query` for
+    JMESPath filtering (e.g. "Contents[?Size > `100`][]"), `max_items` to limit
+    total results, `page_size` to control items per request, and `starting_token`
+    to resume from a previous continuation token.
     """
     api_version = s3.meta.service_model.api_version
     ns = {"s3": f"http://s3.amazonaws.com/doc/{api_version}/"}
 
-    continuation_token: str | None = None
+    continuation_token = starting_token
+    items_yielded = 0
 
     while True:
         params: dict = {"Bucket": bucket, "Prefix": prefix}
         if continuation_token:
             params["ContinuationToken"] = continuation_token
+        if page_size is not None:
+            params["MaxKeys"] = page_size
 
         url = s3.generate_presigned_url(
             ClientMethod="list_objects_v2",
@@ -256,6 +285,7 @@ async def s3_list_files(
             return
         root = ET.fromstring(resp.content)
 
+        page_items: list[S3Object] = []
         for contents in root.findall("s3:Contents", ns):
             item: S3Object = {}
             for child in contents:
@@ -263,7 +293,16 @@ async def s3_list_files(
                 item[tag] = child.text
             if "Size" in item:
                 item["Size"] = int(item["Size"])
+            page_items.append(item)
+
+        if search_query:
+            page_items = jmespath.search(search_query, {"Contents": page_items}) or []
+
+        for item in page_items:
+            if max_items is not None and items_yielded >= max_items:
+                return
             yield item
+            items_yielded += 1
 
         is_truncated = root.find("s3:IsTruncated", ns)
         if is_truncated is not None and is_truncated.text == "true":

@@ -1,7 +1,14 @@
 import datetime as dt
+import warnings
 from io import BytesIO
 from pathlib import Path
 from typing import TypedDict, Literal, Callable
+
+warnings.warn(
+    "tracktolib.s3.s3 is deprecated, use tracktolib.s3.niquests instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 try:
     from aiobotocore.client import AioBaseClient
