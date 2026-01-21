@@ -498,7 +498,8 @@ async def s3_download_file(
         ClientMethod="get_object",
         Params={"Bucket": bucket, "Key": key},
     )
-    resp = (await client.get(url, stream=True)).raise_for_status()
+    resp = await client.get(url, stream=True)
+    resp.raise_for_status()
     if on_start:
         on_start(resp)
     async for chunk in await resp.iter_content(chunk_size):
