@@ -1827,7 +1827,7 @@ requires-dist = [
     { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.103.2" },
     { name = "httpx", marker = "extra == 'http'", specifier = ">=0.25.0" },
     { name = "minio", marker = "extra == 's3-minio'", specifier = ">=7.2.0" },
-    { name = "niquests", marker = "extra == 'notion'", specifier = ">=3.15.2" },
+    { name = "niquests", marker = "extra == 'notion'", specifier = ">=3.17.0" },
     { name = "niquests", marker = "extra == 's3-niquests'", specifier = ">=3.17.0" },
     { name = "psycopg", marker = "extra == 'pg-sync'", specifier = ">=3.1.12" },
     { name = "pycryptodome", marker = "extra == 's3-minio'", specifier = ">=3.20.0" },

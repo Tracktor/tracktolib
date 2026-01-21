@@ -14,7 +14,6 @@ try:
     import botocore.session
     import jmespath
     from botocore.config import Config
-    from botocore.exceptions import ClientError
 except ImportError as e:
     raise ImportError("botocore is required for S3 operations. Install with tracktolib[s3-niquests]") from e
 
@@ -34,6 +33,7 @@ __all__ = (
     "s3_get_object",
     "s3_download_file",
     "s3_upload_file",
+    "s3_create_multipart_upload",
     "s3_multipart_upload",
     "s3_file_upload",
     "S3MultipartUpload",
@@ -203,7 +203,7 @@ class S3Session:
 
 
 S3MultipartUpload = namedtuple(
-    "S3MultipartUpload", ["fetch_complete", "upload_part", "generate_presigned_url", "fetch_abort"]
+    "S3MultipartUpload", ["fetch_create", "fetch_complete", "upload_part", "generate_presigned_url", "fetch_abort"]
 )
 
 
@@ -392,6 +392,36 @@ async def s3_download_file(
         yield chunk
 
 
+async def s3_create_multipart_upload(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+    key: str,
+    *,
+    expires_in: int = 3600,
+    generate_presigned_url: Callable[..., str] | None = None,
+) -> str:
+    """Initiate a multipart upload and return the UploadId."""
+    if generate_presigned_url is not None:
+        url = generate_presigned_url("create_multipart_upload")
+    else:
+        url = s3.generate_presigned_url(
+            ClientMethod="create_multipart_upload",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expires_in,
+        )
+    resp = (await client.post(url)).raise_for_status()
+    if resp.content is None:
+        raise ValueError("Empty response from create_multipart_upload")
+    api_version = s3.meta.service_model.api_version
+    ns = {"s3": f"http://s3.amazonaws.com/doc/{api_version}/"}
+    root = ET.fromstring(resp.content)
+    upload_id_elem = root.find("s3:UploadId", ns)
+    if upload_id_elem is None or upload_id_elem.text is None:
+        raise ValueError("UploadId not found in response")
+    return upload_id_elem.text
+
+
 @asynccontextmanager
 async def s3_multipart_upload(
     s3: botocore.client.BaseClient,
@@ -448,17 +478,21 @@ async def s3_multipart_upload(
             ClientMethod=method, Params={"Bucket": bucket, "Key": key, **params}, ExpiresIn=expires_in
         )
 
+    async def fetch_create() -> str:
+        nonlocal upload_id
+        upload_id = await s3_create_multipart_upload(
+            s3, client, bucket, key, expires_in=expires_in, generate_presigned_url=_generate_presigned_url
+        )
+        return upload_id
+
     try:
-        response = s3.create_multipart_upload(Bucket=bucket, Key=key)
-        upload_id = response["UploadId"]
         yield S3MultipartUpload(
+            fetch_create=fetch_create,
             fetch_complete=fetch_complete,
             upload_part=upload_part,
             fetch_abort=fetch_abort,
             generate_presigned_url=_generate_presigned_url,
         )
-    except ClientError as e:
-        raise Exception(f"Failed to initiate multipart upload: {e}") from e
     except Exception as e:
         if not _has_been_aborted and upload_id is not None:
             await fetch_abort()
@@ -497,6 +531,7 @@ async def s3_file_upload(
         return
 
     async with s3_multipart_upload(s3, client, bucket=bucket, key=key) as mpart:
+        await mpart.fetch_create()
         has_uploaded_parts = False
         async for chunk in get_stream_chunk(data, min_size=min_part_size):
             if on_chunk_received:

@@ -232,6 +232,7 @@ class TestS3StreamingUpload:
                     part2 = b"B" * (5 * 1024 * 1024)  # 5MB
 
                     async with s3_multipart_upload(s3, client, s3_bucket, key) as mpart:
+                        await mpart.fetch_create()
                         await mpart.upload_part(part1)
                         await mpart.upload_part(part2)
 
@@ -252,6 +253,7 @@ class TestS3StreamingUpload:
                     part1 = b"A" * (5 * 1024 * 1024)
 
                     async with s3_multipart_upload(s3, client, s3_bucket, key) as mpart:
+                        await mpart.fetch_create()
                         await mpart.upload_part(part1)
                         await mpart.fetch_abort()
 

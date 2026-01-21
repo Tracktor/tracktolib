@@ -47,11 +47,8 @@ pg = [
     "rich>=13.6.0",
 ]
 notion = [
-    "niquests>=3.15.2"
+    "niquests>=3.17.0"
 ]
-
-[project.scripts]
-tracktolib-examples = "examples.run:cli.run"
 
 [dependency-groups]
 dev = [
