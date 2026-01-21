@@ -272,9 +272,12 @@ class S3Session:
         key: str,
         on_chunk: Callable[[bytes], None] | None = None,
         chunk_size: int = 1024 * 1024,
+        on_start: OnDownloadStartFn | None = None,
     ) -> AsyncIterator[bytes]:
         """Download a file from S3 with streaming support."""
-        async for chunk in s3_download_file(self._s3, self.http_client, bucket, key, chunk_size=chunk_size):
+        async for chunk in s3_download_file(
+            self._s3, self.http_client, bucket, key, chunk_size=chunk_size, on_start=on_start
+        ):
             if on_chunk:
                 on_chunk(chunk)
             yield chunk
@@ -478,6 +481,9 @@ async def s3_get_object(
     return resp.content
 
 
+type OnDownloadStartFn = Callable[[niquests.AsyncResponse], None]
+
+
 async def s3_download_file(
     s3: botocore.client.BaseClient,
     client: niquests.AsyncSession,
@@ -485,14 +491,16 @@ async def s3_download_file(
     key: str,
     *,
     chunk_size: int = 1024 * 1024,
+    on_start: OnDownloadStartFn | None = None,
 ) -> AsyncIterator[bytes]:
     """Download an object from S3 with streaming support."""
     url = s3.generate_presigned_url(
         ClientMethod="get_object",
         Params={"Bucket": bucket, "Key": key},
     )
-    resp = await client.get(url, stream=True)
-    resp.raise_for_status()
+    resp = (await client.get(url, stream=True)).raise_for_status()
+    if on_start:
+        on_start(resp)
     async for chunk in await resp.iter_content(chunk_size):
         yield chunk
 
