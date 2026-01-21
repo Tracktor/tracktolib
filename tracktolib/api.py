@@ -4,7 +4,6 @@ from collections.abc import Mapping
 from dataclasses import field, dataclass
 from inspect import getdoc
 from typing import (
-    TypeVar,
     Callable,
     Any,
     Literal,
@@ -31,11 +30,9 @@ try:
 except ImportError:
     raise ImportError('Please install fastapi, pydantic or tracktolib with "api" to use this module')
 
-D = TypeVar("D")
-
 
 # noqa: N802
-def Depends(
+def Depends[D](
     dependency: Callable[
         ...,
         Coroutine[Any, Any, D] | Coroutine[Any, Any, D | None] | AsyncIterator[D] | D,
@@ -48,20 +45,19 @@ def Depends(
     return params.Depends(dependency, use_cache=use_cache)  # pyright: ignore [reportReturnType]
 
 
-B = TypeVar("B", bound=BaseModel | None | Sequence[BaseModel])
-
-Response = Mapping | Sequence[Mapping] | B
+type _BaseModelBound = BaseModel | None | Sequence[BaseModel]
+type Response[B: _BaseModelBound] = Mapping | Sequence[Mapping] | B
 
 Method = Literal["GET", "POST", "DELETE", "PATCH", "PUT"]
 
-EnpointFn = Callable[..., Response]
+type EnpointFn[B: _BaseModelBound] = Callable[..., Response[B]]
 
 Dependencies: TypeAlias = Sequence[params.Depends] | None
 StatusCode: TypeAlias = int | None
 
 
 class MethodMeta(TypedDict):
-    fn: EnpointFn
+    fn: EnpointFn[Any]
     status_code: StatusCode
     dependencies: Dependencies
     path: str | None
@@ -81,7 +77,7 @@ class Endpoint:
     def methods(self):
         return self._methods
 
-    def get(
+    def get[B: _BaseModelBound](
         self,
         status_code: StatusCode = None,
         dependencies: Dependencies = None,
@@ -107,7 +103,7 @@ class Endpoint:
             deprecated=deprecated,
         )
 
-    def post(
+    def post[B: _BaseModelBound](
         self,
         *,
         status_code: StatusCode = None,
@@ -134,7 +130,7 @@ class Endpoint:
             deprecated=deprecated,
         )
 
-    def put(
+    def put[B: _BaseModelBound](
         self,
         status_code: StatusCode = None,
         dependencies: Dependencies = None,
@@ -160,7 +156,7 @@ class Endpoint:
             deprecated=deprecated,
         )
 
-    def delete(
+    def delete[B: _BaseModelBound](
         self,
         status_code: StatusCode = None,
         dependencies: Dependencies = None,
@@ -186,7 +182,7 @@ class Endpoint:
             deprecated=deprecated,
         )
 
-    def patch(
+    def patch[B: _BaseModelBound](
         self,
         status_code: StatusCode = None,
         dependencies: Dependencies = None,
@@ -213,7 +209,7 @@ class Endpoint:
         )
 
 
-def _get_method_wrapper(
+def _get_method_wrapper[B: _BaseModelBound](
     cls: Endpoint,
     method: Method,
     *,
@@ -339,7 +335,7 @@ def check_status(resp, status: int = starlette.status.HTTP_200_OK):
         raise AssertionError(json.dumps(resp.json(), indent=4))
 
 
-def generate_list_name_model(model: Type[B], status: int | None = None) -> dict:
+def generate_list_name_model[B: _BaseModelBound](model: Type[B], status: int | None = None) -> dict:
     _status = "200" if status is None else str(status)
     if get_origin(model) and get_origin(model) is list:
         _title = f"Array[{get_args(model)[0].__name__}]"

@@ -1,5 +1,5 @@
-import sys
-from types import ModuleType
+from pathlib import Path
+
 import asyncio
 import datetime as dt
 import importlib.util
@@ -7,13 +7,11 @@ import itertools
 import mmap
 import os
 import subprocess
+import sys
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
-from pathlib import Path
-from typing import Iterable, TypeVar, Iterator, Literal, overload, Any, Callable
-
-
-T = TypeVar("T")
+from types import ModuleType
+from typing import AsyncIterable, AsyncIterator, Iterable, Iterator, Literal, overload, Any, Callable
 
 type OnCmdUpdate = Callable[[str], None]
 type OnCmdDone = Callable[[str, str, int], None]
@@ -87,22 +85,44 @@ def import_module(path: Path):
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int, *, as_list: Literal[False]) -> Iterator[Iterable[T]]: ...
+def get_chunks[T](it: Iterable[T], size: int, *, as_list: Literal[False]) -> Iterator[Iterable[T]]: ...
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int, *, as_list: Literal[True]) -> Iterator[list[T]]: ...
+def get_chunks[T](it: Iterable[T], size: int, *, as_list: Literal[True]) -> Iterator[list[T]]: ...
 
 
 @overload
-def get_chunks(it: Iterable[T], size: int) -> Iterator[list[T]]: ...
+def get_chunks[T](it: Iterable[T], size: int) -> Iterator[list[T]]: ...
 
 
-def get_chunks(it: Iterable[T], size: int, *, as_list: bool = True) -> Iterator[Iterable[T]]:
+def get_chunks[T](it: Iterable[T], size: int, *, as_list: bool = True) -> Iterator[Iterable[T]]:
     iterator = iter(it)
     for first in iterator:
         d = itertools.chain([first], itertools.islice(iterator, size - 1))
         yield d if not as_list else list(d)
+
+
+async def get_stream_chunk[S: (bytes, str)](data_stream: AsyncIterable[S], min_size: int) -> AsyncIterator[S]:
+    """Buffers an async stream and yields chunks of at least `min_size`."""
+    buffer: S | None = None
+    buffer_size = 0
+
+    async for chunk in data_stream:
+        if not chunk:
+            continue
+        buffer = chunk if buffer is None else buffer + chunk  # type: ignore[operator]
+        buffer_size += len(chunk)
+
+        # Yield chunks of min_size while we have enough data for at least 2 chunks
+        while buffer_size >= min_size * 2:
+            yield buffer[:min_size]
+            buffer = buffer[min_size:]
+            buffer_size -= min_size
+
+    # Handle the final chunk(s)
+    if buffer is not None and buffer_size > 0:
+        yield buffer
 
 
 def json_serial(obj):

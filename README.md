@@ -2,9 +2,9 @@
 
 [![Python versions](https://img.shields.io/pypi/pyversions/tracktolib)](https://pypi.python.org/pypi/tracktolib)
 [![Latest PyPI version](https://img.shields.io/pypi/v/tracktolib?logo=pypi)](https://pypi.python.org/pypi/tracktolib)
-[![CircleCI](https://circleci.com/gh/Tracktor/tracktolib/tree/master.svg?style=shield)](https://app.circleci.com/pipelines/github/Tracktor/tracktolib?branch=master)
+[![CI](https://github.com/Tracktor/tracktolib/actions/workflows/ci.yml/badge.svg)](https://github.com/Tracktor/tracktolib/actions/workflows/ci.yml)
 
-Utility library for Python 3.12+
+Tracktor Swiss-knife Utility library.
 
 ## Installation
 
@@ -85,7 +85,15 @@ S3 helpers using [minio](https://min.io/docs/minio/linux/developers/python/API.h
 uv add tracktolib[s3-minio]
 ```
 
-### http
+### s3-niquests
+
+Async S3 helpers using [niquests](https://github.com/jawah/niquests) and [botocore](https://github.com/boto/botocore).
+
+```bash
+uv add tracktolib[s3-niquests]
+```
+
+### http (deprecated)
 
 HTTP client helpers using [httpx](https://www.python-httpx.org/).
 

@@ -47,18 +47,18 @@ def fetch_count(engine: Connection, table: str, *args, where: str | None = None)
 
 
 @overload
-def fetch_one(engine: Connection, query: Query, *args, required: Literal[False]) -> dict | None: ...
+def fetch_one(engine: Connection, query: LiteralString, *args, required: Literal[False]) -> dict | None: ...
 
 
 @overload
-def fetch_one(engine: Connection, query: Query, *args, required: Literal[True]) -> dict: ...
+def fetch_one(engine: Connection, query: LiteralString, *args, required: Literal[True]) -> dict: ...
 
 
 @overload
-def fetch_one(engine: Connection, query: Query, *args) -> dict | None: ...
+def fetch_one(engine: Connection, query: LiteralString, *args) -> dict | None: ...
 
 
-def fetch_one(engine: Connection, query: Query, *args, required: bool = False) -> dict | None:
+def fetch_one(engine: Connection, query: LiteralString, *args, required: bool = False) -> dict | None:
     with engine.cursor(row_factory=dict_row) as cur:
         _data = cur.execute(query, args).fetchone()
     engine.commit()
