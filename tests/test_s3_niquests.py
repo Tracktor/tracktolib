@@ -108,6 +108,28 @@ class TestS3Session:
 
         loop.run_until_complete(_test())
 
+    @pytest.mark.parametrize(
+        "acl",
+        [
+            pytest.param(None, id="acl_none"),
+            pytest.param("private", id="acl_private"),
+            pytest.param("public-read", id="acl_public_read"),
+        ],
+    )
+    def test_session_put_object_with_acl(self, s3_bucket, loop, s3_client, acl):
+        """Test S3Session.put_object with different ACL values."""
+
+        async def _test():
+            key = f"session-test/acl-{acl}.txt"
+            test_data = b"Hello with ACL from S3Session!"
+            resp = await s3_client.put_object(s3_bucket, key, test_data, acl=acl)
+            assert resp.status_code == 200
+
+            result = await s3_client.get_object(s3_bucket, key)
+            assert result == test_data
+
+        loop.run_until_complete(_test())
+
 
 @pytest.mark.usefixtures("setup_bucket")
 class TestS3NiquestsBasicOperations:
@@ -142,6 +164,32 @@ class TestS3NiquestsBasicOperations:
                         assert resp.status_code == expected_status
                         result = await s3_get_object(s3, client, s3_bucket, key)
                         assert result is None
+
+        loop.run_until_complete(_test())
+
+    @pytest.mark.parametrize(
+        "acl",
+        [
+            pytest.param(None, id="acl_none"),
+            pytest.param("private", id="acl_private"),
+            pytest.param("public-read", id="acl_public_read"),
+        ],
+    )
+    def test_put_object_with_acl(self, s3_bucket, loop, acl):
+        """Test put_object with different ACL values."""
+        from tracktolib.s3.niquests import s3_put_object, s3_get_object
+
+        async def _test():
+            with get_botocore_client() as s3:
+                async with niquests.AsyncSession() as client:
+                    key = f"test/acl-test-{acl}.txt"
+                    data = b"Hello with ACL!"
+                    resp = await s3_put_object(s3, client, s3_bucket, key, data, acl=acl)
+                    assert resp.status_code == 200
+
+                    # Verify content was uploaded correctly
+                    result = await s3_get_object(s3, client, s3_bucket, key)
+                    assert result == data
 
         loop.run_until_complete(_test())
 
@@ -301,6 +349,75 @@ class TestS3StreamingUpload:
                     )
 
                     assert received_size == data_size
+                    result = await s3_get_object(s3, client, s3_bucket, key)
+                    assert result == test_data
+
+        loop.run_until_complete(_test())
+
+    def test_s3_file_upload_with_custom_http_session(self, s3_bucket, loop):
+        """Test s3_file_upload with external multiplexed niquests.AsyncSession."""
+        from tracktolib.s3.niquests import s3_file_upload, s3_get_object
+
+        async def _test():
+            with get_botocore_client() as s3:
+                async with niquests.AsyncSession(multiplexed=True) as client:
+                    key = "test/custom-session-stream.bin"
+                    data_size = 12 * 1024 * 1024
+                    chunk_size = 3 * 1024 * 1024
+                    test_data = b"Y" * data_size
+
+                    async def data_stream():
+                        for i in range(0, len(test_data), chunk_size):
+                            yield test_data[i : i + chunk_size]
+
+                    await s3_file_upload(
+                        s3,
+                        client,
+                        s3_bucket,
+                        key,
+                        data_stream(),
+                        min_part_size=5 * 1024 * 1024,
+                    )
+
+                    result = await s3_get_object(s3, client, s3_bucket, key)
+                    assert result == test_data
+
+        loop.run_until_complete(_test())
+
+    @pytest.mark.parametrize(
+        "acl",
+        [
+            pytest.param(None, id="acl_none"),
+            pytest.param("private", id="acl_private"),
+            pytest.param("public-read", id="acl_public_read"),
+        ],
+    )
+    def test_s3_file_upload_with_acl(self, s3_bucket, loop, acl):
+        """Test s3_file_upload with different ACL values."""
+        from tracktolib.s3.niquests import s3_file_upload, s3_get_object
+
+        async def _test():
+            with get_botocore_client() as s3:
+                async with niquests.AsyncSession() as client:
+                    key = f"test/acl-stream-{acl}.bin"
+                    data_size = 12 * 1024 * 1024
+                    chunk_size = 3 * 1024 * 1024
+                    test_data = b"Z" * data_size
+
+                    async def data_stream():
+                        for i in range(0, len(test_data), chunk_size):
+                            yield test_data[i : i + chunk_size]
+
+                    await s3_file_upload(
+                        s3,
+                        client,
+                        s3_bucket,
+                        key,
+                        data_stream(),
+                        min_part_size=5 * 1024 * 1024,
+                        acl=acl,
+                    )
+
                     result = await s3_get_object(s3, client, s3_bucket, key)
                     assert result == test_data
 
