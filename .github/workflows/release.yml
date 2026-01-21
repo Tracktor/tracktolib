@@ -27,7 +27,7 @@ jobs:
       - name: Configure Git
         run: |
           git config --global user.email "sre@tracktor.fr"
-          git config --global user.name "tracktor-sre"
+          git config --global user.name "trackthor-sre"
 
       - name: Bump version
         run: |
