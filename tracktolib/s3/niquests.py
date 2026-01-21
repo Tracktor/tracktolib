@@ -6,8 +6,8 @@ from pathlib import Path
 import http
 import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from typing import AsyncIterator, Callable, Literal, Self, TypedDict
+from dataclasses import dataclass, field
+from typing import AsyncIterator, Callable, Literal, Self, TypedDict, Unpack
 
 try:
     import botocore.client
@@ -38,7 +38,10 @@ __all__ = (
     "s3_file_upload",
     "S3MultipartUpload",
     "S3Object",
+    "S3ObjectParams",
     "UploadPart",
+    "build_s3_headers",
+    "build_s3_presigned_params",
 )
 
 ACL = Literal[
@@ -50,6 +53,112 @@ ACL = Literal[
     "bucket-owner-read",
     "bucket-owner-full-control",
 ]
+
+StorageClass = Literal[
+    "STANDARD",
+    "REDUCED_REDUNDANCY",
+    "STANDARD_IA",
+    "ONEZONE_IA",
+    "INTELLIGENT_TIERING",
+    "GLACIER",
+    "DEEP_ARCHIVE",
+    "OUTPOSTS",
+    "GLACIER_IR",
+    "EXPRESS_ONEZONE",
+]
+
+ServerSideEncryption = Literal["AES256", "aws:kms", "aws:kms:dsse"]
+
+
+class S3ObjectParams(TypedDict, total=False):
+    """
+    Parameters for S3 object uploads (PutObject, CreateMultipartUpload).
+
+    See:
+    - https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
+    - https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateMultipartUpload.html
+    """
+
+    acl: ACL | None
+    content_type: str | None
+    content_disposition: str | None
+    content_encoding: str | None
+    content_language: str | None
+    cache_control: str | None
+    storage_class: StorageClass | None
+    server_side_encryption: ServerSideEncryption | None
+    sse_kms_key_id: str | None
+    tagging: str | None  # URL-encoded key=value pairs
+    metadata: dict[str, str] | None  # User-defined metadata (x-amz-meta-*)
+
+
+def build_s3_headers(params: S3ObjectParams) -> dict[str, str]:
+    """
+    Build S3 request headers from S3ObjectParams.
+
+    Returns a dict of HTTP headers to include in the request.
+    """
+    headers: dict[str, str] = {}
+
+    if (acl := params.get("acl")) is not None:
+        headers["x-amz-acl"] = acl
+    if (content_type := params.get("content_type")) is not None:
+        headers["Content-Type"] = content_type
+    if (content_disposition := params.get("content_disposition")) is not None:
+        headers["Content-Disposition"] = content_disposition
+    if (content_encoding := params.get("content_encoding")) is not None:
+        headers["Content-Encoding"] = content_encoding
+    if (content_language := params.get("content_language")) is not None:
+        headers["Content-Language"] = content_language
+    if (cache_control := params.get("cache_control")) is not None:
+        headers["Cache-Control"] = cache_control
+    if (storage_class := params.get("storage_class")) is not None:
+        headers["x-amz-storage-class"] = storage_class
+    if (sse := params.get("server_side_encryption")) is not None:
+        headers["x-amz-server-side-encryption"] = sse
+    if (sse_kms_key_id := params.get("sse_kms_key_id")) is not None:
+        headers["x-amz-server-side-encryption-aws-kms-key-id"] = sse_kms_key_id
+    if (tagging := params.get("tagging")) is not None:
+        headers["x-amz-tagging"] = tagging
+    if (metadata := params.get("metadata")) is not None:
+        for key, value in metadata.items():
+            headers[f"x-amz-meta-{key}"] = value
+
+    return headers
+
+
+def build_s3_presigned_params(bucket: str, key: str, params: S3ObjectParams) -> dict:
+    """
+    Build parameters dict for botocore generate_presigned_url.
+
+    Maps S3ObjectParams to the Params dict expected by botocore.
+    """
+    presigned_params: dict = {"Bucket": bucket, "Key": key}
+
+    if (acl := params.get("acl")) is not None:
+        presigned_params["ACL"] = acl
+    if (content_type := params.get("content_type")) is not None:
+        presigned_params["ContentType"] = content_type
+    if (content_disposition := params.get("content_disposition")) is not None:
+        presigned_params["ContentDisposition"] = content_disposition
+    if (content_encoding := params.get("content_encoding")) is not None:
+        presigned_params["ContentEncoding"] = content_encoding
+    if (content_language := params.get("content_language")) is not None:
+        presigned_params["ContentLanguage"] = content_language
+    if (cache_control := params.get("cache_control")) is not None:
+        presigned_params["CacheControl"] = cache_control
+    if (storage_class := params.get("storage_class")) is not None:
+        presigned_params["StorageClass"] = storage_class
+    if (sse := params.get("server_side_encryption")) is not None:
+        presigned_params["ServerSideEncryption"] = sse
+    if (sse_kms_key_id := params.get("sse_kms_key_id")) is not None:
+        presigned_params["SSEKMSKeyId"] = sse_kms_key_id
+    if (tagging := params.get("tagging")) is not None:
+        presigned_params["Tagging"] = tagging
+    if (metadata := params.get("metadata")) is not None:
+        presigned_params["Metadata"] = metadata
+
+    return presigned_params
 
 
 @dataclass
@@ -82,13 +191,13 @@ class S3Session:
     secret_key: str
     region: str
     s3_config: Config | None = None
-    _s3_client: botocore.client.BaseClient | None = None
-    _http_client: niquests.AsyncSession | None = None
+    s3_client: botocore.client.BaseClient | None = None
+    http_client: niquests.AsyncSession = field(default_factory=niquests.AsyncSession)
 
     def __post_init__(self):
-        if self._s3_client is None:
+        if self.s3_client is None:
             session = botocore.session.Session()
-            self._s3_client = session.create_client(
+            self.s3_client = session.create_client(
                 "s3",
                 endpoint_url=self.endpoint_url,
                 region_name=self.region,
@@ -96,20 +205,12 @@ class S3Session:
                 aws_secret_access_key=self.secret_key,
                 config=self.s3_config,
             )
-        if self._http_client is None:
-            self._http_client = niquests.AsyncSession()
 
     @property
-    def s3_client(self) -> botocore.client.BaseClient:
-        if self._s3_client is None:
-            raise ValueError("s3_client is not initialized")
-        return self._s3_client
-
-    @property
-    def http_client(self) -> niquests.AsyncSession:
-        if self._http_client is None:
-            raise ValueError("http_client is not initialized")
-        return self._http_client
+    def _s3(self) -> botocore.client.BaseClient:
+        if self.s3_client is None:
+            raise ValueError("s3_client not initialized")
+        return self.s3_client
 
     async def __aenter__(self) -> Self:
         await self.http_client.__aenter__()
@@ -117,15 +218,15 @@ class S3Session:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.http_client.__aexit__(exc_type, exc_val, exc_tb)
-        self.s3_client.close()
+        self._s3.close()
 
     async def delete_object(self, bucket: str, key: str) -> niquests.Response:
         """Delete an object from S3."""
-        return await s3_delete_object(self.s3_client, self.http_client, bucket, key)
+        return await s3_delete_object(self._s3, self.http_client, bucket, key)
 
     async def delete_objects(self, bucket: str, keys: list[str]) -> list[niquests.Response]:
         """Delete multiple objects from S3."""
-        return await s3_delete_objects(self.s3_client, self.http_client, bucket, keys)
+        return await s3_delete_objects(self._s3, self.http_client, bucket, keys)
 
     def list_files(
         self,
@@ -139,7 +240,7 @@ class S3Session:
     ) -> AsyncIterator[S3Object]:
         """List files in an S3 bucket with a given prefix."""
         return s3_list_files(
-            self.s3_client,
+            self._s3,
             self.http_client,
             bucket,
             prefix,
@@ -149,19 +250,21 @@ class S3Session:
             starting_token=starting_token,
         )
 
-    async def put_object(self, bucket: str, key: str, data: bytes, *, acl: ACL | None = "private") -> niquests.Response:
+    async def put_object(
+        self, bucket: str, key: str, data: bytes, **kwargs: Unpack[S3ObjectParams]
+    ) -> niquests.Response:
         """Upload an object to S3."""
-        return await s3_put_object(self.s3_client, self.http_client, bucket, key, data, acl=acl)
+        return await s3_put_object(self._s3, self.http_client, bucket, key, data, **kwargs)
 
     async def upload_file(
-        self, bucket: str, file: Path, path: str, *, acl: ACL | None = "private"
+        self, bucket: str, file: Path, path: str, **kwargs: Unpack[S3ObjectParams]
     ) -> niquests.Response:
         """Upload a file to S3."""
-        return await s3_upload_file(self.s3_client, self.http_client, bucket, file, path, acl=acl)
+        return await s3_upload_file(self._s3, self.http_client, bucket, file, path, **kwargs)
 
     async def get_object(self, bucket: str, key: str) -> bytes | None:
         """Download an object from S3."""
-        return await s3_get_object(self.s3_client, self.http_client, bucket, key)
+        return await s3_get_object(self._s3, self.http_client, bucket, key)
 
     async def download_file(
         self,
@@ -171,27 +274,29 @@ class S3Session:
         chunk_size: int = 1024 * 1024,
     ) -> AsyncIterator[bytes]:
         """Download a file from S3 with streaming support."""
-        async for chunk in s3_download_file(self.s3_client, self.http_client, bucket, key, chunk_size=chunk_size):
+        async for chunk in s3_download_file(self._s3, self.http_client, bucket, key, chunk_size=chunk_size):
             if on_chunk:
                 on_chunk(chunk)
             yield chunk
 
-    def multipart_upload(self, bucket: str, key: str, *, expires_in: int = 3600):
+    def multipart_upload(self, bucket: str, key: str, *, expires_in: int = 3600, **kwargs: Unpack[S3ObjectParams]):
         """Create a multipart upload context manager."""
-        return s3_multipart_upload(self.s3_client, self.http_client, bucket, key, expires_in=expires_in)
+        return s3_multipart_upload(self._s3, self.http_client, bucket, key, expires_in=expires_in, **kwargs)
 
     async def file_upload(
         self,
         bucket: str,
         key: str,
         data: AsyncIterator[bytes],
+        *,
         min_part_size: int = 5 * 1024 * 1024,
         on_chunk_received: Callable[[bytes], None] | None = None,
         content_length: int | None = None,
+        **kwargs: Unpack[S3ObjectParams],
     ) -> None:
         """Upload a file to S3 using streaming (multipart for large files)."""
         return await s3_file_upload(
-            self.s3_client,
+            self._s3,
             self.http_client,
             bucket,
             key,
@@ -199,6 +304,7 @@ class S3Session:
             min_part_size=min_part_size,
             on_chunk_received=on_chunk_received,
             content_length=content_length,
+            **kwargs,
         )
 
 
@@ -320,22 +426,22 @@ async def s3_put_object(
     bucket: str,
     key: str,
     data: bytes,
-    *,
-    acl: ACL | None = "private",
+    **kwargs: Unpack[S3ObjectParams],
 ) -> niquests.Response:
-    """Upload an object to S3 using presigned URL."""
-    params: dict = {
-        "Bucket": bucket,
-        "Key": key,
-    }
-    if acl is not None:
-        params["ACL"] = acl
+    """
+    Upload an object to S3 using presigned URL.
+
+    See: https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
+    """
+    obj_params: S3ObjectParams = kwargs
+    presigned_params = build_s3_presigned_params(bucket, key, obj_params)
+    headers = build_s3_headers(obj_params)
 
     url = s3.generate_presigned_url(
         ClientMethod="put_object",
-        Params=params,
+        Params=presigned_params,
     )
-    resp = (await client.put(url, data=data)).raise_for_status()
+    resp = (await client.put(url, data=data, headers=headers if headers else None)).raise_for_status()
     return resp
 
 
@@ -345,14 +451,13 @@ async def s3_upload_file(
     bucket: str,
     file: Path,
     path: str,
-    *,
-    acl: ACL | None = "private",
+    **kwargs: Unpack[S3ObjectParams],
 ) -> niquests.Response:
     """
     Upload a file to S3 using presigned URL.
     This is a convenience wrapper around s3_put_object that reads the file content.
     """
-    return await s3_put_object(s3, client, bucket, path, file.read_bytes(), acl=acl)
+    return await s3_put_object(s3, client, bucket, path, file.read_bytes(), **kwargs)
 
 
 async def s3_get_object(
@@ -400,17 +505,26 @@ async def s3_create_multipart_upload(
     *,
     expires_in: int = 3600,
     generate_presigned_url: Callable[..., str] | None = None,
+    **kwargs: Unpack[S3ObjectParams],
 ) -> str:
-    """Initiate a multipart upload and return the UploadId."""
+    """
+    Initiate a multipart upload and return the UploadId.
+
+    See: https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateMultipartUpload.html
+    """
+    obj_params: S3ObjectParams = kwargs
+    headers = build_s3_headers(obj_params)
+
     if generate_presigned_url is not None:
         url = generate_presigned_url("create_multipart_upload")
     else:
+        presigned_params = build_s3_presigned_params(bucket, key, obj_params)
         url = s3.generate_presigned_url(
             ClientMethod="create_multipart_upload",
-            Params={"Bucket": bucket, "Key": key},
+            Params=presigned_params,
             ExpiresIn=expires_in,
         )
-    resp = (await client.post(url)).raise_for_status()
+    resp = (await client.post(url, headers=headers if headers else None)).raise_for_status()
     if resp.content is None:
         raise ValueError("Empty response from create_multipart_upload")
     api_version = s3.meta.service_model.api_version
@@ -430,8 +544,10 @@ async def s3_multipart_upload(
     key: str,
     *,
     expires_in: int = 3600,
+    **kwargs: Unpack[S3ObjectParams],
 ) -> AsyncIterator[S3MultipartUpload]:
     """Async context manager for S3 multipart upload with automatic cleanup."""
+    obj_params: S3ObjectParams = kwargs
     upload_id: str | None = None
     _part_number: int = 1
     _parts: list[UploadPart] = []
@@ -474,14 +590,16 @@ async def s3_multipart_upload(
         return _part
 
     def _generate_presigned_url(method: str, **params):
-        return s3.generate_presigned_url(
-            ClientMethod=method, Params={"Bucket": bucket, "Key": key, **params}, ExpiresIn=expires_in
-        )
+        if method == "create_multipart_upload":
+            _params = {**build_s3_presigned_params(bucket, key, obj_params), **params}
+        else:
+            _params = {"Bucket": bucket, "Key": key, **params}
+        return s3.generate_presigned_url(ClientMethod=method, Params=_params, ExpiresIn=expires_in)
 
     async def fetch_create() -> str:
         nonlocal upload_id
         upload_id = await s3_create_multipart_upload(
-            s3, client, bucket, key, expires_in=expires_in, generate_presigned_url=_generate_presigned_url
+            s3, client, bucket, key, expires_in=expires_in, generate_presigned_url=_generate_presigned_url, **kwargs
         )
         return upload_id
 
@@ -508,10 +626,12 @@ async def s3_file_upload(
     bucket: str,
     key: str,
     data: AsyncIterator[bytes],
+    *,
     # 5MB minimum for S3 parts
     min_part_size: int = 5 * 1024 * 1024,
     on_chunk_received: Callable[[bytes], None] | None = None,
     content_length: int | None = None,
+    **kwargs: Unpack[S3ObjectParams],
 ) -> None:
     """
     Upload a file to S3 from an async byte stream.
@@ -527,10 +647,10 @@ async def s3_file_upload(
             _data += chunk
             if on_chunk_received:
                 on_chunk_received(chunk)
-        await s3_put_object(s3, client, bucket=bucket, key=key, data=_data, acl=None)
+        await s3_put_object(s3, client, bucket=bucket, key=key, data=_data, **kwargs)
         return
 
-    async with s3_multipart_upload(s3, client, bucket=bucket, key=key) as mpart:
+    async with s3_multipart_upload(s3, client, bucket=bucket, key=key, **kwargs) as mpart:
         await mpart.fetch_create()
         has_uploaded_parts = False
         async for chunk in get_stream_chunk(data, min_size=min_part_size):
@@ -540,7 +660,7 @@ async def s3_file_upload(
                 if not has_uploaded_parts:
                     # No parts uploaded yet, abort multipart and use single PUT
                     await mpart.fetch_abort()
-                    await s3_put_object(s3, client, bucket=bucket, key=key, data=chunk, acl=None)
+                    await s3_put_object(s3, client, bucket=bucket, key=key, data=chunk, **kwargs)
                 else:
                     # Parts already uploaded, upload final chunk as last part (S3 allows last part to be smaller)
                     await mpart.upload_part(chunk)
