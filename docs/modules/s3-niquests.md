@@ -217,7 +217,7 @@ All upload methods (`put_object`, `upload_file`, `file_upload`, `multipart_uploa
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `acl` | `str \| None` | Canned ACL (default: `'private'`) |
+| `acl` | `str \| None` | Canned ACL (optional, no header if omitted) |
 | `content_type` | `str \| None` | MIME type (e.g., `'application/json'`) |
 | `content_disposition` | `str \| None` | Content-Disposition header |
 | `content_encoding` | `str \| None` | Content encoding (e.g., `'gzip'`) |

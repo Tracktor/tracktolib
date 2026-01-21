@@ -590,9 +590,10 @@ async def s3_multipart_upload(
         return _part
 
     def _generate_presigned_url(method: str, **params):
-        _params = {"Bucket": bucket, "Key": key, **params}
         if method == "create_multipart_upload":
-            _params.update(build_s3_presigned_params(bucket, key, obj_params))
+            _params = {**build_s3_presigned_params(bucket, key, obj_params), **params}
+        else:
+            _params = {"Bucket": bucket, "Key": key, **params}
         return s3.generate_presigned_url(ClientMethod=method, Params=_params, ExpiresIn=expires_in)
 
     async def fetch_create() -> str:
