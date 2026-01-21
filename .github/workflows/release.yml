@@ -2,9 +2,9 @@ name: Release
 
 on:
   workflow_run:
-    workflows: ['CI']
-    branches: [master]
-    types: [completed]
+    workflows: [ 'CI' ]
+    branches: [ master ]
+    types: [ completed ]
 
 jobs:
   bump:
@@ -26,8 +26,8 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
+          git config --global user.email "sre@tracktor.fr"
+          git config --global user.name "tracktor-sre"
 
       - name: Bump version
         run: |
