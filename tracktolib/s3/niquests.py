@@ -206,21 +206,27 @@ class S3Session:
                 config=self.s3_config,
             )
 
+    @property
+    def _s3(self) -> botocore.client.BaseClient:
+        if self.s3_client is None:
+            raise ValueError("s3_client not initialized")
+        return self.s3_client
+
     async def __aenter__(self) -> Self:
         await self.http_client.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.http_client.__aexit__(exc_type, exc_val, exc_tb)
-        self.s3_client.close()
+        self._s3.close()
 
     async def delete_object(self, bucket: str, key: str) -> niquests.Response:
         """Delete an object from S3."""
-        return await s3_delete_object(self.s3_client, self.http_client, bucket, key)
+        return await s3_delete_object(self._s3, self.http_client, bucket, key)
 
     async def delete_objects(self, bucket: str, keys: list[str]) -> list[niquests.Response]:
         """Delete multiple objects from S3."""
-        return await s3_delete_objects(self.s3_client, self.http_client, bucket, keys)
+        return await s3_delete_objects(self._s3, self.http_client, bucket, keys)
 
     def list_files(
         self,
@@ -234,7 +240,7 @@ class S3Session:
     ) -> AsyncIterator[S3Object]:
         """List files in an S3 bucket with a given prefix."""
         return s3_list_files(
-            self.s3_client,
+            self._s3,
             self.http_client,
             bucket,
             prefix,
@@ -248,17 +254,17 @@ class S3Session:
         self, bucket: str, key: str, data: bytes, **kwargs: Unpack[S3ObjectParams]
     ) -> niquests.Response:
         """Upload an object to S3."""
-        return await s3_put_object(self.s3_client, self.http_client, bucket, key, data, **kwargs)
+        return await s3_put_object(self._s3, self.http_client, bucket, key, data, **kwargs)
 
     async def upload_file(
         self, bucket: str, file: Path, path: str, **kwargs: Unpack[S3ObjectParams]
     ) -> niquests.Response:
         """Upload a file to S3."""
-        return await s3_upload_file(self.s3_client, self.http_client, bucket, file, path, **kwargs)
+        return await s3_upload_file(self._s3, self.http_client, bucket, file, path, **kwargs)
 
     async def get_object(self, bucket: str, key: str) -> bytes | None:
         """Download an object from S3."""
-        return await s3_get_object(self.s3_client, self.http_client, bucket, key)
+        return await s3_get_object(self._s3, self.http_client, bucket, key)
 
     async def download_file(
         self,
@@ -268,14 +274,14 @@ class S3Session:
         chunk_size: int = 1024 * 1024,
     ) -> AsyncIterator[bytes]:
         """Download a file from S3 with streaming support."""
-        async for chunk in s3_download_file(self.s3_client, self.http_client, bucket, key, chunk_size=chunk_size):
+        async for chunk in s3_download_file(self._s3, self.http_client, bucket, key, chunk_size=chunk_size):
             if on_chunk:
                 on_chunk(chunk)
             yield chunk
 
     def multipart_upload(self, bucket: str, key: str, *, expires_in: int = 3600, **kwargs: Unpack[S3ObjectParams]):
         """Create a multipart upload context manager."""
-        return s3_multipart_upload(self.s3_client, self.http_client, bucket, key, expires_in=expires_in, **kwargs)
+        return s3_multipart_upload(self._s3, self.http_client, bucket, key, expires_in=expires_in, **kwargs)
 
     async def file_upload(
         self,
@@ -290,7 +296,7 @@ class S3Session:
     ) -> None:
         """Upload a file to S3 using streaming (multipart for large files)."""
         return await s3_file_upload(
-            self.s3_client,
+            self._s3,
             self.http_client,
             bucket,
             key,
