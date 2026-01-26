@@ -1753,7 +1753,7 @@ wheels = [
 
 [[package]]
 name = "tracktolib"
-version = "0.66.2"
+version = "0.66.3"
 source = { editable = "." }
 
 [package.optional-dependencies]
