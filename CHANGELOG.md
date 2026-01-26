@@ -1,8 +1,8 @@
-## Unreleased
+## 0.67.0 (2026-01-26)
 
 ### Feat
 
-- adding on_resp utils for download_file (#45)
+- **s3-niquests**: adding on_resp utils for download_file (#45)
 
 ## 0.66.3 (2026-01-22)
 
