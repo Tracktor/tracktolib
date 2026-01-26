@@ -1,21 +1,18 @@
 ## Unreleased
 
-## 0.66.3 (2026-01-22)
-
 ### Feat
 
-- adding on_resp utils for download_file
+- adding on_resp utils for download_file (#45)
+
+## 0.66.3 (2026-01-22)
 
 ### Fix
 
 - remove s3 deprecation warning
-- typing
 
 ## 0.66.2 (2026-01-21)
 
 ### Fix
-
-q
 
 - s3 niquests headers (#44)
 
@@ -212,7 +209,7 @@ q
 ### Fix
 
 - pg sync commit
-- adding mising commit
+- adding missing commit
 - adding missing commit
 
 ## 0.49.0 (2024-07-16)
