@@ -1,4 +1,4 @@
-from tracktolib.notion.blocks import (
+from .blocks import (
     ExportResult,
     make_bulleted_list_block,
     make_code_block,
@@ -9,8 +9,8 @@ from tracktolib.notion.blocks import (
     make_todo_block,
     parse_rich_text,
 )
-from tracktolib.notion.cache import CachedDatabase, NotionCache
-from tracktolib.notion.utils import (
+from .cache import CachedDatabase, NotionCache
+from .utils import (
     PageComment,
     ProgressCallback,
     clear_page_blocks,

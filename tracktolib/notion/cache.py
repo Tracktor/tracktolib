@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Mapping, Self, Sequence, TypedDict
+from typing import TYPE_CHECKING, Any, Mapping, Self, Sequence, TypedDict, cast
 
 if TYPE_CHECKING:
     from .utils import PageComment
@@ -140,14 +140,7 @@ class NotionCache:
         self._dirty = True
 
     def get_page_blocks(self, page_id: str) -> list[dict[str, Any]] | None:
-        """Get cached blocks for a page.
-
-        Args:
-            page_id: The Notion page ID
-
-        Returns:
-            List of cached blocks, or None if not cached
-        """
+        """Get cached blocks for the given page_id, or None if not cached."""
         cached = self._data.get("page_blocks", {}).get(page_id)
         if cached:
             return cached["blocks"]
@@ -158,15 +151,7 @@ class NotionCache:
         page_id: str,
         blocks: Sequence[dict[str, Any]],
     ) -> CachedPageBlocks:
-        """Cache blocks for a page.
-
-        Args:
-            page_id: The Notion page ID
-            blocks: List of blocks to cache
-
-        Returns:
-            The cached entry
-        """
+        """Cache the given blocks for page_id and return the cached entry."""
         entry: CachedPageBlocks = {
             "page_id": page_id,
             "blocks": list(blocks),
@@ -180,24 +165,13 @@ class NotionCache:
         return entry
 
     def delete_page_blocks(self, page_id: str) -> None:
-        """Remove cached blocks for a page.
-
-        Args:
-            page_id: The Notion page ID to remove from cache
-        """
+        """Remove cached blocks for the given page_id."""
         if "page_blocks" in self._data:
             self._data["page_blocks"].pop(page_id, None)
             self._dirty = True
 
     def get_page_comments(self, page_id: str) -> list[PageComment] | None:
-        """Get cached comments for a page.
-
-        Args:
-            page_id: The Notion page ID
-
-        Returns:
-            List of cached comments, or None if not cached
-        """
+        """Get cached comments for the given page_id, or None if not cached."""
         cached = self._data.get("page_comments", {}).get(page_id)
         if cached:
             return cached["comments"]  # type: ignore[return-value]
@@ -208,18 +182,10 @@ class NotionCache:
         page_id: str,
         comments: Sequence[PageComment],
     ) -> CachedPageComments:
-        """Cache comments for a page.
-
-        Args:
-            page_id: The Notion page ID
-            comments: List of comments to cache
-
-        Returns:
-            The cached entry
-        """
+        """Cache the given comments for page_id and return the cached entry."""
         entry: CachedPageComments = {
             "page_id": page_id,
-            "comments": list(comments),
+            "comments": cast(list[dict[str, Any]], list(comments)),
             "cached_at": datetime.now().isoformat(),
         }
 
@@ -230,11 +196,7 @@ class NotionCache:
         return entry
 
     def delete_page_comments(self, page_id: str) -> None:
-        """Remove cached comments for a page.
-
-        Args:
-            page_id: The Notion page ID to remove from cache
-        """
+        """Remove cached comments for the given page_id."""
         if "page_comments" in self._data:
             self._data["page_comments"].pop(page_id, None)
             self._dirty = True

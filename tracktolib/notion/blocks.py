@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING, Any, Sequence, TypedDict
 
 if TYPE_CHECKING:
-    from tracktolib.notion.models import Block, PartialBlock
+    from .models import Block, PartialBlock
 
 __all__ = [
     # Types
@@ -376,7 +376,7 @@ def _extract_block_content(block: Block | PartialBlock | NotionBlock | dict[str,
 
     Ignores metadata like id, created_time, last_edited_time, etc.
     """
-    from tracktolib.notion.markdown import rich_text_to_markdown
+    from .markdown import rich_text_to_markdown
 
     block_type = block.get("type")
     if not block_type:

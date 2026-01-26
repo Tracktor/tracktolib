@@ -41,6 +41,11 @@ def _use_data_source_api(api_version: str) -> bool:
     return api_version >= "2025-09-03"
 
 
+def _get_api_version(session: niquests.Session, api_version: str | None) -> str:
+    """Get API version from parameter or session headers."""
+    return api_version or str(session.headers.get("Notion-Version", DEFAULT_API_VERSION))
+
+
 __all__ = (
     # Auth helpers
     "get_notion_headers",
@@ -235,7 +240,7 @@ async def create_page(
     For older API versions, parent should use {"database_id": "..."}.
     The function will automatically convert between the two formats.
     """
-    _api_version = api_version or session.headers.get("Notion-Version", DEFAULT_API_VERSION)
+    _api_version = _get_api_version(session, api_version)
     converted_parent = _convert_parent_for_api_version(parent, _api_version)
     payload: dict[str, Any] = {
         "parent": converted_parent,
@@ -321,7 +326,7 @@ async def fetch_database(
         if cached := cache.get_database(database_id):
             return cached
 
-    _api_version = api_version or session.headers.get("Notion-Version", DEFAULT_API_VERSION)
+    _api_version = _get_api_version(session, api_version)
     if _use_data_source_api(_api_version):
         endpoint = f"{NOTION_API_URL}/v1/data_sources/{database_id}"
     else:
@@ -352,7 +357,7 @@ async def query_database(
     For API version 2025-09-03+, uses /v1/data_sources/{id}/query endpoint.
     For older API versions, uses /v1/databases/{id}/query endpoint.
     """
-    _api_version = api_version or session.headers.get("Notion-Version", DEFAULT_API_VERSION)
+    _api_version = _get_api_version(session, api_version)
     payload: dict[str, Any] = {}
     if filter:
         payload["filter"] = filter
@@ -521,7 +526,7 @@ async def fetch_search(
     converted to 'data_source'. For older versions, 'data_source' is
     converted to 'database'.
     """
-    _api_version = api_version or session.headers.get("Notion-Version", DEFAULT_API_VERSION)
+    _api_version = _get_api_version(session, api_version)
     payload: dict[str, Any] = {}
     if query:
         payload["query"] = query

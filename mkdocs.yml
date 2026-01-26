@@ -1,0 +1,71 @@
+site_name: Tracktolib
+site_description: Tracktor Swiss-knife Utility library for Python.
+site_author: Tracktor
+site_url: https://tracktor.github.io/tracktolib
+repo_url: https://github.com/Tracktor/tracktolib
+repo_name: Tracktor/tracktolib
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.integrate
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Introduction: index.md
+  - Modules:
+      - Overview: modules.md
+      - Logs: modules/logs.md
+      - PostgreSQL (Async): modules/pg.md
+      - PostgreSQL (Sync): modules/pg-sync.md
+      - S3 (Async): modules/s3.md
+      - S3 (MinIO): modules/s3-minio.md
+      - S3 (Niquests): modules/s3-niquests.md
+      - API (FastAPI): modules/api.md
+      - HTTP (Deprecated): modules/http.md
+      - Notion: modules/notion.md
+      - Tests: modules/tests.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+
+extra:
+  generator: false

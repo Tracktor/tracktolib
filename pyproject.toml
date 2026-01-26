@@ -1,6 +1,6 @@
 [project]
 name = "tracktolib"
-version = "0.65.1"
+version = "0.67.0"
 authors = [
     { email = "julien.brayere@tracktor.fr" }
 ]
@@ -21,6 +21,7 @@ include = [
     "LICENSE"
 ]
 requires-python = ">=3.12,<4.0"
+dependencies = []
 
 [project.optional-dependencies]
 logs = ["python-json-logger>=3.2.1"]
@@ -31,6 +32,10 @@ s3-minio = [
     "pycryptodome>=3.20.0",
 ]
 s3 = ["aiobotocore>=2.9.0"]
+s3-niquests = [
+    "botocore>=1.35.36",
+    "niquests>=3.17.0",
+]
 tests = ["deepdiff>=8.1.0"]
 http = ["httpx>=0.25.0"]
 api = [
@@ -42,7 +47,7 @@ pg = [
     "rich>=13.6.0",
 ]
 notion = [
-    "niquests>=3.16",
+    "niquests>=3.17.0"
 ]
 
 [dependency-groups]
@@ -60,12 +65,19 @@ dev = [
     "minio>=7.2.7",
     "pycryptodome>=3.23.0",
     "aiobotocore==2.15.2",
+    # niquests for s3-niquests tests (botocore comes from aiobotocore)
+    "niquests>=3.17.0",
     "python-json-logger>=3.2.0",
-    "pre-commit>=4.4.0",
+    "prek>=0.2.30",
 ]
 
 bump = [
     "commitizen>=4.10.0"
+]
+
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
 ]
 
 [build-system]
@@ -96,12 +108,14 @@ pythonPlatform = "Linux"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.65.1"
+version = "0.67.0"
 tag_format = "$version"
 version_files = [
     "pyproject.toml:version"
 ]
 bump_message = "release $current_version → $new_version [skip ci]"
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
 
 
 [tool.ruff]

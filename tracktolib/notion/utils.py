@@ -32,7 +32,7 @@ from .fetch import (
     fetch_comments,
     fetch_user,
 )
-from tracktolib.utils import get_chunks, run_coros
+from ..utils import get_chunks, run_coros
 
 __all__ = [
     "ClearResult",

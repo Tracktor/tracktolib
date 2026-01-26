@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any, Sequence
 
-from tracktolib.notion.blocks import (
+from .blocks import (
     BulletedListBlock,
     DividerBlock,
     NumberedListBlock,
@@ -21,14 +21,13 @@ from tracktolib.notion.blocks import (
     make_quote_block,
     make_todo_block,
 )
-
-from tracktolib.utils import get_chunks
+from ..utils import get_chunks
 
 # Union type for all Notion blocks used in markdown conversion
 NotionBlock = ParagraphBlock | DividerBlock | BulletedListBlock | NumberedListBlock | TodoBlock | QuoteBlock
 
 if TYPE_CHECKING:
-    from tracktolib.notion.models import Block, Comment, PartialBlock, RichTextItemResponse
+    from .models import Block, Comment, PartialBlock, RichTextItemResponse
 
 __all__ = [
     "NOTION_CHAR_LIMIT",
