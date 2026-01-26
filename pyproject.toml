@@ -114,6 +114,8 @@ version_files = [
     "pyproject.toml:version"
 ]
 bump_message = "release $current_version → $new_version [skip ci]"
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
 
 
 [tool.ruff]
