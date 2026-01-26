@@ -1,6 +1,6 @@
 [project]
 name = "tracktolib"
-version = "0.67.0"
+version = "0.68.0"
 authors = [
     { email = "julien.brayere@tracktor.fr" }
 ]
@@ -46,11 +46,12 @@ pg = [
     "asyncpg>=0.27.0",
     "rich>=13.6.0",
 ]
-notion = [
-    "niquests>=3.17.0"
-]
+notion = ["niquests>=3.17.0"]
+gh = ["niquests>=3.17.0"]
 
 [dependency-groups]
+niquests = ["niquests>=3.17.0"]
+
 dev = [
     "pytest-cov>=7.0.0,<8",
     "pytest>=9.0.1,<10",
@@ -66,9 +67,10 @@ dev = [
     "pycryptodome>=3.23.0",
     "aiobotocore==2.15.2",
     # niquests for s3-niquests tests (botocore comes from aiobotocore)
-    "niquests>=3.17.0",
+    { include-group = "niquests" },
     "python-json-logger>=3.2.0",
     "prek>=0.2.30",
+    "datamodel-code-generator>=0.53.0",
 ]
 
 bump = [
@@ -108,7 +110,7 @@ pythonPlatform = "Linux"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.67.0"
+version = "0.68.0"
 tag_format = "$version"
 version_files = [
     "pyproject.toml:version"
@@ -122,6 +124,10 @@ changelog_file = "CHANGELOG.md"
 line-length = 120
 target-version = "py314"
 
+[tool.ruff.lint]
+# UP035: https://docs.astral.sh/ruff/rules/deprecated-import/
+# I: isort - consolidates duplicate imports
+extend-select = ["UP035", "I"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [

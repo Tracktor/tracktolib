@@ -137,6 +137,33 @@ async with niquests.AsyncSession() as session:
     cache.get_database("db-id")     # Specific database (id, title, properties, cached_at)
 ```
 
+### gh
+
+GitHub API helpers using [niquests](https://github.com/jawah/niquests).
+
+```bash
+uv add tracktolib[gh]
+```
+
+```python
+from tracktolib.gh import GitHubClient
+
+async with GitHubClient() as gh:  # Uses GITHUB_TOKEN env var
+    # Issue comments
+    comments = await gh.get_issue_comments("owner/repo", 123)
+    await gh.create_issue_comment("owner/repo", 123, "Hello!")
+    await gh.delete_comments_with_marker("owner/repo", 123, "<!-- bot -->")
+
+    # Labels
+    labels = await gh.get_issue_labels("owner/repo", 123)
+    await gh.add_labels("owner/repo", 123, ["bug", "priority"])
+    await gh.remove_label("owner/repo", 123, "wontfix")
+
+    # Deployments
+    deploys = await gh.get_deployments("owner/repo", environment="production")
+    await gh.mark_deployment_inactive("owner/repo", "preview-123")
+```
+
 ### tests
 
 Testing utilities using [deepdiff](https://github.com/seperman/deepdiff).
