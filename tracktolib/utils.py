@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import asyncio
 import datetime as dt
 import importlib.util
@@ -11,7 +9,9 @@ import sys
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
 from types import ModuleType
-from typing import AsyncIterable, AsyncIterator, Iterable, Iterator, Literal, overload, Any, Callable
+from pathlib import Path
+from typing import Coroutine, AsyncIterable, AsyncIterator, Iterable, Iterator, Literal, overload, Any, Callable
+
 
 type OnCmdUpdate = Callable[[str], None]
 type OnCmdDone = Callable[[str, str, int], None]
@@ -231,3 +231,39 @@ def deep_reload(m: ModuleType):
 def get_first_line(lines: str) -> str:
     _lines = lines.split("\n")
     return _lines[0] if _lines else lines
+
+
+async def run_coros[R](
+    coros: Iterable[Coroutine[Any, Any, R]],
+    sem: asyncio.Semaphore | None = None,
+) -> AsyncIterator[R]:
+    """Run coroutines and yield results in order.
+
+    Args:
+        coros: Coroutines to execute
+        sem: If provided, run in parallel with rate limiting.
+             If None, run sequentially.
+
+    Yields:
+        Results in input order.
+
+    Example:
+        async for result in run_coros([fetch(1), fetch(2)], sem):
+            print(result)
+    """
+    coro_list = list(coros)
+
+    if sem is None:
+        for coro in coro_list:
+            yield await coro
+    else:
+
+        async def with_sem(coro: Coroutine[Any, Any, R]) -> R:
+            async with sem:
+                return await coro
+
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(with_sem(c)) for c in coro_list]
+
+        for task in tasks:
+            yield task.result()

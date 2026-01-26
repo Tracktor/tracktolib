@@ -1,3 +1,9 @@
+## 0.68.0 (2026-01-26)
+
+### Feat
+
+- **notion**: add comprehensive documentation for notion module (#46)
+
 ## 0.67.0 (2026-01-26)
 
 ### Feat

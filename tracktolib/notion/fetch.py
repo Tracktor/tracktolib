@@ -1,14 +1,22 @@
+from __future__ import annotations
+
 import os
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Sequence, overload
 
 try:
     import niquests
 except ImportError:
     raise ImportError('Please install niquests or tracktolib with "notion" to use this module')
 
+if TYPE_CHECKING:
+    from .blocks import NotionBlock
+    from .cache import CachedDatabase, NotionCache
+
 from .models import (
     Block,
     BlockListResponse,
+    Comment,
+    CommentListResponse,
     Database,
     IntrospectTokenResponse,
     Page,
@@ -61,6 +69,10 @@ __all__ = (
     "fetch_block",
     "fetch_block_children",
     "fetch_append_block_children",
+    "delete_block",
+    # Comments
+    "fetch_comments",
+    "create_comment",
     # Search
     "fetch_search",
 )
@@ -217,7 +229,7 @@ async def create_page(
     *,
     parent: dict[str, Any],
     properties: dict[str, Any],
-    children: list[dict[str, Any]] | None = None,
+    children: Sequence[NotionBlock | dict[str, Any]] | None = None,
     icon: dict[str, Any] | None = None,
     cover: dict[str, Any] | None = None,
     api_version: ApiVersion | None = None,
@@ -274,17 +286,46 @@ async def update_page(
 # Databases endpoints
 
 
+@overload
 async def fetch_database(
     session: niquests.AsyncSession,
     database_id: str,
     *,
     api_version: ApiVersion | None = None,
-) -> Database:
+    cache: None = None,
+) -> Database: ...
+
+
+@overload
+async def fetch_database(
+    session: niquests.AsyncSession,
+    database_id: str,
+    *,
+    api_version: ApiVersion | None = None,
+    cache: NotionCache,
+) -> Database | CachedDatabase: ...
+
+
+async def fetch_database(
+    session: niquests.AsyncSession,
+    database_id: str,
+    *,
+    api_version: ApiVersion | None = None,
+    cache: NotionCache | None = None,
+) -> Database | CachedDatabase:
     """Retrieve a database/data source by ID.
 
     For API version 2025-09-03+, uses /v1/data_sources/{id} endpoint.
     For older API versions, uses /v1/databases/{id} endpoint.
+
+    If cache is provided, the database will be looked up in the cache first.
+    On cache miss, the database is fetched from the API and stored in the cache.
+    When returning from cache, returns a CachedDatabase (partial) instead of full Database.
     """
+    if cache:
+        if cached := cache.get_database(database_id):
+            return cached
+
     _api_version = _get_api_version(session, api_version)
     if _use_data_source_api(_api_version):
         endpoint = f"{NOTION_API_URL}/v1/data_sources/{database_id}"
@@ -293,7 +334,12 @@ async def fetch_database(
 
     response = await session.get(endpoint)
     response.raise_for_status()
-    return response.json()  # type: ignore[return-value]
+    result: Database = response.json()
+
+    if cache:
+        cache.set_database(result)
+
+    return result
 
 
 async def query_database(
@@ -364,12 +410,82 @@ async def fetch_block_children(
 async def fetch_append_block_children(
     session: niquests.AsyncSession,
     block_id: str,
-    children: list[dict[str, Any]],
+    children: Sequence[NotionBlock | dict[str, Any]],
 ) -> BlockListResponse:
     """Append children blocks to a parent block."""
     payload = {"children": children}
 
     response = await session.patch(f"{NOTION_API_URL}/v1/blocks/{block_id}/children", json=payload)
+    response.raise_for_status()
+    return response.json()  # type: ignore[return-value]
+
+
+async def delete_block(session: niquests.AsyncSession, block_id: str) -> Block:
+    """Delete (archive) a block.
+
+    Args:
+        session: Authenticated niquests session
+        block_id: The ID of the block to delete
+
+    Returns:
+        The deleted block object with archived=True
+    """
+    response = await session.delete(f"{NOTION_API_URL}/v1/blocks/{block_id}")
+    response.raise_for_status()
+    return response.json()  # type: ignore[return-value]
+
+
+# Comments endpoints
+
+
+async def fetch_comments(
+    session: niquests.AsyncSession,
+    block_id: str,
+    *,
+    start_cursor: str | None = None,
+    page_size: int | None = None,
+) -> CommentListResponse:
+    """Retrieve comments for a block or page.
+
+    Args:
+        session: Authenticated niquests session
+        block_id: The ID of the block or page to get comments for
+        start_cursor: Pagination cursor
+        page_size: Number of results per page
+    """
+    params: dict[str, str] = {"block_id": block_id}
+    if start_cursor:
+        params["start_cursor"] = start_cursor
+    if page_size:
+        params["page_size"] = str(page_size)
+
+    response = (await session.get(f"{NOTION_API_URL}/v1/comments", params=params)).raise_for_status()
+    return response.json()  # type: ignore[return-value]
+
+
+async def create_comment(
+    session: niquests.AsyncSession,
+    *,
+    parent: dict[str, str],
+    rich_text: list[dict[str, Any]],
+    discussion_id: str | None = None,
+) -> Comment:
+    """Create a comment on a page or in an existing discussion.
+
+    Args:
+        session: Authenticated niquests session
+        parent: Parent object, e.g. {"page_id": "..."} for page-level comments
+        rich_text: The comment content as rich text array
+        discussion_id: Optional discussion ID to reply to an existing thread
+    """
+    payload: dict[str, Any] = {
+        "parent": parent,
+        "rich_text": rich_text,
+    }
+    if discussion_id:
+        payload["discussion_id"] = discussion_id
+
+    response = await session.post(f"{NOTION_API_URL}/v1/comments", json=payload)
     response.raise_for_status()
     return response.json()  # type: ignore[return-value]
 

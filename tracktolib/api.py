@@ -1,22 +1,22 @@
 import json
 import warnings
-from collections.abc import Mapping
-from dataclasses import field, dataclass
+from dataclasses import dataclass, field
 from inspect import getdoc
 from typing import (
-    Callable,
     Any,
-    Literal,
-    Sequence,
     AsyncIterator,
-    Coroutine,
-    get_type_hints,
-    get_args,
-    TypedDict,
-    TypeAlias,
-    Type,
+    Callable,
     ClassVar,
+    Coroutine,
+    Literal,
+    Mapping,
+    Sequence,
+    Type,
+    TypeAlias,
+    TypedDict,
+    get_args,
     get_origin,
+    get_type_hints,
 )
 
 from .utils import json_serial, get_first_line

@@ -5,7 +5,7 @@ from typing_extensions import LiteralString
 
 try:
     from psycopg import Connection, Cursor
-    from psycopg.abc import Query
+    from psycopg.abc import Query, QueryNoTemplate
     from psycopg.errors import InvalidCatalogName
     from psycopg.rows import dict_row, DictRow, TupleRow
     from psycopg.types.json import Json
@@ -60,7 +60,7 @@ def fetch_one(engine: Connection, query: LiteralString, *args) -> dict | None: .
 
 def fetch_one(engine: Connection, query: LiteralString, *args, required: bool = False) -> dict | None:
     with engine.cursor(row_factory=dict_row) as cur:
-        _data = cur.execute(query, args).fetchone()
+        _data = cur.execute(cast(QueryNoTemplate, query), args).fetchone()
     engine.commit()
     if required and not _data:
         raise ValueError("No value found for query")
