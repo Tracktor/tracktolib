@@ -436,10 +436,10 @@ async def s3_put_object(
 
     See: https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
     """
+
     obj_params: S3ObjectParams = kwargs
     presigned_params = build_s3_presigned_params(bucket, key, obj_params)
     headers = build_s3_headers(obj_params)
-
     url = s3.generate_presigned_url(
         ClientMethod="put_object",
         Params=presigned_params,
