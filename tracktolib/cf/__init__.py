@@ -1,5 +1,5 @@
-from tracktolib.cf.client import CloudflareDNSClient, CloudflareError
-from tracktolib.cf.types import DnsRecord
+from .client import CloudflareDNSClient, CloudflareError
+from .types import DnsRecord
 
 __all__ = [
     "CloudflareDNSClient",

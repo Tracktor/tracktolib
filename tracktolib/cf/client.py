@@ -1,8 +1,3 @@
-"""Cloudflare DNS client using niquests.
-
-Install with: pip install tracktolib[cf]
-"""
-
 from __future__ import annotations
 
 import os
