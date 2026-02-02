@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import http
 import xml.etree.ElementTree as ET
-from collections import namedtuple
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Required, Self, TypedDict, Unpack
+from typing import Literal, NamedTuple, Required, Self, TypedDict, Unpack
 from urllib.parse import unquote
+from xml.sax.saxutils import escape as xml_escape
 
 try:
     import botocore.client
@@ -205,11 +205,12 @@ class S3Session:
     s3_config: Config | None = None
     s3_client: botocore.client.BaseClient | None = None
     http_client: niquests.AsyncSession = field(default_factory=niquests.AsyncSession)
+    _botocore_session: botocore.session.Session | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
         if self.s3_client is None:
-            session = botocore.session.Session()
-            self.s3_client = session.create_client(
+            self._botocore_session = botocore.session.Session()
+            self.s3_client = self._botocore_session.create_client(
                 "s3",
                 endpoint_url=self.endpoint_url,
                 region_name=self.region,
@@ -324,7 +325,9 @@ class S3Session:
 
     async def put_bucket_policy(self, bucket: str, policy: str | dict) -> niquests.Response:
         """Set a bucket policy."""
-        return await s3_put_bucket_policy(self._s3, self.http_client, bucket, policy)
+        return await s3_put_bucket_policy(
+            self._s3, self.http_client, bucket, policy, botocore_session=self._botocore_session
+        )
 
     async def get_bucket_policy(self, bucket: str) -> dict | None:
         """Get a bucket policy. Returns None if no policy exists."""
@@ -338,7 +341,9 @@ class S3Session:
         self, bucket: str, index_document: str = "index.html", error_document: str | None = None
     ) -> niquests.Response:
         """Configure a bucket as a static website."""
-        return await s3_put_bucket_website(self._s3, self.http_client, bucket, index_document, error_document)
+        return await s3_put_bucket_website(
+            self._s3, self.http_client, bucket, index_document, error_document, botocore_session=self._botocore_session
+        )
 
     async def delete_bucket_website(self, bucket: str) -> niquests.Response:
         """Remove website configuration from a bucket."""
@@ -349,14 +354,17 @@ class S3Session:
         return await s3_empty_bucket(self._s3, self.http_client, bucket)
 
 
-S3MultipartUpload = namedtuple(
-    "S3MultipartUpload", ["fetch_create", "fetch_complete", "upload_part", "generate_presigned_url", "fetch_abort"]
-)
-
-
 class UploadPart(TypedDict):
     PartNumber: int
     ETag: str | None
+
+
+class S3MultipartUpload(NamedTuple):
+    fetch_create: Callable[[], Awaitable[str]]
+    fetch_complete: Callable[[], Awaitable[niquests.Response]]
+    upload_part: Callable[[bytes], Awaitable[UploadPart]]
+    generate_presigned_url: Callable[..., str]
+    fetch_abort: Callable[[], Awaitable[niquests.Response]]
 
 
 class S3Object(TypedDict, total=False):
@@ -719,11 +727,21 @@ async def s3_file_upload(
             has_uploaded_parts = True
 
 
+def _get_credentials(s3: botocore.client.BaseClient, session: botocore.session.Session | None = None):
+    """Get credentials from session (public API) or fall back to client internals."""
+    if session is not None:
+        return session.get_credentials()
+    # Fall back to private API for backward compatibility with standalone function usage
+    return s3._request_signer._credentials  # pyright: ignore[reportAttributeAccessIssue]
+
+
 async def s3_put_bucket_policy(
     s3: botocore.client.BaseClient,
     client: niquests.AsyncSession,
     bucket: str,
     policy: str | dict,
+    *,
+    botocore_session: botocore.session.Session | None = None,
 ) -> niquests.Response:
     """
     Set a bucket policy using a signed request.
@@ -750,8 +768,8 @@ async def s3_put_bucket_policy(
     content_hash = hashlib.sha256(policy_bytes).hexdigest()
     request.headers["x-amz-content-sha256"] = content_hash
 
-    # Sign the request
-    credentials = s3._request_signer._credentials
+    # Sign the request using public API when session is available
+    credentials = _get_credentials(s3, botocore_session)
     region = s3.meta.region_name
     signer = SigV4Auth(credentials, "s3", region)
     signer.add_auth(request)
@@ -803,8 +821,8 @@ async def s3_delete_bucket_policy(
 
 def _build_website_xml(index_document: str, error_document: str | None = None) -> str:
     """Build XML payload for S3 website configuration."""
-    index_xml = f"<IndexDocument><Suffix>{index_document}</Suffix></IndexDocument>"
-    error_xml = f"<ErrorDocument><Key>{error_document}</Key></ErrorDocument>" if error_document else ""
+    index_xml = f"<IndexDocument><Suffix>{xml_escape(index_document)}</Suffix></IndexDocument>"
+    error_xml = f"<ErrorDocument><Key>{xml_escape(error_document)}</Key></ErrorDocument>" if error_document else ""
     return f'<WebsiteConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">{index_xml}{error_xml}</WebsiteConfiguration>'
 
 
@@ -814,6 +832,8 @@ async def s3_put_bucket_website(
     bucket: str,
     index_document: str = "index.html",
     error_document: str | None = None,
+    *,
+    botocore_session: botocore.session.Session | None = None,
 ) -> niquests.AsyncResponse:
     """
     Configure a bucket as a static website using a signed request.
@@ -840,8 +860,8 @@ async def s3_put_bucket_website(
     content_hash = hashlib.sha256(xml_bytes).hexdigest()
     request.headers["x-amz-content-sha256"] = content_hash
 
-    # Sign the request
-    credentials = s3._request_signer._credentials
+    # Sign the request using public API when session is available
+    credentials = _get_credentials(s3, botocore_session)
     region = s3.meta.region_name
     signer = SigV4Auth(credentials, "s3", region)
     signer.add_auth(request)

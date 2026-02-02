@@ -1,14 +1,10 @@
-"""GitHub API client using niquests.
-
-Install with: pip install tracktolib[gh]
-"""
-
 from __future__ import annotations
 
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import quote
 
 ProgressCallback = Callable[[int, int], None]
 
@@ -21,14 +17,6 @@ if TYPE_CHECKING:
     from urllib3.util.retry import Retry
 
     from tracktolib.gh.types import Deployment, DeploymentStatus, IssueComment, Label
-
-
-class GitHubError(Exception):
-    """Error raised when a GitHub API call fails."""
-
-    def __init__(self, message: str, status_code: int | None = None):
-        self.status_code = status_code
-        super().__init__(message)
 
 
 @dataclass
@@ -138,7 +126,9 @@ class GitHubClient:
 
     async def remove_label(self, repository: str, issue_number: int, label: str) -> bool:
         """Remove a label from an issue/PR. Returns True if removed, False if not found."""
-        response = await self.session.delete(f"/repos/{repository}/issues/{issue_number}/labels/{label}")
+        response = await self.session.delete(
+            f"/repos/{repository}/issues/{issue_number}/labels/{quote(label, safe='')}"
+        )
         if response.status_code == 404:
             return False
         response.raise_for_status()

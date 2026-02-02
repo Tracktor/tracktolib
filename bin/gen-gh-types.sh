@@ -69,8 +69,8 @@ uv run datamodel-codegen \
   --use-schema-description \
   --openapi-scopes schemas
 
-# Clean up generated file
-sed -i '/from typing_extensions import/d' "$OUTPUT_FILE"
-sed -i '/^#   filename:/d' "$OUTPUT_FILE"
+# Clean up generated file (portable sed - works on both macOS and Linux)
+sed '/from typing_extensions import/d' "$OUTPUT_FILE" > "$OUTPUT_FILE.tmp" && mv "$OUTPUT_FILE.tmp" "$OUTPUT_FILE"
+sed '/^#   filename:/d' "$OUTPUT_FILE" > "$OUTPUT_FILE.tmp" && mv "$OUTPUT_FILE.tmp" "$OUTPUT_FILE"
 
 echo "Done! Generated $(wc -l < "$OUTPUT_FILE") lines to $OUTPUT_FILE"

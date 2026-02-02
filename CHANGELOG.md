@@ -2,7 +2,7 @@
 
 ### Feat
 
-- add notion utils (#42)
+- add gh utils (#46)
 
 ## 0.67.0 (2026-01-26)
 

@@ -73,6 +73,6 @@ async def aengine(pg_url) -> asyncpg.Connection:  # type: ignore
 
 @pytest.fixture(scope="function")
 async def apool(pg_url) -> asyncpg.pool.Pool:  # type: ignore
-    pool = await asyncpg.create_pool(pg_url)
+    pool = await asyncpg.create_pool(pg_url, init=init_connection)
     yield pool  # type: ignore
     await pool.close()

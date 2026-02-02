@@ -1,5 +1,5 @@
 import pprint
-from typing import Iterable
+from collections.abc import Iterable
 
 try:
     import deepdiff.diff as deepdiff
