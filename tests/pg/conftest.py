@@ -1,11 +1,10 @@
-import asyncio
 import json
-from typing import Iterator
+from collections.abc import Iterator
+from typing import LiteralString
 
 import asyncpg
 import psycopg
 import pytest
-from typing_extensions import LiteralString
 
 PG_DATABASE = "test"
 PG_USER, PG_PWD, PG_HOST, PG_PORT = "postgres", "postgres", "localhost", 5432
@@ -40,7 +39,7 @@ _TABLES: list[LiteralString] = []
 @pytest.fixture(scope="function", autouse=True)
 def clean_tables(engine):
     global _TABLES
-    from tracktolib.pg_sync import get_tables, clean_tables
+    from tracktolib.pg_sync import clean_tables, get_tables
 
     if not _TABLES:
         _TABLES = get_tables(engine, schemas=["foo"])
@@ -64,20 +63,16 @@ async def init_connection(conn: asyncpg.Connection):
     return conn
 
 
-@pytest.fixture(scope="session")
-def aengine(loop, pg_url) -> asyncpg.Connection:  # type: ignore
-    async def _init():
-        _conn = await asyncpg.connect(pg_url)
-        await init_connection(_conn)
-        return _conn
-
-    conn = loop.run_until_complete(_init())
+@pytest.fixture(scope="function")
+async def aengine(pg_url) -> asyncpg.Connection:  # type: ignore
+    conn = await asyncpg.connect(pg_url)
+    await init_connection(conn)
     yield conn  # type: ignore
-    loop.run_until_complete(asyncio.wait_for(conn.close(), timeout=1))
+    await conn.close()
 
 
-@pytest.fixture(scope="session")
-def apool(loop, pg_url) -> Iterator[asyncpg.pool.Pool]:
-    pool = loop.run_until_complete(asyncpg.create_pool(pg_url, loop=loop))
-    yield pool
-    loop.run_until_complete(asyncio.wait_for(pool.close(), timeout=1))
+@pytest.fixture(scope="function")
+async def apool(pg_url) -> asyncpg.pool.Pool:  # type: ignore
+    pool = await asyncpg.create_pool(pg_url)
+    yield pool  # type: ignore
+    await pool.close()

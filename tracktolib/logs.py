@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Literal, overload, Any, TypeGuard
+from typing import Any, Literal, TypeGuard, overload
 
 try:
     from pythonjsonlogger.json import JsonFormatter

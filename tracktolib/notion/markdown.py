@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
+from ..utils import get_chunks
 from .blocks import (
     BulletedListBlock,
     DividerBlock,
@@ -21,7 +23,6 @@ from .blocks import (
     make_quote_block,
     make_todo_block,
 )
-from ..utils import get_chunks
 
 # Union type for all Notion blocks used in markdown conversion
 NotionBlock = ParagraphBlock | DividerBlock | BulletedListBlock | NumberedListBlock | TodoBlock | QuoteBlock

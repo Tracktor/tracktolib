@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from collections import namedtuple
-from pathlib import Path
-
 import http
 import xml.etree.ElementTree as ET
+from collections import namedtuple
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import AsyncIterator, Callable, Literal, Self, TypedDict, Unpack
+from pathlib import Path
+from typing import Literal, Required, Self, TypedDict, Unpack
+from urllib.parse import unquote
 
 try:
     import botocore.client
@@ -21,6 +22,11 @@ try:
     import niquests
 except ImportError as e:
     raise ImportError("niquests is required for S3 operations. Install with tracktolib[s3-niquests]") from e
+
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 from ..utils import get_stream_chunk
 
@@ -36,6 +42,12 @@ __all__ = (
     "s3_create_multipart_upload",
     "s3_multipart_upload",
     "s3_file_upload",
+    "s3_put_bucket_policy",
+    "s3_get_bucket_policy",
+    "s3_delete_bucket_policy",
+    "s3_put_bucket_website",
+    "s3_delete_bucket_website",
+    "s3_empty_bucket",
     "S3MultipartUpload",
     "S3Object",
     "S3ObjectParams",
@@ -310,6 +322,32 @@ class S3Session:
             **kwargs,
         )
 
+    async def put_bucket_policy(self, bucket: str, policy: str | dict) -> niquests.Response:
+        """Set a bucket policy."""
+        return await s3_put_bucket_policy(self._s3, self.http_client, bucket, policy)
+
+    async def get_bucket_policy(self, bucket: str) -> dict | None:
+        """Get a bucket policy. Returns None if no policy exists."""
+        return await s3_get_bucket_policy(self._s3, self.http_client, bucket)
+
+    async def delete_bucket_policy(self, bucket: str) -> niquests.Response:
+        """Delete a bucket policy."""
+        return await s3_delete_bucket_policy(self._s3, self.http_client, bucket)
+
+    async def put_bucket_website(
+        self, bucket: str, index_document: str = "index.html", error_document: str | None = None
+    ) -> niquests.Response:
+        """Configure a bucket as a static website."""
+        return await s3_put_bucket_website(self._s3, self.http_client, bucket, index_document, error_document)
+
+    async def delete_bucket_website(self, bucket: str) -> niquests.Response:
+        """Remove website configuration from a bucket."""
+        return await s3_delete_bucket_website(self._s3, self.http_client, bucket)
+
+    async def empty_bucket(self, bucket: str) -> int:
+        """Delete all objects from a bucket. Returns count of deleted objects."""
+        return await s3_empty_bucket(self._s3, self.http_client, bucket)
+
 
 S3MultipartUpload = namedtuple(
     "S3MultipartUpload", ["fetch_create", "fetch_complete", "upload_part", "generate_presigned_url", "fetch_abort"]
@@ -322,7 +360,7 @@ class UploadPart(TypedDict):
 
 
 class S3Object(TypedDict, total=False):
-    Key: str
+    Key: Required[str]
     LastModified: str
     ETag: str
     Size: int
@@ -404,6 +442,9 @@ async def s3_list_files(
                 item[tag] = child.text
             if "Size" in item:
                 item["Size"] = int(item["Size"])
+            # URL-decode the Key (some S3-compatible servers like Garage return URL-encoded keys)
+            if "Key" in item and item["Key"]:
+                item["Key"] = unquote(item["Key"])
             page_items.append(item)
 
         if search_query:
@@ -676,3 +717,168 @@ async def s3_file_upload(
                 return
             await mpart.upload_part(chunk)
             has_uploaded_parts = True
+
+
+async def s3_put_bucket_policy(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+    policy: str | dict,
+) -> niquests.Response:
+    """
+    Set a bucket policy using a signed request.
+
+    The policy can be provided as a JSON string or a dict (which will be serialized).
+    The policy is sent as JSON in the request body.
+    """
+    import hashlib
+
+    from botocore.auth import SigV4Auth
+    from botocore.awsrequest import AWSRequest
+
+    policy_str = policy if isinstance(policy, str) else json.dumps(policy)
+    policy_bytes = policy_str.encode("utf-8")
+
+    # Build the request URL
+    endpoint = s3.meta.endpoint_url
+    url = f"{endpoint}/{bucket}?policy"
+
+    # Create and sign the request
+    request = AWSRequest(method="PUT", url=url, data=policy_bytes, headers={"Content-Type": "application/json"})
+
+    # Add content hash for S3
+    content_hash = hashlib.sha256(policy_bytes).hexdigest()
+    request.headers["x-amz-content-sha256"] = content_hash
+
+    # Sign the request
+    credentials = s3._request_signer._credentials
+    region = s3.meta.region_name
+    signer = SigV4Auth(credentials, "s3", region)
+    signer.add_auth(request)
+
+    # Extract signed headers
+    headers = dict(request.headers)
+
+    return (await client.put(url, data=policy_bytes, headers=headers)).raise_for_status()
+
+
+async def s3_get_bucket_policy(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+) -> dict | None:
+    """
+    Get a bucket policy using presigned URL.
+
+    Returns the policy as a dict, or None if no policy exists.
+    """
+    url = s3.generate_presigned_url(
+        ClientMethod="get_bucket_policy",
+        Params={"Bucket": bucket},
+    )
+    resp = await client.get(url)
+    if resp.status_code == http.HTTPStatus.NOT_FOUND:
+        return None
+    # NoSuchBucketPolicy returns 404 on AWS, but some providers may return other codes
+    if resp.status_code == http.HTTPStatus.NO_CONTENT:
+        return None
+    resp.raise_for_status()
+    if resp.content is None:
+        return None
+    return json.loads(resp.content)
+
+
+async def s3_delete_bucket_policy(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+) -> niquests.Response:
+    """Delete a bucket policy using presigned URL."""
+    url = s3.generate_presigned_url(
+        ClientMethod="delete_bucket_policy",
+        Params={"Bucket": bucket},
+    )
+    return (await client.delete(url)).raise_for_status()
+
+
+def _build_website_xml(index_document: str, error_document: str | None = None) -> str:
+    """Build XML payload for S3 website configuration."""
+    index_xml = f"<IndexDocument><Suffix>{index_document}</Suffix></IndexDocument>"
+    error_xml = f"<ErrorDocument><Key>{error_document}</Key></ErrorDocument>" if error_document else ""
+    return f'<WebsiteConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">{index_xml}{error_xml}</WebsiteConfiguration>'
+
+
+async def s3_put_bucket_website(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+    index_document: str = "index.html",
+    error_document: str | None = None,
+) -> niquests.AsyncResponse:
+    """
+    Configure a bucket as a static website using a signed request.
+
+    The website configuration is sent as XML in the request body.
+    Note: This operation is not supported by MinIO.
+    """
+    import hashlib
+
+    from botocore.auth import SigV4Auth
+    from botocore.awsrequest import AWSRequest
+
+    xml_payload = _build_website_xml(index_document, error_document)
+    xml_bytes = xml_payload.encode("utf-8")
+
+    # Build the request URL
+    endpoint = s3.meta.endpoint_url
+    url = f"{endpoint}/{bucket}?website"
+
+    # Create and sign the request
+    request = AWSRequest(method="PUT", url=url, data=xml_bytes, headers={"Content-Type": "application/xml"})
+
+    # Add content hash for S3
+    content_hash = hashlib.sha256(xml_bytes).hexdigest()
+    request.headers["x-amz-content-sha256"] = content_hash
+
+    # Sign the request
+    credentials = s3._request_signer._credentials
+    region = s3.meta.region_name
+    signer = SigV4Auth(credentials, "s3", region)
+    signer.add_auth(request)
+
+    # Extract signed headers
+    headers = dict(request.headers)
+
+    return (await client.put(url, data=xml_bytes, headers=headers)).raise_for_status()  # pyright: ignore[reportReturnType]
+
+
+async def s3_delete_bucket_website(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+) -> niquests.Response:
+    """Remove website configuration from a bucket using presigned URL."""
+    url = s3.generate_presigned_url(
+        ClientMethod="delete_bucket_website",
+        Params={"Bucket": bucket},
+    )
+    return (await client.delete(url)).raise_for_status()
+
+
+async def s3_empty_bucket(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+) -> int:
+    """
+    Delete all objects from a bucket.
+
+    Returns the count of deleted objects.
+    """
+    deleted_count = 0
+    async for obj in s3_list_files(s3, client, bucket, ""):
+        key = obj.get("Key")
+        if key:
+            await s3_delete_object(s3, client, bucket, key)
+            deleted_count += 1
+    return deleted_count

@@ -1,8 +1,8 @@
 from pathlib import Path
 
 try:
-    from minio.deleteobjects import DeleteObject
     from minio import Minio
+    from minio.deleteobjects import DeleteObject
 except ImportError:
     raise ImportError('Please install minio or tracktolib with "s3-minio" to use this module')
 

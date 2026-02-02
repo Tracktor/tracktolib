@@ -14,6 +14,40 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    profiles:
+      - minio
+
+  garage:
+    image: dxflrs/garage:v2.2.0
+    container_name: garage-tracktolib
+    ports:
+      - "127.0.0.1:9002:3900"  # S3 API
+      - "127.0.0.1:9003:3903"  # Admin API
+      - "127.0.0.1:3902:3902"  # Web hosting
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage-data:/var/lib/garage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3903/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - garage
+
+  garage-init:
+    image: dxflrs/garage:v2.2.0
+    container_name: garage-init-tracktolib
+    depends_on:
+      garage:
+        condition: service_healthy
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - ./garage-init.sh:/init.sh:ro
+    entrypoint: ["/bin/sh", "/init.sh"]
+    network_mode: "service:garage"
+    profiles:
+      - garage
 
   postgres:
     image: postgres:18-alpine
@@ -30,3 +64,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+volumes:
+  garage-data:

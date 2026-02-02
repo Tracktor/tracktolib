@@ -32,19 +32,8 @@ SCHEMAS=(
   "nullable-simple-user"
   "simple-user"
   "nullable-integration"
-  "integration"
-  "app-permissions"
-  "author-association"
+
   "reaction-rollup"
-  "nullable-milestone"
-  "nullable-license-simple"
-  "license-simple"
-  "repository"
-  "simple-repository"
-  "code-of-conduct-simple"
-  "security-and-analysis"
-  "nullable-repository"
-  "minimal-repository"
 )
 
 echo "Downloading GitHub OpenAPI spec..."
@@ -80,8 +69,8 @@ uv run datamodel-codegen \
   --use-schema-description \
   --openapi-scopes schemas
 
-# Remove typing_extensions, not sure why it gets included and how
-# to prevent it...
+# Clean up generated file
 sed -i '/from typing_extensions import/d' "$OUTPUT_FILE"
+sed -i '/^#   filename:/d' "$OUTPUT_FILE"
 
 echo "Done! Generated $(wc -l < "$OUTPUT_FILE") lines to $OUTPUT_FILE"

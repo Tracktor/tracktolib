@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import asyncio
-import niquests
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
 
+import niquests
+
 from .markdown import (
-    markdown_to_blocks,
     blocks_to_markdown_with_comments,
     comments_to_markdown,
+    markdown_to_blocks,
     strip_comments_from_markdown,
 )
 
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from .cache import NotionCache
     from .models import Block, Comment, PartialBlock
 
+from ..utils import get_chunks, run_coros
 from .blocks import (
     ExportResult,
     find_divergence_index,
@@ -32,7 +33,6 @@ from .fetch import (
     fetch_comments,
     fetch_user,
 )
-from ..utils import get_chunks, run_coros
 
 __all__ = [
     "ClearResult",

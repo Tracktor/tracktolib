@@ -2,11 +2,12 @@ import csv
 import datetime as dt
 import functools
 import logging
-from pathlib import Path
-from typing import AsyncIterator, Iterable, cast, NamedTuple, Sequence
-from typing_extensions import LiteralString
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Iterable, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import LiteralString, NamedTuple, cast
+
 from ..pg_utils import get_conflict_query
 
 try:
@@ -21,8 +22,8 @@ from asyncpg.exceptions import (
     UniqueViolationError,
 )
 
-from tracktolib.utils import get_chunks
 from tracktolib.pg_utils import get_tmp_table_query
+from tracktolib.utils import get_chunks
 
 logger = logging.Logger("tracktolib-pg")
 

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Mapping, Self, Sequence, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Self, TypedDict, cast
 
 if TYPE_CHECKING:
     from .utils import PageComment

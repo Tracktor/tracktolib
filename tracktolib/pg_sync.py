@@ -1,13 +1,12 @@
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Iterable, Any, overload, Literal, cast, Optional, Mapping, Sequence
-
-from typing_extensions import LiteralString
+from typing import Any, Literal, LiteralString, Optional, cast, overload
 
 try:
     from psycopg import Connection, Cursor
     from psycopg.abc import Query, QueryNoTemplate
     from psycopg.errors import InvalidCatalogName
-    from psycopg.rows import dict_row, DictRow, TupleRow
+    from psycopg.rows import DictRow, TupleRow, dict_row
     from psycopg.types.json import Json
 except ImportError:
     raise ImportError('Please install psycopg or tracktolib with "pg-sync" to use this module')

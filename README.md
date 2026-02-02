@@ -87,10 +87,40 @@ uv add tracktolib[s3-minio]
 
 ### s3-niquests
 
-Async S3 helpers using [niquests](https://github.com/jawah/niquests) and [botocore](https://github.com/boto/botocore).
+Async S3 helpers using [niquests](https://github.com/jawah/niquests) and [botocore](https://github.com/boto/botocore) presigned URLs.
 
 ```bash
 uv add tracktolib[s3-niquests]
+```
+
+```python
+from tracktolib.s3.niquests import S3Session
+
+async with S3Session(
+    endpoint_url='http://localhost:9000',
+    access_key='...',
+    secret_key='...',
+    region='us-east-1',
+) as s3:
+    # Object operations
+    await s3.put_object('bucket', 'path/file.txt', b'content')
+    content = await s3.get_object('bucket', 'path/file.txt')
+    await s3.delete_object('bucket', 'path/file.txt')
+
+    # Streaming upload (multipart for large files)
+    async def data_stream():
+        yield b'chunk1'
+        yield b'chunk2'
+    await s3.file_upload('bucket', 'large-file.bin', data_stream())
+
+    # Bucket policy management
+    policy = {'Version': '2012-10-17', 'Statement': [...]}
+    await s3.put_bucket_policy('bucket', policy)
+    await s3.get_bucket_policy('bucket')
+    await s3.delete_bucket_policy('bucket')
+
+    # Empty a bucket (delete all objects)
+    deleted_count = await s3.empty_bucket('bucket')
 ```
 
 ### http (deprecated)
@@ -162,6 +192,38 @@ async with GitHubClient() as gh:  # Uses GITHUB_TOKEN env var
     # Deployments
     deploys = await gh.get_deployments("owner/repo", environment="production")
     await gh.mark_deployment_inactive("owner/repo", "preview-123")
+```
+
+### cf
+
+Cloudflare DNS API helpers using [niquests](https://github.com/jawah/niquests).
+
+```bash
+uv add tracktolib[cf]
+```
+
+```python
+from tracktolib.cf import CloudflareDNSClient
+
+async with CloudflareDNSClient() as cf:  # Uses CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID env vars
+    # Get a DNS record
+    record = await cf.get_dns_record("app.example.com", "CNAME")
+
+    # Create a DNS record
+    record = await cf.create_dns_record(
+        "app.example.com",
+        "target.example.com",
+        record_type="CNAME",
+        ttl=60,
+        proxied=True,
+    )
+
+    # Delete by ID or name
+    await cf.delete_dns_record(record["id"])
+    await cf.delete_dns_record_by_name("app.example.com", "CNAME")
+
+    # Check existence
+    exists = await cf.dns_record_exists("app.example.com")
 ```
 
 ### tests

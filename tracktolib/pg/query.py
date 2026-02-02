@@ -1,6 +1,7 @@
 import typing
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
-from typing import Iterable, Callable, Iterator, TypeAlias, overload, Any, Literal
+from typing import Any, Literal, TypeAlias, overload
 
 from ..pg_utils import get_conflict_query
 

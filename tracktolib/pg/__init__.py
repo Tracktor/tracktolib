@@ -1,17 +1,17 @@
 from .query import (
-    insert_many,
-    insert_one,
+    Conflict,
+    OnConflict,
+    PGConflictQuery,
     PGInsertQuery,
     PGReturningQuery,
-    PGConflictQuery,
-    insert_returning,
-    Conflict,
-    fetch_count,
     PGUpdateQuery,
-    update_returning,
-    update_one,
+    fetch_count,
+    insert_many,
+    insert_one,
     insert_pg,
-    OnConflict,
+    insert_returning,
     update_many,
+    update_one,
+    update_returning,
 )
-from .utils import iterate_pg, upsert_csv, safe_pg, safe_pg_context, PGError, PGException
+from .utils import PGError, PGException, iterate_pg, safe_pg, safe_pg_context, upsert_csv

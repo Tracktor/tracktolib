@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, Sequence, TypedDict
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
     from .models import Block, PartialBlock

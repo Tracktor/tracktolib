@@ -1,6 +1,7 @@
-import pytest
-import logging
 import io
+import logging
+
+import pytest
 
 
 @pytest.mark.parametrize("log_format", ["console", "json"])

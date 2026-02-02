@@ -3,10 +3,10 @@ import pytest
 from tracktolib.notion.blocks import (
     blocks_content_equal,
     find_divergence_index,
-    make_paragraph_block,
-    make_heading_block,
     make_code_block,
     make_divider_block,
+    make_heading_block,
+    make_paragraph_block,
     make_todo_block,
 )
 

@@ -1,17 +1,12 @@
 import json
 import warnings
+from collections.abc import AsyncIterator, Callable, Coroutine, Mapping, Sequence
 from dataclasses import dataclass, field
 from inspect import getdoc
 from typing import (
     Any,
-    AsyncIterator,
-    Callable,
     ClassVar,
-    Coroutine,
     Literal,
-    Mapping,
-    Sequence,
-    Type,
     TypeAlias,
     TypedDict,
     get_args,
@@ -19,14 +14,14 @@ from typing import (
     get_type_hints,
 )
 
-from .utils import json_serial, get_first_line
+from .utils import get_first_line, json_serial
 
 try:
-    from fastapi import params, APIRouter
-    from fastapi.responses import JSONResponse
-    from pydantic.alias_generators import to_camel
-    from pydantic import BaseModel, ConfigDict
     import starlette.status
+    from fastapi import APIRouter, params
+    from fastapi.responses import JSONResponse
+    from pydantic import BaseModel, ConfigDict
+    from pydantic.alias_generators import to_camel
 except ImportError:
     raise ImportError('Please install fastapi, pydantic or tracktolib with "api" to use this module')
 
@@ -61,7 +56,7 @@ class MethodMeta(TypedDict):
     status_code: StatusCode
     dependencies: Dependencies
     path: str | None
-    response_model: Type[BaseModel | None | Sequence[BaseModel]] | None
+    response_model: type[BaseModel | None | Sequence[BaseModel]] | None
     openapi_extra: dict[str, Any] | None
     name: str | None
     summary: str | None
@@ -82,7 +77,7 @@ class Endpoint:
         status_code: StatusCode = None,
         dependencies: Dependencies = None,
         path: str | None = None,
-        model: Type[B] | None = None,
+        model: type[B] | None = None,
         openapi_extra: dict[str, Any] | None = None,
         name: str | None = None,
         summary: str | None = None,
@@ -109,7 +104,7 @@ class Endpoint:
         status_code: StatusCode = None,
         dependencies: Dependencies = None,
         path: str | None = None,
-        model: Type[B] | None = None,
+        model: type[B] | None = None,
         openapi_extra: dict[str, Any] | None = None,
         name: str | None = None,
         summary: str | None = None,
@@ -135,7 +130,7 @@ class Endpoint:
         status_code: StatusCode = None,
         dependencies: Dependencies = None,
         path: str | None = None,
-        model: Type[B] | None = None,
+        model: type[B] | None = None,
         openapi_extra: dict[str, Any] | None = None,
         name: str | None = None,
         summary: str | None = None,
@@ -161,7 +156,7 @@ class Endpoint:
         status_code: StatusCode = None,
         dependencies: Dependencies = None,
         path: str | None = None,
-        model: Type[B] | None = None,
+        model: type[B] | None = None,
         openapi_extra: dict[str, Any] | None = None,
         name: str | None = None,
         summary: str | None = None,
@@ -187,7 +182,7 @@ class Endpoint:
         status_code: StatusCode = None,
         dependencies: Dependencies = None,
         path: str | None = None,
-        model: Type[B] | None = None,
+        model: type[B] | None = None,
         openapi_extra: dict[str, Any] | None = None,
         name: str | None = None,
         summary: str | None = None,
@@ -216,7 +211,7 @@ def _get_method_wrapper[B: _BaseModelBound](
     status_code: StatusCode = None,
     dependencies: Dependencies = None,
     path: str | None = None,
-    model: Type[B] | None = None,
+    model: type[B] | None = None,
     openapi_extra: dict[str, Any] | None = None,
     name: str | None = None,
     summary: str | None = None,
@@ -335,7 +330,7 @@ def check_status(resp, status: int = starlette.status.HTTP_200_OK):
         raise AssertionError(json.dumps(resp.json(), indent=4))
 
 
-def generate_list_name_model[B: _BaseModelBound](model: Type[B], status: int | None = None) -> dict:
+def generate_list_name_model[B: _BaseModelBound](model: type[B], status: int | None = None) -> dict:
     _status = "200" if status is None else str(status)
     if get_origin(model) and get_origin(model) is list:
         _title = f"Array[{get_args(model)[0].__name__}]"
