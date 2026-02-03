@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-from collections import namedtuple
-from pathlib import Path
-
+import hashlib
 import http
 import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import AsyncIterator, Callable, Literal, Self, TypedDict, Unpack
+from pathlib import Path
+from typing import AsyncIterator, Awaitable, Callable, Literal, NamedTuple, Required, Self, TypedDict, Unpack
+from urllib.parse import unquote
+from xml.sax.saxutils import escape as xml_escape
 
 try:
     import botocore.client
     import botocore.session
     import jmespath
+    from botocore.auth import SigV4Auth
+    from botocore.awsrequest import AWSRequest
     from botocore.config import Config
 except ImportError as e:
     raise ImportError("botocore is required for S3 operations. Install with tracktolib[s3-niquests]") from e
@@ -22,26 +25,37 @@ try:
 except ImportError as e:
     raise ImportError("niquests is required for S3 operations. Install with tracktolib[s3-niquests]") from e
 
+try:
+    import ujson as json
+except ImportError:
+    import json
+
 from ..utils import get_stream_chunk
 
 __all__ = (
-    "S3Session",
-    "s3_delete_object",
-    "s3_delete_objects",
-    "s3_list_files",
-    "s3_put_object",
-    "s3_get_object",
-    "s3_download_file",
-    "s3_upload_file",
-    "s3_create_multipart_upload",
-    "s3_multipart_upload",
-    "s3_file_upload",
     "S3MultipartUpload",
     "S3Object",
     "S3ObjectParams",
+    "S3Session",
     "UploadPart",
     "build_s3_headers",
     "build_s3_presigned_params",
+    "s3_create_multipart_upload",
+    "s3_delete_bucket_policy",
+    "s3_delete_bucket_website",
+    "s3_delete_object",
+    "s3_delete_objects",
+    "s3_download_file",
+    "s3_empty_bucket",
+    "s3_file_upload",
+    "s3_get_bucket_policy",
+    "s3_get_object",
+    "s3_list_files",
+    "s3_multipart_upload",
+    "s3_put_bucket_policy",
+    "s3_put_bucket_website",
+    "s3_put_object",
+    "s3_upload_file",
 )
 
 ACL = Literal[
@@ -193,16 +207,16 @@ class S3Session:
     s3_config: Config | None = None
     s3_client: botocore.client.BaseClient | None = None
     http_client: niquests.AsyncSession = field(default_factory=niquests.AsyncSession)
+    _botocore_session: botocore.session.Session | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
         if self.s3_client is None:
-            session = botocore.session.Session()
-            self.s3_client = session.create_client(
+            self._botocore_session = botocore.session.Session()
+            self._botocore_session.set_credentials(self.access_key, self.secret_key)
+            self.s3_client = self._botocore_session.create_client(
                 "s3",
                 endpoint_url=self.endpoint_url,
                 region_name=self.region,
-                aws_access_key_id=self.access_key,
-                aws_secret_access_key=self.secret_key,
                 config=self.s3_config,
             )
 
@@ -220,13 +234,13 @@ class S3Session:
         await self.http_client.__aexit__(exc_type, exc_val, exc_tb)
         self._s3.close()
 
-    async def delete_object(self, bucket: str, key: str) -> niquests.Response:
+    async def delete_object(self, bucket: str, key: str) -> niquests.AsyncResponse:
         """Delete an object from S3."""
-        return await s3_delete_object(self._s3, self.http_client, bucket, key)
+        return await s3_delete_object(self._s3, self.http_client, bucket, key)  # pyright: ignore[reportReturnType]
 
-    async def delete_objects(self, bucket: str, keys: list[str]) -> list[niquests.Response]:
+    async def delete_objects(self, bucket: str, keys: list[str]) -> list[niquests.AsyncResponse]:
         """Delete multiple objects from S3."""
-        return await s3_delete_objects(self._s3, self.http_client, bucket, keys)
+        return await s3_delete_objects(self._s3, self.http_client, bucket, keys)  # pyright: ignore[reportReturnType]
 
     def list_files(
         self,
@@ -252,15 +266,15 @@ class S3Session:
 
     async def put_object(
         self, bucket: str, key: str, data: bytes, **kwargs: Unpack[S3ObjectParams]
-    ) -> niquests.Response:
+    ) -> niquests.AsyncResponse:
         """Upload an object to S3."""
-        return await s3_put_object(self._s3, self.http_client, bucket, key, data, **kwargs)
+        return await s3_put_object(self._s3, self.http_client, bucket, key, data, **kwargs)  # pyright: ignore[reportReturnType]
 
     async def upload_file(
         self, bucket: str, file: Path, path: str, **kwargs: Unpack[S3ObjectParams]
-    ) -> niquests.Response:
+    ) -> niquests.AsyncResponse:
         """Upload a file to S3."""
-        return await s3_upload_file(self._s3, self.http_client, bucket, file, path, **kwargs)
+        return await s3_upload_file(self._s3, self.http_client, bucket, file, path, **kwargs)  # pyright: ignore[reportReturnType]
 
     async def get_object(self, bucket: str, key: str) -> bytes | None:
         """Download an object from S3."""
@@ -310,10 +324,33 @@ class S3Session:
             **kwargs,
         )
 
+    async def put_bucket_policy(self, bucket: str, policy: str | dict) -> niquests.AsyncResponse:
+        """Set a bucket policy."""
+        return await s3_put_bucket_policy(self._s3, self.http_client, bucket, policy, self._botocore_session)  # pyright: ignore[reportReturnType]
 
-S3MultipartUpload = namedtuple(
-    "S3MultipartUpload", ["fetch_create", "fetch_complete", "upload_part", "generate_presigned_url", "fetch_abort"]
-)
+    async def get_bucket_policy(self, bucket: str) -> dict | None:
+        """Get a bucket policy. Returns None if no policy exists."""
+        return await s3_get_bucket_policy(self._s3, self.http_client, bucket)
+
+    async def delete_bucket_policy(self, bucket: str) -> niquests.AsyncResponse:
+        """Delete a bucket policy."""
+        return await s3_delete_bucket_policy(self._s3, self.http_client, bucket)  # pyright: ignore[reportReturnType]
+
+    async def put_bucket_website(
+        self, bucket: str, index_document: str = "index.html", error_document: str | None = None
+    ) -> niquests.AsyncResponse:
+        """Configure a bucket as a static website."""
+        return await s3_put_bucket_website(
+            self._s3, self.http_client, bucket, index_document, error_document, self._botocore_session
+        )  # pyright: ignore[reportReturnType]
+
+    async def delete_bucket_website(self, bucket: str) -> niquests.AsyncResponse:
+        """Remove website configuration from a bucket."""
+        return await s3_delete_bucket_website(self._s3, self.http_client, bucket)  # pyright: ignore[reportReturnType]
+
+    async def empty_bucket(self, bucket: str, *, on_progress: Callable[[str], None] | None = None) -> int:
+        """Delete all objects from a bucket. Returns count of deleted objects."""
+        return await s3_empty_bucket(self._s3, self.http_client, bucket, on_progress=on_progress)
 
 
 class UploadPart(TypedDict):
@@ -321,8 +358,16 @@ class UploadPart(TypedDict):
     ETag: str | None
 
 
+class S3MultipartUpload(NamedTuple):
+    fetch_create: Callable[[], Awaitable[str]]
+    fetch_complete: Callable[[], Awaitable[niquests.Response]]
+    upload_part: Callable[[bytes], Awaitable[UploadPart]]
+    generate_presigned_url: Callable[..., str]
+    fetch_abort: Callable[[], Awaitable[niquests.Response]]
+
+
 class S3Object(TypedDict, total=False):
-    Key: str
+    Key: Required[str]
     LastModified: str
     ETag: str
     Size: int
@@ -398,12 +443,15 @@ async def s3_list_files(
 
         page_items: list[S3Object] = []
         for contents in root.findall("s3:Contents", ns):
-            item: S3Object = {}
+            item: S3Object = {}  # pyright: ignore[reportAssignmentType]
             for child in contents:
                 tag = child.tag.replace(f"{{{ns['s3']}}}", "")
                 item[tag] = child.text
             if "Size" in item:
                 item["Size"] = int(item["Size"])
+            # URL-decode the Key (some S3-compatible servers like Garage return URL-encoded keys)
+            if "Key" in item and item["Key"]:
+                item["Key"] = unquote(item["Key"])
             page_items.append(item)
 
         if search_query:
@@ -676,3 +724,158 @@ async def s3_file_upload(
                 return
             await mpart.upload_part(chunk)
             has_uploaded_parts = True
+
+
+def _get_credentials(s3: botocore.client.BaseClient, session: botocore.session.Session | None = None):
+    """Get credentials from session (public API) or fall back to client internals."""
+    if session is not None:
+        return session.get_credentials()
+    # Fall back to private API for backward compatibility with standalone function usage
+    return s3._request_signer._credentials  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def _sign_s3_request(
+    s3: botocore.client.BaseClient,
+    method: str,
+    url: str,
+    data: bytes,
+    content_type: str,
+    botocore_session: botocore.session.Session | None = None,
+) -> dict[str, str]:
+    """Create and sign an S3 request, returning the headers to use."""
+    request = AWSRequest(method=method, url=url, data=data, headers={"Content-Type": content_type})
+    request.headers["x-amz-content-sha256"] = hashlib.sha256(data).hexdigest()
+
+    credentials = _get_credentials(s3, botocore_session)
+    region = s3.meta.region_name
+    signer = SigV4Auth(credentials, "s3", region)
+    signer.add_auth(request)
+
+    return dict(request.headers)
+
+
+async def s3_put_bucket_policy(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+    policy: str | dict,
+    botocore_session: botocore.session.Session | None = None,
+) -> niquests.Response:
+    """
+    Set a bucket policy using a signed request.
+
+    The policy can be provided as a JSON string or a dict (which will be serialized).
+    If botocore_session is provided, credentials are retrieved via the public API;
+    otherwise falls back to the client's internal credentials.
+    """
+    policy_str = policy if isinstance(policy, str) else json.dumps(policy)
+    policy_bytes = policy_str.encode("utf-8")
+    url = f"{s3.meta.endpoint_url}/{bucket}?policy"
+    headers = _sign_s3_request(s3, "PUT", url, policy_bytes, "application/json", botocore_session)
+    return (await client.put(url, data=policy_bytes, headers=headers)).raise_for_status()
+
+
+async def s3_get_bucket_policy(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+) -> dict | None:
+    """
+    Get a bucket policy using presigned URL.
+
+    Returns the policy as a dict, or None if no policy exists.
+    """
+    url = s3.generate_presigned_url(
+        ClientMethod="get_bucket_policy",
+        Params={"Bucket": bucket},
+    )
+    resp = await client.get(url)
+    if resp.status_code == http.HTTPStatus.NOT_FOUND:
+        return None
+    # NoSuchBucketPolicy returns 404 on AWS, but some providers may return other codes
+    if resp.status_code == http.HTTPStatus.NO_CONTENT:
+        return None
+    resp.raise_for_status()
+    if resp.content is None:
+        return None
+    return json.loads(resp.content)
+
+
+async def s3_delete_bucket_policy(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+) -> niquests.Response:
+    """Delete a bucket policy using presigned URL."""
+    url = s3.generate_presigned_url(
+        ClientMethod="delete_bucket_policy",
+        Params={"Bucket": bucket},
+    )
+    return (await client.delete(url)).raise_for_status()
+
+
+def _build_website_xml(index_document: str, error_document: str | None, api_version: str) -> str:
+    """Build XML payload for S3 website configuration."""
+    index_xml = f"<IndexDocument><Suffix>{xml_escape(index_document)}</Suffix></IndexDocument>"
+    error_xml = f"<ErrorDocument><Key>{xml_escape(error_document)}</Key></ErrorDocument>" if error_document else ""
+    return f'<WebsiteConfiguration xmlns="http://s3.amazonaws.com/doc/{api_version}/">{index_xml}{error_xml}</WebsiteConfiguration>'
+
+
+async def s3_put_bucket_website(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+    index_document: str = "index.html",
+    error_document: str | None = None,
+    botocore_session: botocore.session.Session | None = None,
+) -> niquests.AsyncResponse:
+    """
+    Configure a bucket as a static website using a signed request.
+
+    Note: This operation is not supported by MinIO.
+    If botocore_session is provided, credentials are retrieved via the public API;
+    otherwise falls back to the client's internal credentials.
+    """
+    api_version = s3.meta.service_model.api_version
+    xml_payload = _build_website_xml(index_document, error_document, api_version)
+    xml_bytes = xml_payload.encode("utf-8")
+    url = f"{s3.meta.endpoint_url}/{bucket}?website"
+    headers = _sign_s3_request(s3, "PUT", url, xml_bytes, "application/xml", botocore_session)
+    return (await client.put(url, data=xml_bytes, headers=headers)).raise_for_status()  # pyright: ignore[reportReturnType]
+
+
+async def s3_delete_bucket_website(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+) -> niquests.Response:
+    """Remove website configuration from a bucket using presigned URL."""
+    url = s3.generate_presigned_url(
+        ClientMethod="delete_bucket_website",
+        Params={"Bucket": bucket},
+    )
+    return (await client.delete(url)).raise_for_status()
+
+
+async def s3_empty_bucket(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+    *,
+    on_progress: Callable[[str], None] | None = None,
+) -> int:
+    """
+    Delete all objects from a bucket.
+
+    The optional on_progress callback is called with each deleted key.
+    Returns the count of deleted objects.
+    """
+    deleted_count = 0
+    async for obj in s3_list_files(s3, client, bucket, ""):
+        key = obj.get("Key")
+        if key:
+            await s3_delete_object(s3, client, bucket, key)
+            deleted_count += 1
+            if on_progress:
+                on_progress(key)
+    return deleted_count

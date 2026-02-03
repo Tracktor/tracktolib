@@ -152,7 +152,7 @@ def compare_strings(str1: str, str2: str):
     ],
 )
 def test_pg_insert_query(data, on_conflict, returning, expected, quote_columns):
-    from tracktolib.pg import PGInsertQuery, PGConflictQuery, PGReturningQuery
+    from tracktolib.pg import PGConflictQuery, PGInsertQuery, PGReturningQuery
 
     _returning = PGReturningQuery.load(**returning) if returning else None
     query = PGInsertQuery(
@@ -168,12 +168,12 @@ def test_pg_insert_query(data, on_conflict, returning, expected, quote_columns):
 
 @pytest.mark.parametrize("async_engine", ["connection", "pool"])
 @pytest.mark.usefixtures("setup_tables")
-def test_insert_one(loop, aengine, apool, engine, async_engine):
+async def test_insert_one(aengine, apool, engine, async_engine):
     from tracktolib.pg import insert_one
 
     _engine = aengine if async_engine == "connection" else apool
 
-    loop.run_until_complete(insert_one(_engine, "foo.foo", {"foo": 1}))
+    await insert_one(_engine, "foo.foo", {"foo": 1})
 
     db_data = fetch_all(engine, "SELECT bar, foo FROM foo.foo")
     assert db_data == [{"bar": None, "foo": 1}]
@@ -182,14 +182,12 @@ def test_insert_one(loop, aengine, apool, engine, async_engine):
 @pytest.mark.parametrize("quote_columns", [True, False])
 @pytest.mark.parametrize("async_engine", ["connection", "pool"])
 @pytest.mark.usefixtures("setup_tables")
-def test_insert_many(loop, aengine, apool, engine, async_engine, quote_columns):
+async def test_insert_many(aengine, apool, engine, async_engine, quote_columns):
     from tracktolib.pg import insert_many
 
     _engine = aengine if async_engine == "connection" else apool
 
-    loop.run_until_complete(
-        insert_many(_engine, "foo.foo", [{"foo": 1}, {"bar": "hello"}], fill=True, quote_columns=quote_columns)
-    )
+    await insert_many(_engine, "foo.foo", [{"foo": 1}, {"bar": "hello"}], fill=True, quote_columns=quote_columns)
 
     db_data = fetch_all(engine, "SELECT bar, foo FROM foo.foo ORDER BY foo")
     assert db_data == [{"bar": None, "foo": 1}, {"bar": "hello", "foo": None}]
@@ -249,38 +247,34 @@ def insert_data(engine):
     ],
 )
 @pytest.mark.usefixtures("setup_tables", "insert_data")
-def test_insert_conflict_one(loop, aengine, engine, setup_fn, insert_params, expected_query, expected):
-    from tracktolib.pg_sync import fetch_all
+async def test_insert_conflict_one(aengine, engine, setup_fn, insert_params, expected_query, expected):
     from tracktolib.pg import insert_one
+    from tracktolib.pg_sync import fetch_all
 
     if setup_fn is not None:
         setup_fn(engine)
 
-    loop.run_until_complete(insert_one(aengine, **insert_params))
+    await insert_one(aengine, **insert_params)
     db_data = fetch_all(engine, expected_query)
     assert db_data == expected
 
 
 @pytest.mark.usefixtures("setup_tables", "insert_data")
-def test_insert_conflict_many(loop, aengine, engine):
-    from tracktolib.pg import insert_many, Conflict
+async def test_insert_conflict_many(aengine, engine):
+    from tracktolib.pg import Conflict, insert_many
 
     data = [{"id": 1, "foo": 1}, {"id": 2, "bar": "hello"}]
-    loop.run_until_complete(
-        insert_many(aengine, "foo.foo", data, fill=True, on_conflict=Conflict(keys=["id"], ignore_keys=["foo"]))
-    )
+    await insert_many(aengine, "foo.foo", data, fill=True, on_conflict=Conflict(keys=["id"], ignore_keys=["foo"]))
     db_data = fetch_all(engine, "SELECT bar, foo FROM foo.foo ORDER BY foo")
     assert [{"bar": "baz", "foo": 10}, {"bar": "hello", "foo": 20}] == db_data
 
 
 @pytest.mark.parametrize("on_conflict", [None, "ON CONFLICT DO NOTHING"])
 @pytest.mark.usefixtures("setup_tables")
-def test_insert_one_returning_one(loop, aengine, engine, on_conflict):
+async def test_insert_one_returning_one(aengine, engine, on_conflict):
     from tracktolib.pg import insert_returning
 
-    new_id = loop.run_until_complete(
-        insert_returning(aengine, "foo.foo", {"id": 1, "foo": 1}, returning="id", on_conflict=on_conflict)
-    )
+    new_id = await insert_returning(aengine, "foo.foo", {"id": 1, "foo": 1}, returning="id", on_conflict=on_conflict)
     assert new_id is not None
 
     db_data = fetch_all(engine, "SELECT bar, foo FROM foo.foo WHERE id = %s", new_id)
@@ -288,16 +282,16 @@ def test_insert_one_returning_one(loop, aengine, engine, on_conflict):
 
 
 @pytest.mark.usefixtures("setup_tables")
-def test_insert_one_returning_many(loop, aengine, engine):
+async def test_insert_one_returning_many(aengine, engine):
     from tracktolib.pg import insert_returning
 
-    returned_value = loop.run_until_complete(
-        insert_returning(aengine, "foo.foo", {"id": 1, "foo": 1}, returning=["id", "bar"])
-    )
+    returned_value = await insert_returning(aengine, "foo.foo", {"id": 1, "foo": 1}, returning=["id", "bar"])
+    assert returned_value is not None
     returned_value = dict(returned_value)
     assert returned_value.pop("id") is not None
     assert returned_value == {"bar": None}
-    returned_values = loop.run_until_complete(insert_returning(aengine, "foo.foo", {"id": 2, "foo": 2}, returning="*"))
+    returned_values = await insert_returning(aengine, "foo.foo", {"id": 2, "foo": 2}, returning="*")
+    assert returned_values is not None
     assert_equals(dict(returned_values), {"id": 2, "foo": 2, "bar": None})
 
 
@@ -319,10 +313,11 @@ def test_insert_one_returning_many(loop, aengine, engine):
     ],
 )
 @pytest.mark.usefixtures("setup_tables")
-def test_insert_many_returning(loop, aengine, engine, items, returning, expected_returned):
+async def test_insert_many_returning(aengine, engine, items, returning, expected_returned):
     from tracktolib.pg import insert_returning
 
-    returned_values = loop.run_until_complete(insert_returning(aengine, "foo.foo", items, returning=returning))
+    returned_values = await insert_returning(aengine, "foo.foo", items, returning=returning)
+    assert returned_values is not None
     assert len(returned_values) == len(expected_returned)
     assert [dict(r) for r in returned_values] == expected_returned
 
@@ -336,52 +331,45 @@ def insert_iterate_data(engine):
 
 
 @pytest.mark.usefixtures("setup_tables", "insert_iterate_data")
-def test_iterate_pg(aengine, loop):
+async def test_iterate_pg(aengine):
     from tracktolib.pg import iterate_pg
     from tracktolib.tests import assert_equals
 
     output = []
+    query = "SELECT id FROM foo.foo"
+    async for c in iterate_pg(aengine, query, from_offset=2, chunk_size=3):
+        output.append([dict(x) for x in c])
 
-    async def _test():
-        nonlocal output
-        query = "SELECT id FROM foo.foo"
-        async for c in iterate_pg(aengine, query, from_offset=2, chunk_size=3):
-            output.append([dict(x) for x in c])
-
-    loop.run_until_complete(_test())
     expected = [[{"id": 2}, {"id": 3}, {"id": 4}], [{"id": 5}, {"id": 6}, {"id": 7}], [{"id": 8}, {"id": 9}]]
-
     assert_equals(output, expected)
 
 
 @pytest.mark.usefixtures("setup_tables")
-def test_upload_csv(aengine, loop, static_dir, engine):
+async def test_upload_csv(aengine, static_dir, engine):
     from tracktolib.pg import upsert_csv
     from tracktolib.tests import assert_equals
 
     file = static_dir / "test.csv"
     file2 = static_dir / "test2.csv"
 
-    loop.run_until_complete(upsert_csv(aengine, file, schema="foo", table="bar"))
+    await upsert_csv(aengine, file, schema="foo", table="bar")
     db = fetch_all(engine, "SELECT * FROM foo.bar ORDER BY foo")
     expected = [{"bar": "2", "foo": 1}]
     assert_equals(db, expected)
     # Run again works with on conflict ignore
-    loop.run_until_complete(upsert_csv(aengine, file, schema="foo", table="bar"))
+    await upsert_csv(aengine, file, schema="foo", table="bar")
     # Run again works with update
-    loop.run_until_complete(upsert_csv(aengine, file, schema="foo", table="bar", on_conflict_keys=["foo"]))
+    await upsert_csv(aengine, file, schema="foo", table="bar", on_conflict_keys=["foo"])
     # Run again works with update and other file
-    loop.run_until_complete(
-        upsert_csv(
-            aengine,
-            file2,
-            schema="foo",
-            table="bar",
-            on_conflict_keys=["foo"],
-            delimiter=";",
-            col_names=["foo", "bar"],
-            skip_header=True,
-        )
+    await upsert_csv(
+        aengine,
+        file2,
+        schema="foo",
+        table="bar",
+        on_conflict_keys=["foo"],
+        delimiter=";",
+        col_names=["foo", "bar"],
+        skip_header=True,
     )
     db = fetch_all(engine, "SELECT * FROM foo.bar ORDER BY foo")
     expected = [{"bar": "11", "foo": 1}, {"bar": "22", "foo": 2}]
@@ -389,10 +377,10 @@ def test_upload_csv(aengine, loop, static_dir, engine):
 
 
 @pytest.mark.usefixtures("setup_tables", "insert_iterate_data")
-def test_fetch_count(aengine, loop):
+async def test_fetch_count(aengine):
     from tracktolib.pg import fetch_count
 
-    count = loop.run_until_complete(fetch_count(aengine, "SELECT 1 FROM foo.foo"))
+    count = await fetch_count(aengine, "SELECT 1 FROM foo.foo")
     assert count == 10
 
 
@@ -511,22 +499,22 @@ def test_pg_update_query(data, params, expected):
     ],
 )
 @pytest.mark.usefixtures("setup_tables", "insert_data")
-def test_update_one(aengine, loop, engine, setup_fn, params, expected_query, expected):
+async def test_update_one(aengine, engine, setup_fn, params, expected_query, expected):
     from tracktolib.pg import update_one
 
     if setup_fn:
         setup_fn(engine)
 
-    loop.run_until_complete(update_one(aengine, **params))
+    await update_one(aengine, **params)
     db_data = fetch_all(engine, expected_query)
     assert db_data == expected
 
 
 @pytest.mark.usefixtures("setup_tables", "insert_data")
-def test_update_one_keys(aengine, loop, engine):
+async def test_update_one_keys(aengine, engine):
     from tracktolib.pg import update_one
 
-    loop.run_until_complete(update_one(aengine, "foo.foo", {"foo": 2, "id": 1}, keys=["id"]))
+    await update_one(aengine, "foo.foo", {"foo": 2, "id": 1}, keys=["id"])
 
 
 @pytest.mark.parametrize(
@@ -539,10 +527,10 @@ def test_update_one_keys(aengine, loop, engine):
     ],
 )
 @pytest.mark.usefixtures("setup_tables", "insert_data")
-def test_update_one_returning(aengine, loop, engine, param_args, params_kwargs, expected):
+async def test_update_one_returning(aengine, engine, param_args, params_kwargs, expected):
     from tracktolib.pg import update_returning
 
-    value = loop.run_until_complete(update_returning(aengine, "foo.foo", *param_args, **params_kwargs))
+    value = await update_returning(aengine, "foo.foo", *param_args, **params_kwargs)
     assert value if not isinstance(value, asyncpg.Record) else dict(value) == expected
 
 
@@ -554,20 +542,20 @@ async def check_update_one_types(aengine):
     await update_returning(aengine, "foo.foo", {"foo": 1}, return_keys=True)
 
 
-def test_safe_pg(aengine, loop):
-    from tracktolib.pg import insert_one, safe_pg, PGError, PGException, safe_pg_context
+async def test_safe_pg(aengine):
+    from tracktolib.pg import PGError, PGException, insert_one, safe_pg, safe_pg_context
 
     @safe_pg([PGError("bar_unique", "Another bar value exists")])
     async def insert_bar():
         await insert_one(aengine, "foo.generated", {"bar": "foo"})
 
-    loop.run_until_complete(insert_bar())
+    await insert_bar()
     with pytest.raises(PGException):
-        loop.run_until_complete(insert_bar())
+        await insert_bar()
 
     with pytest.raises(PGException):
         with safe_pg_context([PGError("bar_unique", "Another bar value exists")]):
-            loop.run_until_complete(insert_bar())
+            await insert_bar()
 
 
 @pytest.mark.parametrize(
@@ -596,12 +584,12 @@ def test_safe_pg(aengine, loop):
     ],
 )
 @pytest.mark.usefixtures("setup_tables", "insert_data")
-def test_update_many(aengine, loop, engine, setup_fn, params, expected_query, expected):
+async def test_update_many(aengine, engine, setup_fn, params, expected_query, expected):
     from tracktolib.pg import update_many
 
     if setup_fn:
         setup_fn(engine)
 
-    loop.run_until_complete(update_many(aengine, **params))
+    await update_many(aengine, **params)
     db_data = fetch_all(engine, expected_query)
     assert db_data == expected

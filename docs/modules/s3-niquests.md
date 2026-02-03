@@ -100,6 +100,24 @@ await s3.upload_file(
 )
 ```
 
+#### `download_file`
+
+Download a file with streaming support. Returns an async iterator of chunks.
+
+```python
+async for chunk in s3.download_file('my-bucket', 'large_file.bin'):
+    process(chunk)
+
+# With callbacks and custom chunk size
+async for chunk in s3.download_file(
+    'my-bucket', 'large_file.bin',
+    chunk_size=512 * 1024,  # 512KB chunks
+    on_chunk=lambda c: print(f'Got {len(c)} bytes'),
+    on_start=lambda resp: print(f'Content-Length: {resp.headers.get("content-length")}'),
+):
+    process(chunk)
+```
+
 #### `delete_object`
 
 Delete a single object.
@@ -194,12 +212,19 @@ async with niquests.AsyncSession() as http:
 |----------|-------------|
 | `s3_put_object` | Upload bytes to S3 |
 | `s3_get_object` | Download an object (returns `None` if not found) |
+| `s3_download_file` | Download with streaming support (async iterator) |
 | `s3_upload_file` | Upload a file from disk |
 | `s3_delete_object` | Delete a single object |
 | `s3_delete_objects` | Delete multiple objects |
 | `s3_list_files` | List files with prefix (async iterator) |
 | `s3_multipart_upload` | Multipart upload context manager |
 | `s3_file_upload` | Stream upload from async iterator |
+| `s3_put_bucket_policy` | Set a bucket policy |
+| `s3_get_bucket_policy` | Get a bucket policy |
+| `s3_delete_bucket_policy` | Delete a bucket policy |
+| `s3_put_bucket_website` | Configure static website hosting |
+| `s3_delete_bucket_website` | Remove website configuration |
+| `s3_empty_bucket` | Delete all objects from a bucket |
 | `build_s3_headers` | Build HTTP headers from `S3ObjectParams` |
 | `build_s3_presigned_params` | Build presigned URL params from `S3ObjectParams` |
 
@@ -210,6 +235,7 @@ async with niquests.AsyncSession() as http:
 | `S3ObjectParams` | TypedDict for S3 object parameters |
 | `S3Object` | TypedDict for S3 object metadata |
 | `UploadPart` | TypedDict for multipart upload part info |
+| `OnDownloadStartFn` | Callback type for download start events |
 
 ## S3 Object Parameters
 
@@ -311,3 +337,91 @@ The context manager automatically:
 
 - Completes the upload on successful exit
 - Aborts the upload on exception
+
+## Bucket Operations
+
+### Bucket Policy
+
+Manage bucket policies for access control.
+
+#### `put_bucket_policy`
+
+Set a bucket policy. Accepts a dict or JSON string.
+
+```python
+policy = {
+    "Version": "2012-10-17",
+    "Statement": [{
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "s3:GetObject",
+        "Resource": f"arn:aws:s3:::my-bucket/*"
+    }]
+}
+await s3.put_bucket_policy('my-bucket', policy)
+```
+
+#### `get_bucket_policy`
+
+Get a bucket policy. Returns `None` if no policy exists.
+
+```python
+policy = await s3.get_bucket_policy('my-bucket')
+if policy:
+    print(policy['Statement'])
+```
+
+#### `delete_bucket_policy`
+
+Delete a bucket policy.
+
+```python
+await s3.delete_bucket_policy('my-bucket')
+```
+
+### Static Website Hosting
+
+Configure buckets for static website hosting.
+
+> **Note:** Website configuration is not supported by MinIO.
+
+#### `put_bucket_website`
+
+Configure a bucket as a static website.
+
+```python
+# Basic configuration
+await s3.put_bucket_website('my-bucket')
+
+# With custom documents
+await s3.put_bucket_website(
+    'my-bucket',
+    index_document='index.html',
+    error_document='404.html',
+)
+```
+
+#### `delete_bucket_website`
+
+Remove website configuration from a bucket.
+
+```python
+await s3.delete_bucket_website('my-bucket')
+```
+
+### Bucket Cleanup
+
+#### `empty_bucket`
+
+Delete all objects from a bucket. Returns the count of deleted objects.
+
+```python
+count = await s3.empty_bucket('my-bucket')
+print(f'Deleted {count} objects')
+
+# With progress callback
+count = await s3.empty_bucket(
+    'my-bucket',
+    on_progress=lambda key: print(f'Deleted {key}'),
+)
+```

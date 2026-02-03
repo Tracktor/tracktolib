@@ -8,10 +8,19 @@ import subprocess
 import sys
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
-from types import ModuleType
 from pathlib import Path
-from typing import Coroutine, AsyncIterable, AsyncIterator, Iterable, Iterator, Literal, overload, Any, Callable
-
+from types import ModuleType
+from typing import (
+    Any,
+    AsyncIterable,
+    AsyncIterator,
+    Callable,
+    Coroutine,
+    Iterable,
+    Iterator,
+    Literal,
+    overload,
+)
 
 type OnCmdUpdate = Callable[[str], None]
 type OnCmdDone = Callable[[str, str, int], None]

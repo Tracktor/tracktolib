@@ -1,7 +1,4 @@
-from typing import Iterable
-from typing import cast
-
-from typing_extensions import LiteralString
+from typing import Iterable, LiteralString, cast
 
 
 def get_tmp_table_query(

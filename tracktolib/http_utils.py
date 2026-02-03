@@ -1,6 +1,6 @@
 import typing
 import warnings
-from io import TextIOWrapper, BufferedWriter
+from io import BufferedWriter, TextIOWrapper
 from typing import BinaryIO, Callable, TextIO
 
 warnings.warn(

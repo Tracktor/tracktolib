@@ -119,8 +119,8 @@ def test_num_not_null(data, expected):
 
 
 def test_deep_reload():
-    from tracktolib.utils import deep_reload
     from tracktolib import pg_sync
+    from tracktolib.utils import deep_reload
 
     deep_reload(pg_sync)
 

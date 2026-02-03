@@ -1,11 +1,13 @@
-import pytest
-from tracktolib.tests import assert_equals
 from typing import TypedDict
+
+import pytest
+
+from tracktolib.tests import assert_equals
 
 
 @pytest.mark.usefixtures("setup_tables")
 def test_insert_fetch_many(engine):
-    from tracktolib.pg_sync import insert_many, fetch_all
+    from tracktolib.pg_sync import fetch_all, insert_many
 
     class Foo(TypedDict):
         foo: int
@@ -38,7 +40,7 @@ def test_fetch_one(engine):
 
 @pytest.mark.usefixtures("setup_tables")
 def test_insert_one(engine):
-    from tracktolib.pg_sync import insert_one, fetch_all
+    from tracktolib.pg_sync import fetch_all, insert_one
 
     insert_one(engine, "foo.bar", {"foo": 1, "bar": "baz"})
     db_data = fetch_all(engine, "SELECT foo, bar FROM foo.bar ORDER BY foo")
@@ -47,7 +49,7 @@ def test_insert_one(engine):
 
 @pytest.mark.usefixtures("setup_tables")
 def test_insert_one_returning(engine):
-    from tracktolib.pg_sync import insert_one, fetch_all
+    from tracktolib.pg_sync import fetch_all, insert_one
 
     data = insert_one(engine, "foo.bar", {"foo": 1, "bar": "baz"}, returning=["foo", "bar"])
     assert data is not None
@@ -58,7 +60,7 @@ def test_insert_one_returning(engine):
 
 @pytest.mark.usefixtures("setup_tables")
 def test_insert_one_cursor(engine):
-    from tracktolib.pg_sync import insert_one, fetch_all
+    from tracktolib.pg_sync import fetch_all, insert_one
 
     with engine.cursor() as cursor:
         insert_one(cursor, "foo.bar", {"foo": 1, "bar": "baz"})
@@ -69,7 +71,7 @@ def test_insert_one_cursor(engine):
 
 @pytest.mark.usefixtures("setup_tables")
 def test_insert_one_returning_cursor(engine):
-    from tracktolib.pg_sync import insert_one, fetch_all
+    from tracktolib.pg_sync import fetch_all, insert_one
 
     with engine.cursor() as cursor:
         data = insert_one(cursor, "foo.bar", {"foo": 1, "bar": "baz"}, returning=["foo", "bar"])
@@ -90,7 +92,7 @@ def test_fetch_count(engine):
 
 
 def test_insert_many(engine):
-    from tracktolib.pg_sync import insert_many, fetch_all
+    from tracktolib.pg_sync import fetch_all, insert_many
     from tracktolib.tests import assert_equals
 
     data = [{"bar": {"foo": 1}, "baz": {"foo": 2}}, {"bar": {"foo": 3}, "baz": {"foo": 4}}]
@@ -100,7 +102,7 @@ def test_insert_many(engine):
 
 
 def test_insert_many_cursor(engine):
-    from tracktolib.pg_sync import insert_many, fetch_all
+    from tracktolib.pg_sync import fetch_all, insert_many
     from tracktolib.tests import assert_equals
 
     data = [{"bar": {"foo": 1}, "baz": {"foo": 2}}, {"bar": {"foo": 3}, "baz": {"foo": 4}}]
@@ -114,7 +116,7 @@ def test_insert_many_cursor(engine):
 
 @pytest.mark.usefixtures("setup_tables")
 def test_insert_csv(engine, static_dir):
-    from tracktolib.pg_sync import insert_csv, fetch_all
+    from tracktolib.pg_sync import fetch_all, insert_csv
     from tracktolib.tests import assert_equals
 
     file = static_dir / "test.csv"
@@ -131,7 +133,7 @@ def test_insert_csv(engine, static_dir):
 
 @pytest.mark.usefixtures("setup_tables")
 def test_insert_csv_exclude_columns(engine, static_dir):
-    from tracktolib.pg_sync import insert_csv, fetch_all
+    from tracktolib.pg_sync import fetch_all, insert_csv
     from tracktolib.tests import assert_equals
 
     file = static_dir / "test-generated.csv"

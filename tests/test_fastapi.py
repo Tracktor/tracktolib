@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 import pytest
-from fastapi import FastAPI, APIRouter
+from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from starlette import status
@@ -18,7 +18,7 @@ def app():
 
 
 def test_get_return_type():
-    from tracktolib.api import _get_return_type, Response
+    from tracktolib.api import Response, _get_return_type
 
     class ReturnBar(BaseModel):
         foo: int
@@ -30,7 +30,8 @@ def test_get_return_type():
 
 def test_add_endpoint(app):
     import fastapi
-    from tracktolib.api import add_endpoint, Response, Endpoint, Depends
+
+    from tracktolib.api import Depends, Endpoint, Response, add_endpoint
     from tracktolib.tests import assert_equals
 
     endpoint = Endpoint()
@@ -105,7 +106,7 @@ def test_add_endpoint(app):
 
 
 def test_camelcase_model(app):
-    from tracktolib.api import add_endpoint, Endpoint, CamelCaseModel
+    from tracktolib.api import CamelCaseModel, Endpoint, add_endpoint
     from tracktolib.tests import assert_equals
 
     endpoint = Endpoint()
@@ -150,7 +151,8 @@ def check_json_serial_types():
 
 def test_update_array_metadata(app):
     from fastapi.openapi.utils import get_openapi
-    from tracktolib.api import Endpoint, CamelCaseModel, add_endpoint
+
+    from tracktolib.api import CamelCaseModel, Endpoint, add_endpoint
     from tracktolib.tests import assert_equals
 
     first_endpoint = Endpoint()
@@ -205,7 +207,7 @@ def test_warning_without_docstring(app):
     import warnings
 
     warnings.resetwarnings()
-    from tracktolib.api import Endpoint, add_endpoint, CamelCaseModel
+    from tracktolib.api import CamelCaseModel, Endpoint, add_endpoint
 
     class Foo(CamelCaseModel):
         foo_int: int

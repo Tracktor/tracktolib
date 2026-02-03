@@ -46,11 +46,13 @@ pg = [
     "asyncpg>=0.27.0",
     "rich>=13.6.0",
 ]
-notion = [
-    "niquests>=3.17.0"
-]
+notion = ["niquests>=3.17.0"]
+gh = ["niquests>=3.17.0"]
+cf = ["niquests>=3.17.0"]
 
 [dependency-groups]
+niquests = ["niquests>=3.17.0"]
+
 dev = [
     "pytest-cov>=7.0.0,<8",
     "pytest>=9.0.1,<10",
@@ -66,9 +68,11 @@ dev = [
     "pycryptodome>=3.23.0",
     "aiobotocore==2.15.2",
     # niquests for s3-niquests tests (botocore comes from aiobotocore)
-    "niquests>=3.17.0",
+    { include-group = "niquests" },
     "python-json-logger>=3.2.0",
     "prek>=0.2.30",
+    "datamodel-code-generator>=0.53.0",
+    "pytest-asyncio>=1.3.0",
 ]
 
 bump = [
@@ -98,6 +102,8 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning"
 ]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.pyright]
 include = ["tracktolib", "tests"]
@@ -122,6 +128,9 @@ changelog_file = "CHANGELOG.md"
 line-length = 120
 target-version = "py314"
 
+[tool.ruff.lint]
+# I: isort - consolidates duplicate imports
+extend-select = ["I"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [

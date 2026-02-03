@@ -13,7 +13,7 @@ def setup_minio(minio_client, s3_bucket):
 
 @pytest.mark.usefixtures("setup_minio")
 def test_upload_download_object(minio_client, static_dir, s3_bucket, tmp_path):
-    from tracktolib.s3.minio import upload_object, download_bucket
+    from tracktolib.s3.minio import download_bucket, upload_object
 
     upload_object(minio_client, s3_bucket, "test.csv", static_dir / "test.csv")
     download_bucket(minio_client, s3_bucket, tmp_path)

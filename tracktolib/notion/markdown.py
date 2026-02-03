@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any, Sequence
 
+from ..utils import get_chunks
 from .blocks import (
     BulletedListBlock,
     DividerBlock,
@@ -21,7 +22,6 @@ from .blocks import (
     make_quote_block,
     make_todo_block,
 )
-from ..utils import get_chunks
 
 # Union type for all Notion blocks used in markdown conversion
 NotionBlock = ParagraphBlock | DividerBlock | BulletedListBlock | NumberedListBlock | TodoBlock | QuoteBlock
@@ -32,11 +32,11 @@ if TYPE_CHECKING:
 __all__ = [
     "NOTION_CHAR_LIMIT",
     "NotionBlock",
-    "rich_text_to_markdown",
-    "markdown_to_blocks",
     "blocks_to_markdown",
     "blocks_to_markdown_with_comments",
     "comments_to_markdown",
+    "markdown_to_blocks",
+    "rich_text_to_markdown",
     "strip_comments_from_markdown",
 ]
 
