@@ -43,6 +43,10 @@ services:
       - ./garage.toml:/etc/garage.toml:ro
       - garage-data:/var/lib/garage:ro
     network_mode: "service:garage"
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 1s
+      retries: 1
 
   postgres:
     image: postgres:18-alpine
