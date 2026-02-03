@@ -1,5 +1,5 @@
 import json
-from collections.abc import Iterator
+from collections.abc import AsyncGenerator, Iterator
 from typing import LiteralString
 
 import asyncpg
@@ -64,15 +64,16 @@ async def init_connection(conn: asyncpg.Connection):
 
 
 @pytest.fixture(scope="function")
-async def aengine(pg_url) -> asyncpg.Connection:  # type: ignore
+async def aengine(pg_url) -> AsyncGenerator[asyncpg.Connection]:
     conn = await asyncpg.connect(pg_url)
     await init_connection(conn)
-    yield conn  # type: ignore
+    yield conn
     await conn.close()
 
 
 @pytest.fixture(scope="function")
-async def apool(pg_url) -> asyncpg.pool.Pool:  # type: ignore
+async def apool(pg_url) -> AsyncGenerator[asyncpg.pool.Pool]:
     pool = await asyncpg.create_pool(pg_url, init=init_connection)
-    yield pool  # type: ignore
+    assert pool is not None
+    yield pool
     await pool.close()

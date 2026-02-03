@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
 
-ProgressCallback = Callable[[int, int], None]
-
 try:
     import niquests
 except ImportError:
@@ -17,6 +15,9 @@ if TYPE_CHECKING:
     from urllib3.util.retry import Retry
 
     from tracktolib.gh.types import Deployment, DeploymentStatus, IssueComment, Label
+
+
+ProgressCallback = Callable[[int, int], None]
 
 
 @dataclass
@@ -46,7 +47,7 @@ class GitHubClient:
             },
         )
 
-    async def __aenter__(self) -> "GitHubClient":
+    async def __aenter__(self) -> GitHubClient:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -62,13 +63,13 @@ class GitHubClient:
         """Get all comments on an issue or PR."""
         response = await self.session.get(f"/repos/{repository}/issues/{issue_number}/comments")
         response.raise_for_status()
-        return cast(list[IssueComment], response.json())
+        return cast("list[IssueComment]", response.json())
 
     async def create_issue_comment(self, repository: str, issue_number: int, body: str) -> IssueComment:
         """Create a comment on an issue or PR."""
         response = await self.session.post(f"/repos/{repository}/issues/{issue_number}/comments", json={"body": body})
         response.raise_for_status()
-        return cast(IssueComment, response.json())
+        return cast("IssueComment", response.json())
 
     async def delete_issue_comment(self, repository: str, comment_id: int) -> None:
         """Delete a comment by ID."""
@@ -116,13 +117,13 @@ class GitHubClient:
         """Get all labels on an issue or PR."""
         response = await self.session.get(f"/repos/{repository}/issues/{issue_number}/labels")
         response.raise_for_status()
-        return cast(list[Label], response.json())
+        return cast("list[Label]", response.json())
 
     async def add_labels(self, repository: str, issue_number: int, labels: list[str]) -> list[Label]:
         """Add labels to an issue or PR."""
         response = await self.session.post(f"/repos/{repository}/issues/{issue_number}/labels", json={"labels": labels})
         response.raise_for_status()
-        return cast(list[Label], response.json())
+        return cast("list[Label]", response.json())
 
     async def remove_label(self, repository: str, issue_number: int, label: str) -> bool:
         """Remove a label from an issue/PR. Returns True if removed, False if not found."""
@@ -141,7 +142,7 @@ class GitHubClient:
         params = {"environment": environment} if environment else {}
         response = await self.session.get(f"/repos/{repository}/deployments", params=params)
         response.raise_for_status()
-        return cast(list[Deployment], response.json())
+        return cast("list[Deployment]", response.json())
 
     async def create_deployment_status(
         self,
@@ -164,7 +165,29 @@ class GitHubClient:
             payload["environment_url"] = environment_url
         response = await self.session.post(f"/repos/{repository}/deployments/{deployment_id}/statuses", json=payload)
         response.raise_for_status()
-        return cast(DeploymentStatus, response.json())
+        return cast("DeploymentStatus", response.json())
+
+    async def get_deployment_statuses(
+        self,
+        repository: str,
+        deployment_id: int,
+    ) -> list[DeploymentStatus]:
+        """Get all statuses for a deployment, most recent first."""
+        response = await self.session.get(f"/repos/{repository}/deployments/{deployment_id}/statuses")
+        response.raise_for_status()
+        return cast("list[DeploymentStatus]", response.json())
+
+    async def get_latest_deployment_status(
+        self,
+        repository: str,
+        environment: str,
+    ) -> DeploymentStatus | None:
+        """Get the latest deployment status for an environment."""
+        deployments = await self.get_deployments(repository, environment=environment)
+        if not deployments:
+            return None
+        statuses = await self.get_deployment_statuses(repository, deployments[0]["id"])
+        return statuses[0] if statuses else None
 
     async def mark_deployment_inactive(
         self,

@@ -286,10 +286,12 @@ async def test_insert_one_returning_many(aengine, engine):
     from tracktolib.pg import insert_returning
 
     returned_value = await insert_returning(aengine, "foo.foo", {"id": 1, "foo": 1}, returning=["id", "bar"])
+    assert returned_value is not None
     returned_value = dict(returned_value)
     assert returned_value.pop("id") is not None
     assert returned_value == {"bar": None}
     returned_values = await insert_returning(aengine, "foo.foo", {"id": 2, "foo": 2}, returning="*")
+    assert returned_values is not None
     assert_equals(dict(returned_values), {"id": 2, "foo": 2, "bar": None})
 
 
@@ -315,6 +317,7 @@ async def test_insert_many_returning(aengine, engine, items, returning, expected
     from tracktolib.pg import insert_returning
 
     returned_values = await insert_returning(aengine, "foo.foo", items, returning=returning)
+    assert returned_values is not None
     assert len(returned_values) == len(expected_returned)
     assert [dict(r) for r in returned_values] == expected_returned
 
