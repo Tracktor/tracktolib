@@ -148,6 +148,26 @@ deploys = await gh.get_deployments("owner/repo")
 preview_deploys = await gh.get_deployments("owner/repo", environment="preview-123")
 ```
 
+### `get_deployment_statuses(repository, deployment_id) -> list[DeploymentStatus]`
+
+Get all statuses for a deployment, most recent first.
+
+```python
+statuses = await gh.get_deployment_statuses("owner/repo", 123456)
+for status in statuses:
+    print(f"{status['state']} at {status['created_at']}")
+```
+
+### `get_latest_deployment_status(repository, environment) -> DeploymentStatus | None`
+
+Get the latest deployment status for an environment. Returns `None` if no deployments exist.
+
+```python
+status = await gh.get_latest_deployment_status("owner/repo", "production")
+if status:
+    print(f"Production is {status['state']}")
+```
+
 ### `create_deployment_status(repository, deployment_id, state, *, description, environment_url) -> DeploymentStatus`
 
 Create a deployment status. State can be: `error`, `failure`, `inactive`, `in_progress`, `queued`, `pending`, `success`.
@@ -214,15 +234,15 @@ async with GitHubClient(hooks={"response": [log_response]}) as gh:
 
 ## Error Handling
 
-The client raises `GitHubError` on API failures:
+The client uses `raise_for_status()` on all API responses, raising `niquests.HTTPError` on failures:
 
 ```python
-from tracktolib.gh import GitHubClient, GitHubError
+from niquests import HTTPError
 
 try:
     await gh.create_issue_comment("owner/repo", 999999, "test")
-except GitHubError as e:
-    print(f"GitHub API error: {e} (status: {e.status_code})")
+except HTTPError as e:
+    print(f"GitHub API error: {e.response.status_code} - {e.response.text}")
 ```
 
 ## Types
@@ -233,7 +253,8 @@ The module exports TypedDict types generated from GitHub's OpenAPI spec:
 - `Label` - Label data
 - `Deployment` - Deployment data
 - `DeploymentStatus` - Deployment status data
+- `ProgressCallback` - Type alias for progress callbacks `Callable[[int, int], None]`
 
 ```python
-from tracktolib.gh import IssueComment, Label, Deployment, DeploymentStatus
+from tracktolib.gh import IssueComment, Label, Deployment, DeploymentStatus, ProgressCallback
 ```

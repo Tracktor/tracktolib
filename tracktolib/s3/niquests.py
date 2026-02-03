@@ -326,7 +326,7 @@ class S3Session:
 
     async def put_bucket_policy(self, bucket: str, policy: str | dict) -> niquests.AsyncResponse:
         """Set a bucket policy."""
-        return await s3_put_bucket_policy(self._s3, self.http_client, bucket, policy)  # pyright: ignore[reportReturnType]
+        return await s3_put_bucket_policy(self._s3, self.http_client, bucket, policy, self._botocore_session)  # pyright: ignore[reportReturnType]
 
     async def get_bucket_policy(self, bucket: str) -> dict | None:
         """Get a bucket policy. Returns None if no policy exists."""
@@ -340,7 +340,9 @@ class S3Session:
         self, bucket: str, index_document: str = "index.html", error_document: str | None = None
     ) -> niquests.AsyncResponse:
         """Configure a bucket as a static website."""
-        return await s3_put_bucket_website(self._s3, self.http_client, bucket, index_document, error_document)  # pyright: ignore[reportReturnType]
+        return await s3_put_bucket_website(
+            self._s3, self.http_client, bucket, index_document, error_document, self._botocore_session
+        )  # pyright: ignore[reportReturnType]
 
     async def delete_bucket_website(self, bucket: str) -> niquests.AsyncResponse:
         """Remove website configuration from a bucket."""
@@ -757,16 +759,19 @@ async def s3_put_bucket_policy(
     client: niquests.AsyncSession,
     bucket: str,
     policy: str | dict,
+    botocore_session: botocore.session.Session | None = None,
 ) -> niquests.Response:
     """
     Set a bucket policy using a signed request.
 
     The policy can be provided as a JSON string or a dict (which will be serialized).
+    If botocore_session is provided, credentials are retrieved via the public API;
+    otherwise falls back to the client's internal credentials.
     """
     policy_str = policy if isinstance(policy, str) else json.dumps(policy)
     policy_bytes = policy_str.encode("utf-8")
     url = f"{s3.meta.endpoint_url}/{bucket}?policy"
-    headers = _sign_s3_request(s3, "PUT", url, policy_bytes, "application/json")
+    headers = _sign_s3_request(s3, "PUT", url, policy_bytes, "application/json", botocore_session)
     return (await client.put(url, data=policy_bytes, headers=headers)).raise_for_status()
 
 
@@ -822,17 +827,20 @@ async def s3_put_bucket_website(
     bucket: str,
     index_document: str = "index.html",
     error_document: str | None = None,
+    botocore_session: botocore.session.Session | None = None,
 ) -> niquests.AsyncResponse:
     """
     Configure a bucket as a static website using a signed request.
 
     Note: This operation is not supported by MinIO.
+    If botocore_session is provided, credentials are retrieved via the public API;
+    otherwise falls back to the client's internal credentials.
     """
     api_version = s3.meta.service_model.api_version
     xml_payload = _build_website_xml(index_document, error_document, api_version)
     xml_bytes = xml_payload.encode("utf-8")
     url = f"{s3.meta.endpoint_url}/{bucket}?website"
-    headers = _sign_s3_request(s3, "PUT", url, xml_bytes, "application/xml")
+    headers = _sign_s3_request(s3, "PUT", url, xml_bytes, "application/xml", botocore_session)
     return (await client.put(url, data=xml_bytes, headers=headers)).raise_for_status()  # pyright: ignore[reportReturnType]
 
 
