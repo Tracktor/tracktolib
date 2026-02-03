@@ -26,7 +26,7 @@ services:
        - ./garage.toml:/etc/garage.toml:ro
        - garage-data:/var/lib/garage
      healthcheck:
-       test: ["CMD-SHELL", "curl -sf http://localhost:3903/health || exit 1"]
+       test: ["CMD-SHELL", "/garage status >/dev/null 2>&1"]
        interval: 5s
        timeout: 5s
        retries: 5
