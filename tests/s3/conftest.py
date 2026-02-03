@@ -14,8 +14,10 @@ MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "foobarbaz")
 
 # Garage config
 GARAGE_URL = os.environ.get("GARAGE_URL", "localhost:9002")
-GARAGE_ACCESS_KEY = os.environ.get("GARAGE_ACCESS_KEY", "GKtest0123456789abcdef")
-GARAGE_SECRET_KEY = os.environ.get("GARAGE_SECRET_KEY", "test0123456789abcdef0123456789abcdef01234567")
+GARAGE_ACCESS_KEY = os.environ.get("GARAGE_ACCESS_KEY", "GK0123456789abcdef01234567")
+GARAGE_SECRET_KEY = os.environ.get(
+    "GARAGE_SECRET_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+)
 
 S3_BUCKET = "test"
 
@@ -48,7 +50,7 @@ GARAGE_BACKEND = S3BackendConfig(
     endpoint_url=f"http://{GARAGE_URL}",
     access_key=GARAGE_ACCESS_KEY,
     secret_key=GARAGE_SECRET_KEY,
-    region="garage",
+    region="us-east-1",
 )
 
 

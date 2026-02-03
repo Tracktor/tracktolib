@@ -4,4 +4,4 @@ set -e
 
 cd "$(dirname "$0")/.." || exit
 
-docker compose -f "tests/docker-compose.yml" up "${@}"
+docker compose -f "tests/docker-compose.yml" "${@}"
