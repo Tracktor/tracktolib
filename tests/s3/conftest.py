@@ -19,7 +19,7 @@ GARAGE_SECRET_KEY = os.environ.get("GARAGE_SECRET_KEY", "test0123456789abcdef012
 
 S3_BUCKET = "test"
 
-GARAGE_AVAILABLE = False
+GARAGE_AVAILABLE = True
 
 S3_CONFIG = Config(signature_version="s3v4", s3={"addressing_style": "path"})
 

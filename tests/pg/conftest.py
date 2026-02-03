@@ -63,7 +63,7 @@ async def init_connection(conn: asyncpg.Connection):
 
 
 @pytest.fixture(scope="function")
-async def aengine(pg_url) -> AsyncGenerator[asyncpg.Connection]:
+async def aengine(pg_url) -> AsyncGenerator[asyncpg.Connection, None]:
     conn = await asyncpg.connect(pg_url)
     await init_connection(conn)
     yield conn
@@ -71,7 +71,7 @@ async def aengine(pg_url) -> AsyncGenerator[asyncpg.Connection]:
 
 
 @pytest.fixture(scope="function")
-async def apool(pg_url) -> AsyncGenerator[asyncpg.pool.Pool]:
+async def apool(pg_url) -> AsyncGenerator[asyncpg.pool.Pool, None]:
     pool = await asyncpg.create_pool(pg_url, init=init_connection)
     assert pool is not None
     yield pool
