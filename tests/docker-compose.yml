@@ -48,12 +48,12 @@ services:
   #     - garage
 
   postgres:
-    image: postgres@sha256:5d181cfe9939aaef5f9d70c926d3183c7094f0fd37a66de7f9e9f9a51cc80fc4  # v18-alpine
+    image: postgres:18-alpine
     container_name: pg-tracktolib
     ports:
       - "127.0.0.1:5432:5432"
     tmpfs:
-      - /var/lib/postgresql/data
+      - /var/lib/postgresql
     environment:
       - POSTGRES_PASSWORD=postgres
     command: -c fsync=off
