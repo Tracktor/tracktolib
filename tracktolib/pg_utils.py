@@ -1,5 +1,4 @@
-from collections.abc import Iterable
-from typing import LiteralString, cast
+from typing import Iterable, LiteralString, cast
 
 
 def get_tmp_table_query(

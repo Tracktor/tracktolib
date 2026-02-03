@@ -1,6 +1,5 @@
-from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Literal, LiteralString, Optional, cast, overload
+from typing import Any, Iterable, Literal, LiteralString, Mapping, Optional, Sequence, cast, overload
 
 try:
     from psycopg import Connection, Cursor
@@ -21,9 +20,9 @@ __all__ = (
     "fetch_one",
     "get_insert_data",
     "get_tables",
+    "insert_csv",
     "insert_many",
     "insert_one",
-    "insert_csv",
     "set_seq_max",
 )
 

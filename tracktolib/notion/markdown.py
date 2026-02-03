@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Sequence
 
 from ..utils import get_chunks
 from .blocks import (
@@ -33,11 +32,11 @@ if TYPE_CHECKING:
 __all__ = [
     "NOTION_CHAR_LIMIT",
     "NotionBlock",
-    "rich_text_to_markdown",
-    "markdown_to_blocks",
     "blocks_to_markdown",
     "blocks_to_markdown_with_comments",
     "comments_to_markdown",
+    "markdown_to_blocks",
+    "rich_text_to_markdown",
     "strip_comments_from_markdown",
 ]
 

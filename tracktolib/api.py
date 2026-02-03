@@ -1,12 +1,16 @@
 import json
 import warnings
-from collections.abc import AsyncIterator, Callable, Coroutine, Mapping, Sequence
 from dataclasses import dataclass, field
 from inspect import getdoc
 from typing import (
     Any,
+    AsyncIterator,
+    Callable,
     ClassVar,
+    Coroutine,
     Literal,
+    Mapping,
+    Sequence,
     TypeAlias,
     TypedDict,
     get_args,

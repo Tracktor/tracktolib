@@ -1,6 +1,5 @@
 import json
-from collections.abc import AsyncGenerator, Iterator
-from typing import LiteralString
+from typing import AsyncGenerator, Iterator, LiteralString
 
 import asyncpg
 import psycopg

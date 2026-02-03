@@ -129,9 +129,8 @@ line-length = 120
 target-version = "py314"
 
 [tool.ruff.lint]
-# UP035: https://docs.astral.sh/ruff/rules/deprecated-import/
 # I: isort - consolidates duplicate imports
-extend-select = ["UP035", "I"]
+extend-select = ["I"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [

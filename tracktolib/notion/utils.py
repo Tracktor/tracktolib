@@ -35,8 +35,8 @@ from .fetch import (
 )
 
 __all__ = [
-    "ClearResult",
     "DEFAULT_CONCURRENCY",
+    "ClearResult",
     "PageComment",
     "ProgressCallback",
     "UpdateResult",

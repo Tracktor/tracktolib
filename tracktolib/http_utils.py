@@ -1,8 +1,7 @@
 import typing
 import warnings
-from collections.abc import Callable
 from io import BufferedWriter, TextIOWrapper
-from typing import BinaryIO, TextIO
+from typing import BinaryIO, Callable, TextIO
 
 warnings.warn(
     "tracktolib.http_utils is deprecated and will be removed in a future version.",
