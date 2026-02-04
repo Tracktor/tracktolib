@@ -1,3 +1,9 @@
+## 0.69.0 (2026-02-04)
+
+### Feat
+
+- adding gh/cloudflare utils (#46)
+
 ## 0.68.0 (2026-01-26)
 
 ### Feat
