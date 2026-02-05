@@ -121,6 +121,14 @@ async with S3Session(
 
     # Empty a bucket (delete all objects)
     deleted_count = await s3.empty_bucket('bucket')
+
+    # Sync a local directory to S3 (like aws s3 sync)
+    from pathlib import Path
+    result = await s3.sync_directory('bucket', Path('./local'), 'remote/prefix')
+    print(f"Uploaded: {result['uploaded']}, Deleted: {result['deleted']}, Skipped: {result['skipped']}")
+
+    # With delete flag to remove remote files not present locally
+    result = await s3.sync_directory('bucket', Path('./local'), 'remote/prefix', delete=True)
 ```
 
 ### http (deprecated)

@@ -1,3 +1,7 @@
+import os
+import time
+from pathlib import Path
+
 import niquests
 import pytest
 
@@ -517,3 +521,175 @@ class TestS3WebsiteConfig:
         # Delete website config
         resp = await garage_client.delete_bucket_website(s3_bucket)
         assert resp.status_code == 204
+
+
+def _create_local_files(tmp_path: Path, files: dict[str, str]) -> None:
+    """Create local files from a dict of {relative_path: content}."""
+    for path, content in files.items():
+        file_path = tmp_path / path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(content)
+
+
+@pytest.mark.usefixtures("setup_bucket")
+class TestS3SyncDirectory:
+    @pytest.fixture
+    def local_dir(self, tmp_path):
+        """Fixture providing a temp directory with helper to create files."""
+
+        def create(files: dict[str, str]) -> Path:
+            _create_local_files(tmp_path, files)
+            return tmp_path
+
+        return create
+
+    @pytest.mark.parametrize(
+        ("files", "prefix", "expected"),
+        [
+            pytest.param(
+                {"file1.txt": "content1", "subdir/file2.txt": "content2"},
+                "sync-new",
+                {"uploaded": ["sync-new/file1.txt", "sync-new/subdir/file2.txt"], "deleted": [], "skipped": []},
+                id="new_files",
+            ),
+            pytest.param(
+                {"root.txt": "root content"},
+                "",
+                {"uploaded": ["root.txt"], "deleted": [], "skipped": []},
+                id="empty_prefix",
+            ),
+            pytest.param(
+                {"a.txt": "a", "b/c.txt": "c"},
+                "prefix",
+                {"uploaded": ["prefix/a.txt", "prefix/b/c.txt"], "deleted": [], "skipped": []},
+                id="nested_with_prefix",
+            ),
+            pytest.param(
+                {"file.txt": "content"},
+                "deep/nested/prefix",
+                {"uploaded": ["deep/nested/prefix/file.txt"], "deleted": [], "skipped": []},
+                id="deep_prefix",
+            ),
+        ],
+    )
+    async def test_sync_upload(self, s3_bucket, s3_client, local_dir, files, prefix, expected):
+        """Test syncing new files to S3."""
+        tmp_path = local_dir(files)
+        result = await s3_client.sync_directory(s3_bucket, tmp_path, prefix)
+
+        assert sorted(result["uploaded"]) == expected["uploaded"]
+        assert result["deleted"] == expected["deleted"]
+        assert result["skipped"] == expected["skipped"]
+
+    @pytest.mark.parametrize(
+        ("files", "on_setup", "sync_kwargs", "expected"),
+        [
+            pytest.param(
+                {"file.txt": "content"},
+                lambda p: None,  # No change, file should be skipped
+                {},
+                {"uploaded": [], "deleted": [], "skipped": ["sync/file.txt"]},
+                id="skip_unchanged",
+            ),
+            pytest.param(
+                {"file.txt": "same size content!!"},
+                lambda p: (p / "file.txt").write_text("much longer content now"),
+                {},
+                {"uploaded": ["sync/file.txt"], "deleted": [], "skipped": []},
+                id="upload_changed_size",
+            ),
+            pytest.param(
+                {"file.txt": "same size content!!"},
+                lambda p: os.utime(p / "file.txt", (time.time() + 10, time.time() + 10)),
+                {},
+                {"uploaded": ["sync/file.txt"], "deleted": [], "skipped": []},
+                id="upload_newer_mtime",
+            ),
+            pytest.param(
+                {"keep.txt": "keep", "remove.txt": "remove"},
+                lambda p: (p / "remove.txt").unlink(),
+                {"delete": True},
+                {"uploaded": [], "deleted": ["sync/remove.txt"], "skipped": ["sync/keep.txt"]},
+                id="delete_remote",
+            ),
+            pytest.param(
+                {"keep.txt": "keep", "remove.txt": "remove"},
+                lambda p: (p / "remove.txt").unlink(),
+                {"delete": False},
+                {"uploaded": [], "deleted": [], "skipped": ["sync/keep.txt"]},
+                id="keep_remote",
+            ),
+        ],
+    )
+    async def test_sync_second_pass(self, s3_bucket, s3_client, local_dir, files, on_setup, sync_kwargs, expected):
+        """Test sync behavior on second pass after modifications."""
+        tmp_path = local_dir(files)
+
+        # Set mtime to past for initial sync
+        past_time = time.time() - 3600
+        for f in tmp_path.rglob("*"):
+            if f.is_file():
+                os.utime(f, (past_time, past_time))
+
+        await s3_client.sync_directory(s3_bucket, tmp_path, "sync")
+
+        # Apply modification
+        on_setup(tmp_path)
+
+        result = await s3_client.sync_directory(s3_bucket, tmp_path, "sync", **sync_kwargs)
+        assert result["uploaded"] == expected["uploaded"]
+        assert result["deleted"] == expected["deleted"]
+        assert result["skipped"] == expected["skipped"]
+
+    async def test_sync_callbacks(self, s3_bucket, s3_client, local_dir):
+        """Test sync with callback functions."""
+        tmp_path = local_dir({"new.txt": "new", "existing.txt": "existing"})
+
+        # First sync for existing.txt
+        await s3_client.sync_directory(s3_bucket, tmp_path, "sync-cb")
+
+        # Set mtime to past so existing.txt is skipped
+        past_time = time.time() - 3600
+        os.utime(tmp_path / "existing.txt", (past_time, past_time))
+
+        # Add file to delete remotely
+        await s3_client.put_object(s3_bucket, "sync-cb/to-delete.txt", b"delete me")
+
+        # Remove new.txt and recreate to ensure it's uploaded
+        (tmp_path / "new.txt").unlink()
+        (tmp_path / "new.txt").write_text("new")
+
+        uploaded: list[tuple[Path, str]] = []
+        deleted: list[str] = []
+        skipped: list[tuple[Path, str]] = []
+
+        await s3_client.sync_directory(
+            s3_bucket,
+            tmp_path,
+            "sync-cb",
+            delete=True,
+            on_upload=lambda p, k: uploaded.append((p, k)),
+            on_delete=lambda k: deleted.append(k),
+            on_skip=lambda p, k: skipped.append((p, k)),
+        )
+
+        assert len(uploaded) == 1
+        assert uploaded[0][1] == "sync-cb/new.txt"
+        assert deleted == ["sync-cb/to-delete.txt"]
+        assert len(skipped) == 1
+        assert skipped[0][1] == "sync-cb/existing.txt"
+
+    @pytest.mark.parametrize(
+        ("path_factory", "expected_error"),
+        [
+            pytest.param(lambda p: p / "nonexistent", "does not exist", id="nonexistent"),
+            pytest.param(lambda p: p / "file.txt", "not a directory", id="file_not_dir"),
+        ],
+    )
+    async def test_sync_invalid_local_dir(self, s3_bucket, s3_client, tmp_path, path_factory, expected_error):
+        """Test sync raises ValueError for invalid local directory."""
+        (tmp_path / "file.txt").write_text("content")
+        invalid_path = path_factory(tmp_path)
+
+        with pytest.raises(ValueError, match=expected_error):
+            await s3_client.sync_directory(s3_bucket, invalid_path, "sync")

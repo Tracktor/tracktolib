@@ -225,6 +225,7 @@ async with niquests.AsyncSession() as http:
 | `s3_put_bucket_website` | Configure static website hosting |
 | `s3_delete_bucket_website` | Remove website configuration |
 | `s3_empty_bucket` | Delete all objects from a bucket |
+| `s3_sync_directory` | Sync a local directory to S3 |
 | `build_s3_headers` | Build HTTP headers from `S3ObjectParams` |
 | `build_s3_presigned_params` | Build presigned URL params from `S3ObjectParams` |
 
@@ -234,6 +235,7 @@ async with niquests.AsyncSession() as http:
 |------|-------------|
 | `S3ObjectParams` | TypedDict for S3 object parameters |
 | `S3Object` | TypedDict for S3 object metadata |
+| `SyncResult` | TypedDict for sync operation results |
 | `UploadPart` | TypedDict for multipart upload part info |
 | `OnDownloadStartFn` | Callback type for download start events |
 
@@ -424,4 +426,59 @@ count = await s3.empty_bucket(
     'my-bucket',
     on_progress=lambda key: print(f'Deleted {key}'),
 )
+```
+
+## Directory Sync
+
+### `sync_directory`
+
+Sync a local directory to an S3 bucket prefix, similar to `aws s3 sync`.
+
+Compares files using size and modification time: uploads if size differs OR local file is newer than remote. When `delete=True`, removes remote files that don't exist locally.
+
+```python
+from pathlib import Path
+
+# Basic sync
+result = await s3.sync_directory('my-bucket', Path('./local'), 'remote/prefix')
+print(f"Uploaded: {len(result['uploaded'])}")
+print(f"Skipped: {len(result['skipped'])}")
+
+# With delete (removes remote files not present locally)
+result = await s3.sync_directory(
+    'my-bucket',
+    Path('./local'),
+    'remote/prefix',
+    delete=True,
+)
+
+# With callbacks
+result = await s3.sync_directory(
+    'my-bucket',
+    Path('./dist'),
+    'static',
+    delete=True,
+    on_upload=lambda path, key: print(f'Uploaded {path} -> {key}'),
+    on_delete=lambda key: print(f'Deleted {key}'),
+    on_skip=lambda path, key: print(f'Skipped {path}'),
+)
+
+# With S3 object parameters
+result = await s3.sync_directory(
+    'my-bucket',
+    Path('./assets'),
+    'public/assets',
+    acl='public-read',
+    cache_control='max-age=86400',
+)
+```
+
+Returns a `SyncResult` dict:
+
+```python
+{
+    'uploaded': ['remote/prefix/new_file.txt', ...],
+    'deleted': ['remote/prefix/old_file.txt', ...],
+    'skipped': ['remote/prefix/unchanged.txt', ...],
+}
 ```
