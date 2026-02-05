@@ -1,3 +1,9 @@
+## 0.70.0 (2026-02-05)
+
+### Feat
+
+- **s3-niquests**: add sync support with s3_sync_directory (#47)
+
 ## 0.69.0 (2026-02-04)
 
 ### Feat
