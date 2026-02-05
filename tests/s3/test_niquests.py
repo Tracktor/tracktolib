@@ -586,7 +586,7 @@ class TestS3SyncDirectory:
         [
             pytest.param(
                 {"file.txt": "content"},
-                lambda p: os.utime(p / "file.txt", (time.time() - 3600,) * 2),
+                lambda p: None,  # No change, file should be skipped
                 {},
                 {"uploaded": [], "deleted": [], "skipped": ["sync/file.txt"]},
                 id="skip_unchanged",
@@ -600,7 +600,7 @@ class TestS3SyncDirectory:
             ),
             pytest.param(
                 {"file.txt": "same size content!!"},
-                lambda p: os.utime(p / "file.txt", (time.time() + 10,) * 2),
+                lambda p: os.utime(p / "file.txt", (time.time() + 10, time.time() + 10)),
                 {},
                 {"uploaded": ["sync/file.txt"], "deleted": [], "skipped": []},
                 id="upload_newer_mtime",
@@ -626,9 +626,10 @@ class TestS3SyncDirectory:
         tmp_path = local_dir(files)
 
         # Set mtime to past for initial sync
+        past_time = time.time() - 3600
         for f in tmp_path.rglob("*"):
             if f.is_file():
-                os.utime(f, (time.time() - 3600,) * 2)
+                os.utime(f, (past_time, past_time))
 
         await s3_client.sync_directory(s3_bucket, tmp_path, "sync")
 
@@ -677,3 +678,18 @@ class TestS3SyncDirectory:
         assert deleted == ["sync-cb/to-delete.txt"]
         assert len(skipped) == 1
         assert skipped[0][1] == "sync-cb/existing.txt"
+
+    @pytest.mark.parametrize(
+        ("path_factory", "expected_error"),
+        [
+            pytest.param(lambda p: p / "nonexistent", "does not exist", id="nonexistent"),
+            pytest.param(lambda p: p / "file.txt", "not a directory", id="file_not_dir"),
+        ],
+    )
+    async def test_sync_invalid_local_dir(self, s3_bucket, s3_client, tmp_path, path_factory, expected_error):
+        """Test sync raises ValueError for invalid local directory."""
+        (tmp_path / "file.txt").write_text("content")
+        invalid_path = path_factory(tmp_path)
+
+        with pytest.raises(ValueError, match=expected_error):
+            await s3_client.sync_directory(s3_bucket, invalid_path, "sync")

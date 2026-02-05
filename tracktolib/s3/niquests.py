@@ -26,10 +26,7 @@ try:
 except ImportError as e:
     raise ImportError("niquests is required for S3 operations. Install with tracktolib[s3-niquests]") from e
 
-try:
-    import ujson as json
-except ImportError:
-    import json
+import json
 
 from ..utils import get_stream_chunk
 
@@ -984,6 +981,13 @@ async def s3_sync_directory(
     """
     result: SyncResult = {"uploaded": [], "deleted": [], "skipped": []}
 
+    # Validate local directory
+    local_dir = local_dir.resolve()
+    if not local_dir.exists():
+        raise ValueError(f"Local directory does not exist: {local_dir}")
+    if not local_dir.is_dir():
+        raise ValueError(f"Path is not a directory: {local_dir}")
+
     # Normalize prefix (remove trailing slash for consistent key building)
     prefix = remote_prefix.rstrip("/")
 
@@ -998,7 +1002,6 @@ async def s3_sync_directory(
             remote_files[relative_key] = obj
 
     # Collect local files and their relative paths
-    local_dir = local_dir.resolve()
     local_files: dict[str, Path] = {}
     for local_file in local_dir.rglob("*"):
         if local_file.is_file():

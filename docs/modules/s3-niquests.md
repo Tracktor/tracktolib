@@ -430,7 +430,7 @@ count = await s3.empty_bucket(
 
 ## Directory Sync
 
-#### `sync_directory`
+### `sync_directory`
 
 Sync a local directory to an S3 bucket prefix, similar to `aws s3 sync`.
 
