@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import http
 import xml.etree.ElementTree as ET
@@ -37,6 +38,7 @@ __all__ = (
     "S3Object",
     "S3ObjectParams",
     "S3Session",
+    "SyncResult",
     "UploadPart",
     "build_s3_headers",
     "build_s3_presigned_params",
@@ -55,6 +57,7 @@ __all__ = (
     "s3_put_bucket_policy",
     "s3_put_bucket_website",
     "s3_put_object",
+    "s3_sync_directory",
     "s3_upload_file",
 )
 
@@ -352,6 +355,37 @@ class S3Session:
         """Delete all objects from a bucket. Returns count of deleted objects."""
         return await s3_empty_bucket(self._s3, self.http_client, bucket, on_progress=on_progress)
 
+    async def sync_directory(
+        self,
+        bucket: str,
+        local_dir: Path,
+        remote_prefix: str = "",
+        *,
+        delete: bool = False,
+        on_upload: Callable[[Path, str], None] | None = None,
+        on_delete: Callable[[str], None] | None = None,
+        on_skip: Callable[[Path, str], None] | None = None,
+        **kwargs: Unpack[S3ObjectParams],
+    ) -> SyncResult:
+        """
+        Sync a local directory to an S3 bucket prefix.
+
+        Similar to `aws s3 sync`. Uploads new/changed files (based on size and mtime)
+        and optionally deletes remote files not present locally when `delete=True`.
+        """
+        return await s3_sync_directory(
+            self._s3,
+            self.http_client,
+            bucket,
+            local_dir,
+            remote_prefix,
+            delete=delete,
+            on_upload=on_upload,
+            on_delete=on_delete,
+            on_skip=on_skip,
+            **kwargs,
+        )
+
 
 class UploadPart(TypedDict):
     PartNumber: int
@@ -372,6 +406,12 @@ class S3Object(TypedDict, total=False):
     ETag: str
     Size: int
     StorageClass: str
+
+
+class SyncResult(TypedDict):
+    uploaded: list[str]
+    deleted: list[str]
+    skipped: list[str]
 
 
 async def s3_delete_object(
@@ -879,3 +919,115 @@ async def s3_empty_bucket(
             if on_progress:
                 on_progress(key)
     return deleted_count
+
+
+def _parse_s3_datetime(s3_datetime: str) -> dt.datetime:
+    """Parse S3 LastModified datetime string to timezone-aware datetime."""
+    # S3 returns ISO format like "2024-01-15T10:30:00.000Z"
+    # Handle both with and without milliseconds
+    for fmt in ("%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            return dt.datetime.strptime(s3_datetime, fmt).replace(tzinfo=dt.timezone.utc)
+        except ValueError:
+            continue
+    raise ValueError(f"Unable to parse S3 datetime: {s3_datetime}")
+
+
+def _needs_upload(local_file: Path, remote_obj: S3Object | None) -> bool:
+    """
+    Determine if a local file needs to be uploaded based on size and mtime.
+
+    Uses size + mtime strategy: upload if size differs OR local mtime is newer.
+    """
+    if remote_obj is None:
+        return True
+
+    local_stat = local_file.stat()
+    local_size = local_stat.st_size
+    remote_size = remote_obj.get("Size", 0)
+
+    if local_size != remote_size:
+        return True
+
+    remote_modified_str = remote_obj.get("LastModified")
+    if remote_modified_str is None:
+        return True
+
+    local_mtime = dt.datetime.fromtimestamp(local_stat.st_mtime, tz=dt.timezone.utc)
+    remote_mtime = _parse_s3_datetime(remote_modified_str)
+
+    return local_mtime > remote_mtime
+
+
+async def s3_sync_directory(
+    s3: botocore.client.BaseClient,
+    client: niquests.AsyncSession,
+    bucket: str,
+    local_dir: Path,
+    remote_prefix: str = "",
+    *,
+    delete: bool = False,
+    on_upload: Callable[[Path, str], None] | None = None,
+    on_delete: Callable[[str], None] | None = None,
+    on_skip: Callable[[Path, str], None] | None = None,
+    **kwargs: Unpack[S3ObjectParams],
+) -> SyncResult:
+    """
+    Sync a local directory to an S3 bucket prefix.
+
+    Similar to `aws s3 sync`. Compares files using size and modification time:
+    uploads if size differs OR local file is newer than remote. When `delete=True`,
+    removes remote files that don't exist locally.
+
+    The remote_prefix should not have a leading slash. Files are uploaded with keys
+    like "{remote_prefix}/{relative_path}" (or just "{relative_path}" if prefix is empty).
+    """
+    result: SyncResult = {"uploaded": [], "deleted": [], "skipped": []}
+
+    # Normalize prefix (remove trailing slash for consistent key building)
+    prefix = remote_prefix.rstrip("/")
+
+    # Build map of remote files: relative_key -> S3Object
+    remote_files: dict[str, S3Object] = {}
+    list_prefix = f"{prefix}/" if prefix else ""
+    async for obj in s3_list_files(s3, client, bucket, list_prefix):
+        key = obj.get("Key")
+        if key:
+            # Extract relative path from full key
+            relative_key = key[len(list_prefix) :] if list_prefix else key
+            remote_files[relative_key] = obj
+
+    # Collect local files and their relative paths
+    local_dir = local_dir.resolve()
+    local_files: dict[str, Path] = {}
+    for local_file in local_dir.rglob("*"):
+        if local_file.is_file():
+            relative_path = local_file.relative_to(local_dir).as_posix()
+            local_files[relative_path] = local_file
+
+    # Upload new or changed files
+    for relative_path, local_file in local_files.items():
+        remote_key = f"{prefix}/{relative_path}" if prefix else relative_path
+        remote_obj = remote_files.get(relative_path)
+
+        if _needs_upload(local_file, remote_obj):
+            await s3_upload_file(s3, client, bucket, local_file, remote_key, **kwargs)
+            result["uploaded"].append(remote_key)
+            if on_upload:
+                on_upload(local_file, remote_key)
+        else:
+            result["skipped"].append(remote_key)
+            if on_skip:
+                on_skip(local_file, remote_key)
+
+    # Delete remote files not present locally
+    if delete:
+        for relative_path, remote_obj in remote_files.items():
+            if relative_path not in local_files:
+                remote_key = remote_obj["Key"]
+                await s3_delete_object(s3, client, bucket, remote_key)
+                result["deleted"].append(remote_key)
+                if on_delete:
+                    on_delete(remote_key)
+
+    return result
