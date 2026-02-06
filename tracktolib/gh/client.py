@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 from urllib.parse import quote
 
 try:
@@ -13,7 +13,7 @@ except ImportError:
 if TYPE_CHECKING:
     from urllib3.util.retry import Retry
 
-    from tracktolib.gh.types import Deployment, DeploymentStatus, IssueComment, Label
+    from tracktolib.gh.types import Deployment, DeploymentStatus, IssueComment, Label, PullRequestSimple
 
 
 ProgressCallback = Callable[[int, int], None]
@@ -133,6 +133,26 @@ class GitHubClient:
             return False
         response.raise_for_status()
         return True
+
+    # Pull Requests
+
+    async def list_pull_requests(
+        self,
+        repository: str,
+        *,
+        state: Literal["open", "closed", "all"] = "open",
+        head: str | None = None,
+        base: str | None = None,
+    ) -> list[PullRequestSimple]:
+        """List pull requests for a repository, optionally filtered by state, head or base branch."""
+        params: dict[str, str] = {"state": state}
+        if head is not None:
+            params["head"] = head
+        if base is not None:
+            params["base"] = base
+        response = await self.session.get(f"/repos/{repository}/pulls", params=params)
+        response.raise_for_status()
+        return cast("list[PullRequestSimple]", response.json())
 
     # Deployments
 

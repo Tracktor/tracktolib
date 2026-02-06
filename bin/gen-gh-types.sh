@@ -34,6 +34,8 @@ SCHEMAS=(
   "nullable-integration"
 
   "reaction-rollup"
+
+  "pull-request-simple"
 )
 
 echo "Downloading GitHub OpenAPI spec..."
@@ -52,6 +54,37 @@ jq --argjson schemas "[$SCHEMA_FILTER]" '
     schemas: (.components.schemas | with_entries(select(.key as $k | $schemas | index($k))))
   }
 }' "$TEMP_FULL" > "$TEMP_SPEC"
+
+# Patch pull-request-simple to avoid heavy deps (repository, team, nullable-milestone, etc.)
+# Keep all properties but replace complex $ref ones with plain object types,
+# except labels (use label $ref), head/base (keep ref/label/sha only).
+jq '
+def obj: { type: "object" };
+def nullable_obj: { oneOf: [{ type: "object" }, { type: "null" }] };
+def obj_array: { type: "array", items: { type: "object" } };
+.components.schemas["pull-request-simple"].properties |= (
+  .labels = { type: "array", items: { "$ref": "#/components/schemas/label" } } |
+  .head = {
+    type: "object",
+    properties: { ref: { type: "string" }, label: { type: "string" }, sha: { type: "string" } },
+    required: ["ref", "label", "sha"]
+  } |
+  .base = {
+    type: "object",
+    properties: { ref: { type: "string" }, label: { type: "string" }, sha: { type: "string" } },
+    required: ["ref", "label", "sha"]
+  } |
+  .user = nullable_obj |
+  .assignee = nullable_obj |
+  .milestone = nullable_obj |
+  .auto_merge = nullable_obj |
+  .assignees = obj_array |
+  .requested_reviewers = obj_array |
+  .requested_teams = obj_array |
+  ._links = obj |
+  .author_association = { type: "string" }
+)
+' "$TEMP_SPEC" > "$TEMP_SPEC.tmp" && mv "$TEMP_SPEC.tmp" "$TEMP_SPEC"
 
 echo "Generating TypedDicts..."
 uv run datamodel-codegen \
