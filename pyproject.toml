@@ -47,7 +47,7 @@ pg = [
     "rich>=13.6.0",
 ]
 notion = ["niquests>=3.17.0"]
-gh = ["niquests>=3.17.0"]
+gh = ["niquests>=3.17.0", "typing_extensions>=4.12.0"]
 cf = ["niquests>=3.17.0"]
 
 [dependency-groups]

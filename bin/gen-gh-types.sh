@@ -92,7 +92,7 @@ uv run datamodel-codegen \
   --input-file-type openapi \
   --output "$OUTPUT_FILE" \
   --output-model-type typing.TypedDict \
-  --target-python-version 3.14 \
+  --target-python-version 3.13 \
   --disable-future-imports \
   --use-standard-collections \
   --use-union-operator \
@@ -103,7 +103,6 @@ uv run datamodel-codegen \
   --openapi-scopes schemas
 
 # Clean up generated file (portable sed - works on both macOS and Linux)
-sed '/from typing_extensions import/d' "$OUTPUT_FILE" > "$OUTPUT_FILE.tmp" && mv "$OUTPUT_FILE.tmp" "$OUTPUT_FILE"
 sed '/^#   filename:/d' "$OUTPUT_FILE" > "$OUTPUT_FILE.tmp" && mv "$OUTPUT_FILE.tmp" "$OUTPUT_FILE"
 
 echo "Done! Generated $(wc -l < "$OUTPUT_FILE") lines to $OUTPUT_FILE"

@@ -1896,7 +1896,7 @@ wheels = [
 
 [[package]]
 name = "tracktolib"
-version = "0.70.0"
+version = "0.71.0"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -1909,6 +1909,7 @@ cf = [
 ]
 gh = [
     { name = "niquests" },
+    { name = "typing-extensions" },
 ]
 http = [
     { name = "httpx" },
@@ -1990,6 +1991,7 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'api'", specifier = ">=2" },
     { name = "python-json-logger", marker = "extra == 'logs'", specifier = ">=3.2.1" },
     { name = "rich", marker = "extra == 'pg'", specifier = ">=13.6.0" },
+    { name = "typing-extensions", marker = "extra == 'gh'", specifier = ">=4.12.0" },
 ]
 provides-extras = ["logs", "pg-sync", "s3-minio", "s3", "s3-niquests", "tests", "http", "api", "pg", "notion", "gh", "cf"]
 
