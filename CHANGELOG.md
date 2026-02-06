@@ -1,3 +1,9 @@
+## 0.71.1 (2026-02-06)
+
+### Fix
+
+- **gh**: use typing_extensions.TypedDict for extra_items compatibility
+
 ## 0.71.0 (2026-02-06)
 
 ### Feat
