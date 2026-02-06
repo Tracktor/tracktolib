@@ -1,3 +1,9 @@
+## 0.71.0 (2026-02-06)
+
+### Feat
+
+- **gh**: add list_pull_requests method to GitHubClient (#48)
+
 ## 0.70.0 (2026-02-05)
 
 ### Feat
