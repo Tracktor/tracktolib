@@ -1,3 +1,9 @@
+## 0.72.0 (2026-02-10)
+
+### Feat
+
+- **cf**: add update_dns_record method to CloudflareDNSClient
+
 ## 0.71.1 (2026-02-06)
 
 ### Fix
