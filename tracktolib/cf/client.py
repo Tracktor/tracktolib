@@ -126,6 +126,40 @@ class CloudflareDNSClient:
         data = self._handle_response(response)
         return cast("DnsRecord", data["result"])
 
+    async def update_dns_record(
+        self,
+        record_id: str,
+        *,
+        content: str | None = None,
+        name: str | None = None,
+        record_type: str | None = None,
+        ttl: int | None = None,
+        proxied: bool | None = None,
+        comment: str | None = None,
+    ) -> DnsRecord:
+        """
+        Update a DNS record by ID using a PATCH request.
+
+        Only the provided fields will be updated; omitted fields remain unchanged.
+        """
+        payload: dict = {}
+        if content is not None:
+            payload["content"] = content
+        if name is not None:
+            payload["name"] = name
+        if record_type is not None:
+            payload["type"] = record_type
+        if ttl is not None:
+            payload["ttl"] = ttl
+        if proxied is not None:
+            payload["proxied"] = proxied
+        if comment is not None:
+            payload["comment"] = comment
+
+        response = await self.session.patch(f"/zones/{self.zone_id}/dns_records/{record_id}", json=payload)
+        data = self._handle_response(response)
+        return cast("DnsRecord", data["result"])
+
     async def delete_dns_record(self, record_id: str) -> None:
         """Delete a DNS record by ID."""
         response = await self.session.delete(f"/zones/{self.zone_id}/dns_records/{record_id}")

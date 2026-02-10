@@ -20,7 +20,7 @@ uv add tracktolib[cf]
 
 This module provides an async client for the [Cloudflare DNS API](https://developers.cloudflare.com/api/resources/dns/subresources/records/):
 
-- DNS record management (get, create, delete)
+- DNS record management (get, create, update, delete)
 - Support for any record type (CNAME, A, AAAA, TXT, etc.)
 - Existence checks
 
@@ -71,6 +71,19 @@ record = await cf.create_dns_record(
     comment="Created by deployment script",
 )
 print(f"Created record {record['id']}")
+```
+
+### `update_dns_record(record_id, *, content, name, record_type, ttl, proxied, comment) -> DnsRecord`
+
+Update a DNS record by ID. Only the provided fields will be updated; omitted fields remain unchanged.
+
+```python
+record = await cf.update_dns_record(
+    "023e105f4ecef8ad9ca31a8372d0c353",
+    content="new-target.example.com",
+    proxied=True,
+)
+print(f"Updated record {record['name']} -> {record['content']}")
 ```
 
 ### `delete_dns_record(record_id) -> None`
