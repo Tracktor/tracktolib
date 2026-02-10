@@ -70,6 +70,12 @@ class GitHubClient:
         response.raise_for_status()
         return cast("IssueComment", response.json())
 
+    async def update_issue_comment(self, repository: str, comment_id: int, body: str) -> IssueComment:
+        """Update a comment by ID."""
+        response = await self.session.patch(f"/repos/{repository}/issues/comments/{comment_id}", json={"body": body})
+        response.raise_for_status()
+        return cast("IssueComment", response.json())
+
     async def delete_issue_comment(self, repository: str, comment_id: int) -> None:
         """Delete a comment by ID."""
         response = await self.session.delete(f"/repos/{repository}/issues/comments/{comment_id}")
