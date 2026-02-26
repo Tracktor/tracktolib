@@ -112,25 +112,43 @@ def get_chunks[T](it: Iterable[T], size: int, *, as_list: bool = True) -> Iterat
         yield d if not as_list else list(d)
 
 
-async def get_stream_chunk[S: (bytes, str)](data_stream: AsyncIterable[S], min_size: int) -> AsyncIterator[S]:
-    """Buffers an async stream and yields chunks of at least `min_size`."""
-    buffer: S | None = None
+async def get_stream_chunk_str(
+    data_stream: AsyncIterable[str],
+    min_size: int,
+) -> AsyncIterator[str]:
+    """Buffers an async string stream and yields chunks of at least `min_size`."""
+    buffer = ""
     buffer_size = 0
-
     async for chunk in data_stream:
         if not chunk:
             continue
-        buffer = chunk if buffer is None else buffer + chunk  # type: ignore[operator]
+        buffer += chunk
         buffer_size += len(chunk)
-
-        # Yield chunks of min_size while we have enough data for at least 2 chunks
         while buffer_size >= min_size * 2:
             yield buffer[:min_size]
             buffer = buffer[min_size:]
             buffer_size -= min_size
+    if buffer_size > 0:
+        yield buffer
 
-    # Handle the final chunk(s)
-    if buffer is not None and buffer_size > 0:
+
+async def get_stream_chunk(
+    data_stream: AsyncIterable[bytes],
+    min_size: int,
+) -> AsyncIterator[bytearray]:
+    """Buffers an async byte stream and yields chunks of at least `min_size`."""
+    buffer = bytearray()
+    buffer_size = 0
+    async for chunk in data_stream:
+        if not chunk:
+            continue
+        buffer.extend(chunk)
+        buffer_size += len(chunk)
+        while buffer_size >= min_size * 2:
+            yield buffer[:min_size]
+            del buffer[:min_size]
+            buffer_size -= min_size
+    if buffer_size > 0:
         yield buffer
 
 

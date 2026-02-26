@@ -31,6 +31,7 @@ import json
 from ..utils import get_stream_chunk
 
 __all__ = (
+    "OnUpload",
     "S3MultipartUpload",
     "S3Object",
     "S3ObjectParams",
@@ -200,10 +201,10 @@ class S3Session:
             ...
     """
 
-    endpoint_url: str
-    access_key: str
-    secret_key: str
-    region: str
+    endpoint_url: str | None = None
+    access_key: str | None = None
+    secret_key: str | None = None
+    region: str | None = None
     s3_config: Config | None = None
     s3_client: botocore.client.BaseClient | None = None
     http_client: niquests.AsyncSession = field(default_factory=niquests.AsyncSession)
@@ -212,7 +213,8 @@ class S3Session:
     def __post_init__(self):
         if self.s3_client is None:
             self._botocore_session = botocore.session.Session()
-            self._botocore_session.set_credentials(self.access_key, self.secret_key)
+            if self.access_key is not None and self.secret_key is not None:
+                self._botocore_session.set_credentials(self.access_key, self.secret_key)
             self.s3_client = self._botocore_session.create_client(
                 "s3",
                 endpoint_url=self.endpoint_url,
@@ -307,7 +309,7 @@ class S3Session:
         data: AsyncIterator[bytes],
         *,
         min_part_size: int = 5 * 1024 * 1024,
-        on_chunk_received: Callable[[bytes], None] | None = None,
+        on_upload: OnUpload | None = None,
         content_length: int | None = None,
         **kwargs: Unpack[S3ObjectParams],
     ) -> None:
@@ -319,7 +321,7 @@ class S3Session:
             key,
             data,
             min_part_size=min_part_size,
-            on_chunk_received=on_chunk_received,
+            on_upload=on_upload,
             content_length=content_length,
             **kwargs,
         )
@@ -392,7 +394,7 @@ class UploadPart(TypedDict):
 class S3MultipartUpload(NamedTuple):
     fetch_create: Callable[[], Awaitable[str]]
     fetch_complete: Callable[[], Awaitable[niquests.Response]]
-    upload_part: Callable[[bytes], Awaitable[UploadPart]]
+    upload_part: Callable[[bytes | bytearray], Awaitable[UploadPart]]
     generate_presigned_url: Callable[..., str]
     fetch_abort: Callable[[], Awaitable[niquests.Response]]
 
@@ -508,12 +510,21 @@ async def s3_list_files(
             break
 
 
+type OnUpload = Callable[[niquests.PreparedRequest], None]
+
+
+def _upload_hooks(on_upload: OnUpload | None) -> dict | None:
+    return {"on_upload": [on_upload]} if on_upload else None
+
+
 async def s3_put_object(
     s3: botocore.client.BaseClient,
     client: niquests.AsyncSession,
     bucket: str,
     key: str,
-    data: bytes,
+    data: bytes | bytearray,
+    *,
+    on_upload: OnUpload | None = None,
     **kwargs: Unpack[S3ObjectParams],
 ) -> niquests.Response:
     """
@@ -529,7 +540,9 @@ async def s3_put_object(
         ClientMethod="put_object",
         Params=presigned_params,
     )
-    resp = (await client.put(url, data=data, headers=headers if headers else None)).raise_for_status()
+    resp = (
+        await client.put(url, data=data, headers=headers if headers else None, hooks=_upload_hooks(on_upload))
+    ).raise_for_status()
     return resp
 
 
@@ -638,6 +651,7 @@ async def s3_multipart_upload(
     key: str,
     *,
     expires_in: int = 3600,
+    on_upload: OnUpload | None = None,
     **kwargs: Unpack[S3ObjectParams],
 ) -> AsyncIterator[S3MultipartUpload]:
     """Async context manager for S3 multipart upload with automatic cleanup."""
@@ -670,12 +684,12 @@ async def s3_multipart_upload(
         _has_been_aborted = True
         return abort_resp
 
-    async def upload_part(data: bytes) -> UploadPart:
+    async def upload_part(data: bytes | bytearray) -> UploadPart:
         nonlocal _part_number, _parts
         if upload_id is None:
             raise ValueError("Upload ID is not set")
         presigned_url = _generate_presigned_url("upload_part", UploadId=upload_id, PartNumber=_part_number)
-        upload_resp = (await client.put(presigned_url, data=data)).raise_for_status()
+        upload_resp = (await client.put(presigned_url, data=data, hooks=_upload_hooks(on_upload))).raise_for_status()
         _etag = upload_resp.headers.get("ETag")
         etag: str | None = _etag.decode() if isinstance(_etag, bytes) else _etag
         _part: UploadPart = {"PartNumber": _part_number, "ETag": etag}
@@ -723,7 +737,7 @@ async def s3_file_upload(
     *,
     # 5MB minimum for S3 parts
     min_part_size: int = 5 * 1024 * 1024,
-    on_chunk_received: Callable[[bytes], None] | None = None,
+    on_upload: OnUpload | None = None,
     content_length: int | None = None,
     **kwargs: Unpack[S3ObjectParams],
 ) -> None:
@@ -731,30 +745,27 @@ async def s3_file_upload(
     Upload a file to S3 from an async byte stream.
 
     Uses multipart upload for large files. If `content_length` is provided and smaller
-    than `min_part_size`, uses a single PUT instead. Use `on_chunk_received` callback
-    to track upload progress.
+    than `min_part_size`, uses a single PUT instead. The optional `on_upload` callback
+    receives a `niquests.PreparedRequest` with an `upload_progress` attribute for
+    fine-grained byte-level progress tracking.
     """
     if content_length is not None and content_length < min_part_size:
         # Small file - use single PUT operation
-        _data = b""
+        _data = bytearray()
         async for chunk in data:
-            _data += chunk
-            if on_chunk_received:
-                on_chunk_received(chunk)
-        await s3_put_object(s3, client, bucket=bucket, key=key, data=_data, **kwargs)
+            _data.extend(chunk)
+        await s3_put_object(s3, client, bucket=bucket, key=key, data=bytes(_data), on_upload=on_upload, **kwargs)
         return
 
-    async with s3_multipart_upload(s3, client, bucket=bucket, key=key, **kwargs) as mpart:
+    async with s3_multipart_upload(s3, client, bucket=bucket, key=key, on_upload=on_upload, **kwargs) as mpart:
         await mpart.fetch_create()
         has_uploaded_parts = False
         async for chunk in get_stream_chunk(data, min_size=min_part_size):
-            if on_chunk_received:
-                on_chunk_received(chunk)
             if len(chunk) < min_part_size:
                 if not has_uploaded_parts:
                     # No parts uploaded yet, abort multipart and use single PUT
                     await mpart.fetch_abort()
-                    await s3_put_object(s3, client, bucket=bucket, key=key, data=chunk, **kwargs)
+                    await s3_put_object(s3, client, bucket=bucket, key=key, data=chunk, on_upload=on_upload, **kwargs)
                 else:
                     # Parts already uploaded, upload final chunk as last part (S3 allows last part to be smaller)
                     await mpart.upload_part(chunk)

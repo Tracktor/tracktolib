@@ -176,3 +176,49 @@ def test_get_stream_chunk(input_chunks, min_size, expected_total, extra_check):
             assert extra_check(chunks)
 
     asyncio.run(_test())
+
+
+@pytest.mark.parametrize(
+    ("input_chunks", "min_size", "expected_total", "extra_check"),
+    [
+        pytest.param(
+            ["hello", "world", "12345"],
+            5,
+            15,
+            lambda chunks: all(len(c) >= 5 for c in chunks),
+            id="exact_chunks",
+        ),
+        pytest.param(
+            ["small"],
+            100,
+            5,
+            lambda chunks: chunks == ["small"],
+            id="single_small_chunk",
+        ),
+        pytest.param(
+            ["hello", "", "world"],
+            5,
+            10,
+            None,
+            id="empty_chunks_ignored",
+        ),
+    ],
+)
+def test_get_stream_chunk_str(input_chunks, min_size, expected_total, extra_check):
+    from tracktolib.utils import get_stream_chunk_str
+
+    async def _test():
+        async def async_data():
+            for chunk in input_chunks:
+                yield chunk
+
+        chunks = []
+        async for chunk in get_stream_chunk_str(async_data(), min_size=min_size):
+            chunks.append(chunk)
+
+        total_size = sum(len(c) for c in chunks)
+        assert total_size == expected_total
+        if extra_check:
+            assert extra_check(chunks)
+
+    asyncio.run(_test())
