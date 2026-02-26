@@ -1,3 +1,9 @@
+## 0.74.0 (2026-02-26)
+
+### Feat
+
+- **s3,utils**: use niquests on_upload hook and optimize stream chunking (#49)
+
 ## 0.73.0 (2026-02-10)
 
 ### Feat
