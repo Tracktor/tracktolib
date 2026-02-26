@@ -1,6 +1,8 @@
 import asyncio
+import collections
 import datetime as dt
 import importlib.util
+import io
 import itertools
 import mmap
 import os
@@ -112,26 +114,104 @@ def get_chunks[T](it: Iterable[T], size: int, *, as_list: bool = True) -> Iterat
         yield d if not as_list else list(d)
 
 
-async def get_stream_chunk[S: (bytes, str)](data_stream: AsyncIterable[S], min_size: int) -> AsyncIterator[S]:
-    """Buffers an async stream and yields chunks of at least `min_size`."""
-    buffer: S | None = None
+async def get_stream_chunk_str(
+    data_stream: AsyncIterable[str],
+    min_size: int,
+) -> AsyncIterator[str]:
+    """Buffers an async string stream and yields chunks of at least `min_size`."""
+    buffer = ""
     buffer_size = 0
-
     async for chunk in data_stream:
         if not chunk:
             continue
-        buffer = chunk if buffer is None else buffer + chunk  # type: ignore[operator]
+        buffer += chunk
         buffer_size += len(chunk)
-
-        # Yield chunks of min_size while we have enough data for at least 2 chunks
         while buffer_size >= min_size * 2:
             yield buffer[:min_size]
             buffer = buffer[min_size:]
             buffer_size -= min_size
-
-    # Handle the final chunk(s)
-    if buffer is not None and buffer_size > 0:
+    if buffer_size > 0:
         yield buffer
+
+
+class BytesBuffer:
+    """Memory-efficient bytes buffer using a deque of chunks.
+
+    Appends are O(1) (no copy). Reads only copy at chunk boundaries via memoryview.
+    Adapted from urllib3's BytesQueueBuffer.
+    """
+
+    __slots__ = ("buffer", "_size")
+
+    def __init__(self) -> None:
+        self.buffer: collections.deque[bytes | memoryview[bytes]] = collections.deque()
+        self._size: int = 0
+
+    def __len__(self) -> int:
+        return self._size
+
+    def put(self, data: bytes) -> None:
+        self.buffer.append(data)
+        self._size += len(data)
+
+    def get(self, n: int) -> bytes:
+        if not self.buffer:
+            raise RuntimeError("buffer is empty")
+
+        # Fast path: first chunk is exactly the right size
+        if len(self.buffer[0]) == n and isinstance(self.buffer[0], bytes):
+            self._size -= n
+            return self.buffer.popleft()  # type: ignore[return-value]
+
+        fetched = 0
+        ret = io.BytesIO()
+        while fetched < n:
+            remaining = n - fetched
+            chunk = self.buffer.popleft()
+            chunk_length = len(chunk)
+            if remaining < chunk_length:
+                mv = memoryview(chunk)
+                ret.write(mv[:remaining])
+                self.buffer.appendleft(mv[remaining:])  # type: ignore[arg-type]
+                self._size -= remaining
+                break
+            ret.write(chunk)
+            self._size -= chunk_length
+            fetched += chunk_length
+            if not self.buffer:
+                break
+        return ret.getvalue()
+
+    def get_all(self) -> bytes:
+        buffer = self.buffer
+        if not buffer:
+            return b""
+        if len(buffer) == 1:
+            result = buffer.pop()
+            if isinstance(result, memoryview):
+                result = result.tobytes()
+        else:
+            ret = io.BytesIO()
+            ret.writelines(buffer.popleft() for _ in range(len(buffer)))
+            result = ret.getvalue()
+        self._size = 0
+        return result  # type: ignore[return-value]
+
+
+async def get_stream_chunk(
+    data_stream: AsyncIterable[bytes],
+    min_size: int,
+) -> AsyncIterator[bytes]:
+    """Buffers an async byte stream and yields chunks of at least `min_size`."""
+    buffer = BytesBuffer()
+    async for chunk in data_stream:
+        if not chunk:
+            continue
+        buffer.put(chunk)
+        while len(buffer) >= min_size * 2:
+            yield buffer.get(min_size)
+    if len(buffer) > 0:
+        yield buffer.get_all()
 
 
 def json_serial(obj):

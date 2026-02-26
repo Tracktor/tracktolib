@@ -256,11 +256,12 @@ class TestS3StreamingUpload:
                     for i in range(0, len(test_data), chunk_size):
                         yield test_data[i : i + chunk_size]
 
-                received_size = 0
+                upload_progress_called = False
 
-                def on_chunk(chunk: bytes):
-                    nonlocal received_size
-                    received_size += len(chunk)
+                def on_upload(req: niquests.PreparedRequest):
+                    nonlocal upload_progress_called
+                    if req.upload_progress is not None:
+                        upload_progress_called = True
 
                 await s3_file_upload(
                     s3,
@@ -269,11 +270,11 @@ class TestS3StreamingUpload:
                     key,
                     data_stream(),
                     min_part_size=5 * 1024 * 1024,
-                    on_chunk_received=on_chunk,
+                    on_upload=on_upload,
                     content_length=content_length,
                 )
 
-                assert received_size == data_size
+                assert upload_progress_called
                 result = await s3_get_object(s3, client, s3_bucket, key)
                 assert result == test_data
 
