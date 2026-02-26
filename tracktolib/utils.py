@@ -146,7 +146,7 @@ async def get_stream_chunk(
         buffer_size += len(chunk)
         while buffer_size >= min_size * 2:
             yield buffer[:min_size]
-            del buffer[:min_size]
+            buffer = buffer[min_size:]
             buffer_size -= min_size
     if buffer_size > 0:
         yield buffer
