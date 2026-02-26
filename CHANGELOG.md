@@ -1,3 +1,9 @@
+## 0.73.0 (2026-02-10)
+
+### Feat
+
+- **gh**: add update_issue_comment method to GitHubClient
+
 ## 0.72.0 (2026-02-10)
 
 ### Feat
