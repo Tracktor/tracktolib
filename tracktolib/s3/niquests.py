@@ -215,11 +215,14 @@ class S3Session:
             self._botocore_session = botocore.session.Session()
             if self.access_key is not None and self.secret_key is not None:
                 self._botocore_session.set_credentials(self.access_key, self.secret_key)
+            config = self.s3_config
+            if config is None:
+                config = Config(signature_version="s3v4")
             self.s3_client = self._botocore_session.create_client(
                 "s3",
                 endpoint_url=self.endpoint_url,
                 region_name=self.region,
-                config=self.s3_config,
+                config=config,
             )
 
     @property
