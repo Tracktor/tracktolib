@@ -5,6 +5,7 @@ from .query import (
     PGInsertQuery,
     PGReturningQuery,
     PGUpdateQuery,
+    SQLExpr,
     fetch_count,
     insert_many,
     insert_one,
