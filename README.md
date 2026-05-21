@@ -40,6 +40,39 @@ Async PostgreSQL helpers using [asyncpg](https://github.com/MagicStack/asyncpg).
 uv add tracktolib[pg]
 ```
 
+```python
+import asyncpg
+from tracktolib.pg import insert_one, insert_many, insert_returning, update_one, SQLExpr
+
+conn = await asyncpg.connect('postgresql://user:pass@localhost/db')
+
+# Insert a single row
+await insert_one(conn, 'public.test', {'foo': 'bar', 'value': 1})
+
+# Insert multiple rows
+await insert_many(conn, 'public.test', [
+    {'foo': 'bar', 'value': 1},
+    {'foo': 'baz', 'value': 2},
+])
+
+# Insert and return generated values
+new_id = await insert_returning(conn, 'public.test', {'foo': 'bar'}, returning='id')
+
+# Upsert (insert or update on conflict)
+from tracktolib.pg import Conflict
+await insert_one(conn, 'public.test', {'id': 1, 'foo': 'updated'}, on_conflict=Conflict(keys=['id']))
+
+# Update a single row
+await update_one(conn, 'public.test', {'foo': 'new', 'id': 1}, keys=['id'])
+
+# Use raw SQL expressions as values (e.g. NOW(), gen_random_uuid())
+await insert_one(conn, 'public.test', {'foo': 'bar', 'created_at': SQLExpr('NOW()')})
+# → INSERT INTO public.test AS t (created_at, foo) VALUES (NOW(), $1)
+
+await update_one(conn, 'public.test', {'updated_at': SQLExpr('NOW()'), 'id': 1}, keys=['id'])
+# → UPDATE public.test t SET updated_at = NOW() WHERE id = $1
+```
+
 ### pg-sync
 
 Sync PostgreSQL helpers using [psycopg](https://www.psycopg.org/psycopg3/) (v3).
