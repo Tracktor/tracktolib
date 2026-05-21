@@ -164,8 +164,16 @@ class PGInsertQuery(PGQuery):
     def _get_values_query(self) -> str:
         """Generate the VALUES clause for the query."""
         if len(self.items) == 1 or not self.is_returning:
-            if len(self.items) > 1:
-                first_expr = {k for k in self.keys if isinstance(self.items[0][k], SQLExpr)}
+            counter, parts, first_expr = 0, [], set()
+            for k in self.keys:
+                v = self.items[0][k]
+                if isinstance(v, SQLExpr):
+                    parts.append(v)
+                    first_expr.add(k)
+                else:
+                    counter += 1
+                    parts.append(f"${counter}")
+            if first_expr and len(self.items) > 1:
                 for item in self.items[1:]:
                     expr = {k for k in self.keys if isinstance(item[k], SQLExpr)}
                     if expr != first_expr:
@@ -173,14 +181,6 @@ class PGInsertQuery(PGQuery):
                             f"Inconsistent SQLExpr columns across rows for executemany: "
                             f"expected {first_expr}, got {expr}"
                         )
-            counter, parts = 0, []
-            for k in self.keys:
-                v = self.items[0][k]
-                if isinstance(v, SQLExpr):
-                    parts.append(v)
-                else:
-                    counter += 1
-                    parts.append(f"${counter}")
             return ", ".join(parts)
         else:
             # Multiple rows with returning: single VALUES list with flat params
