@@ -12,6 +12,10 @@ except ImportError:
 from tracktolib.utils import fill_dict
 
 
+class SQLExpr(str):
+    """Raw SQL expression inlined into the query instead of bound as a parameter."""
+
+
 def _get_insert_query[K: str](table: str, columns: Iterable[K], values: str) -> str:
     _columns = ", ".join(columns)
     return f"INSERT INTO {table} AS t ({_columns}) VALUES ({values})"
@@ -105,7 +109,7 @@ class PGQuery[K: str, V]:
     def iter_values(self, keys: list[K] | None = None) -> Iterator[tuple]:
         _keys = keys if keys is not None else self.keys
         for _item in self.items:
-            yield tuple(_item[k] for k in _keys)
+            yield tuple(v for k in _keys if not isinstance(v := _item[k], SQLExpr))
 
     @property
     def query(self) -> str:
@@ -159,19 +163,38 @@ class PGInsertQuery(PGQuery):
 
     def _get_values_query(self) -> str:
         """Generate the VALUES clause for the query."""
-        _columns = self.columns
-        num_cols = len(_columns)
-
         if len(self.items) == 1 or not self.is_returning:
-            # Single row or no returning: simple placeholders
-            return ", ".join(f"${i + 1}" for i in range(num_cols))
+            counter, parts, first_expr = 0, [], set()
+            for k in self.keys:
+                v = self.items[0][k]
+                if isinstance(v, SQLExpr):
+                    parts.append(v)
+                    first_expr.add(k)
+                else:
+                    counter += 1
+                    parts.append(f"${counter}")
+            if first_expr and len(self.items) > 1:
+                for item in self.items[1:]:
+                    expr = {k for k in self.keys if isinstance(item[k], SQLExpr)}
+                    if expr != first_expr:
+                        raise ValueError(
+                            f"Inconsistent SQLExpr columns across rows for executemany: "
+                            f"expected {first_expr}, got {expr}"
+                        )
+            return ", ".join(parts)
         else:
-            # Multiple rows with returning: generate all value groups
-            value_groups = []
-            for row_idx in range(len(self.items)):
-                offset = row_idx * num_cols
-                group = ", ".join(f"${offset + i + 1}" for i in range(num_cols))
-                value_groups.append(f"({group})")
+            # Multiple rows with returning: single VALUES list with flat params
+            counter, value_groups = 0, []
+            for item in self.items:
+                group = []
+                for k in self.keys:
+                    v = item[k]
+                    if isinstance(v, SQLExpr):
+                        group.append(v)
+                    else:
+                        counter += 1
+                        group.append(f"${counter}")
+                value_groups.append(f"({', '.join(group)})")
             return ", ".join(value_groups)
 
     @property
@@ -231,15 +254,20 @@ def get_update_fields(
         if k in _ignore_keys:
             where_values.append(v)
             continue
-        values.append(v)
         _col = f'"{k}"' if quote_columns else k
-        _counter = counter + start_from + 1
-        fields.append(
-            f"{_col} = ${_counter}"
-            if k not in _merge_keys
-            else f"{_col} = COALESCE(t.{_col}, JSONB_BUILD_OBJECT()) || ${_counter}"
-        )
-        counter += 1
+        if isinstance(v, SQLExpr):
+            fields.append(
+                f"{_col} = {v}" if k not in _merge_keys else f"{_col} = COALESCE(t.{_col}, JSONB_BUILD_OBJECT()) || {v}"
+            )
+        else:
+            values.append(v)
+            _counter = counter + start_from + 1
+            fields.append(
+                f"{_col} = ${_counter}"
+                if k not in _merge_keys
+                else f"{_col} = COALESCE(t.{_col}, JSONB_BUILD_OBJECT()) || ${_counter}"
+            )
+            counter += 1
     return ",\n".join(fields), values + where_values
 
 
@@ -288,7 +316,7 @@ class PGUpdateQuery(PGQuery):
 
     @property
     def values(self):
-        if not self._values:
+        if self._values is None:
             raise ValueError("No values found")
         if len(self.items) == 1 and not self.is_many:
             return self._values
@@ -301,8 +329,13 @@ class PGUpdateQuery(PGQuery):
         if self.where:
             return self.where
         elif self.where_keys is not None:
-            start_from = self.start_from if self.start_from is not None else len(self.keys) - len(self.where_keys)
-
+            if self.start_from is not None:
+                start_from = self.start_from
+            else:
+                _where_set = set(self.where_keys)
+                start_from = sum(
+                    1 for k in self.keys if k not in _where_set and not isinstance(self.items[0][k], SQLExpr)
+                )
             return "WHERE " + " AND ".join(f"{k} = ${i + start_from + 1}" for i, k in enumerate(self.where_keys))
         return ""
 

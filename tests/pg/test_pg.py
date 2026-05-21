@@ -1,7 +1,9 @@
+import datetime as dt
+
 import asyncpg
 import pytest
 
-from tracktolib.pg import Conflict, PGConflictQuery
+from tracktolib.pg import Conflict, PGConflictQuery, SQLExpr
 from tracktolib.pg_sync import fetch_all, insert_one
 from tracktolib.tests import assert_equals
 
@@ -18,6 +20,62 @@ def test_insert_many_query():
 
     query = PGInsertQuery("schema.table", [{"foo": 1}, {"foo": 2}]).query
     assert query == "INSERT INTO schema.table AS t (foo) VALUES ($1)"
+
+
+@pytest.mark.parametrize(
+    "items,expected_query,expected_values",
+    [
+        pytest.param(
+            [{"foo": 1, "ts": SQLExpr("NOW()")}],
+            "INSERT INTO schema.table AS t (foo, ts) VALUES ($1, NOW())",
+            [(1,)],
+            id="insert_one_sql_expr",
+        ),
+        pytest.param(
+            [{"foo": 1, "ts": SQLExpr("NOW()")}, {"foo": 2, "ts": SQLExpr("NOW()")}],
+            "INSERT INTO schema.table AS t (foo, ts) VALUES ($1, NOW())",
+            [(1,), (2,)],
+            id="insert_many_sql_expr",
+        ),
+    ],
+)
+def test_insert_sql_expr_query(items, expected_query, expected_values):
+    from tracktolib.pg import PGInsertQuery
+
+    q = PGInsertQuery("schema.table", items)
+    assert q.query == expected_query
+    assert list(q.iter_values()) == expected_values
+
+
+@pytest.mark.parametrize(
+    "items,expected_query,expected_flat_values",
+    [
+        pytest.param(
+            [{"foo": 1, "ts": SQLExpr("NOW()")}, {"foo": 2, "ts": SQLExpr("NOW()")}],
+            "INSERT INTO schema.table AS t (foo, ts) VALUES ($1, NOW()), ($2, NOW()) RETURNING id",
+            [1, 2],
+            id="multi_row_returning_sql_expr",
+        ),
+    ],
+)
+def test_insert_many_returning_sql_expr_query(items, expected_query, expected_flat_values):
+    from tracktolib.pg import PGInsertQuery, PGReturningQuery
+
+    _returning = PGReturningQuery.load(keys=["id"])
+    q = PGInsertQuery("schema.table", items, returning=_returning)
+    assert q.query == expected_query
+    assert q._get_flat_values() == expected_flat_values
+
+
+def test_insert_many_inconsistent_sqlexpr_raises():
+    from tracktolib.pg import PGInsertQuery
+
+    items = [
+        {"foo": 1, "created": dt.datetime(2024, 1, 1), "ts": SQLExpr("NOW()")},
+        {"foo": 2, "created": dt.datetime(2024, 6, 1), "ts": dt.datetime(2024, 6, 1)},
+    ]
+    with pytest.raises(ValueError, match="Inconsistent SQLExpr"):
+        PGInsertQuery("schema.table", items).query
 
 
 @pytest.mark.parametrize(
@@ -461,6 +519,33 @@ async def test_fetch_count(aengine):
                 "values": [(10, 1, 100)],
             },
             id="one row - only first",
+        ),
+        pytest.param(
+            [{"foo": SQLExpr("NOW()"), "id": 1}],
+            {"where_keys": ["id"]},
+            {
+                "query": "UPDATE schema.table t SET foo = NOW() WHERE id = $1",
+                "values": [1],
+            },
+            id="sql_expr in set",
+        ),
+        pytest.param(
+            [{"foo": SQLExpr("NOW()"), "bar": 2, "id": 1}],
+            {"where_keys": ["id"]},
+            {
+                "query": "UPDATE schema.table t SET bar = $1, foo = NOW() WHERE id = $2",
+                "values": [2, 1],
+            },
+            id="sql_expr mixed with regular values",
+        ),
+        pytest.param(
+            [{"foo": SQLExpr("NOW()"), "id": 1}],
+            {"where_keys": ["id"], "returning": ["foo"]},
+            {
+                "query": "UPDATE schema.table t SET foo = NOW() WHERE id = $1 RETURNING foo",
+                "values": [1],
+            },
+            id="all set values are sql_expr",
         ),
     ],
 )
